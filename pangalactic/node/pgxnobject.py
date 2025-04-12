@@ -998,7 +998,7 @@ class PgxnObject(QDialog):
         """
         Build tabbed forms from the supplied object
         """
-        orb.log.debug('* [pgxo] build_from_object()')
+        # orb.log.debug('* [pgxo] build_from_object()')
         self.setWindowTitle('Object Viewer / Editor')
         # set min width so text fields don't get truncated
         self.setMinimumWidth(550)
@@ -1246,13 +1246,13 @@ class PgxnObject(QDialog):
         self.vbox.setStretch(1, 1)
         self.vbox.addWidget(self.bbox)
         self.create_connections()
-        orb.log.debug('* [pgxo] editable_widgets: {}'.format(
-                                        str(list(self.editable_widgets))))
-        orb.log.debug('* [pgxo] parameter_widgets: {}'.format(
-                                        str(list(self.p_widgets))))
-        epw = [pid for pid in self.p_widgets
-               if hasattr(self.p_widgets[pid], 'get_value')]
-        orb.log.debug(f'* [pgxo] editable parameter_widgets: {epw}')
+        # orb.log.debug('* [pgxo] editable_widgets: {}'.format(
+                                        # str(list(self.editable_widgets))))
+        # orb.log.debug('* [pgxo] parameter_widgets: {}'.format(
+                                        # str(list(self.p_widgets))))
+        # epw = [pid for pid in self.p_widgets
+               # if hasattr(self.p_widgets[pid], 'get_value')]
+        # orb.log.debug(f'* [pgxo] editable parameter_widgets: {epw}')
         if ('id' in self.editable_widgets
             and self.cname == 'DataElementDefinition'):
             self.id_widget = self.editable_widgets['id']
@@ -1494,7 +1494,7 @@ class PgxnObject(QDialog):
         if (self.obj and
             (getattr(self.obj, 'has_models', []) or
              getattr(self.obj, 'doc_references', []))):
-            orb.log.debug('* pgxno: models and docs info dlg ...')
+            # orb.log.debug('* pgxno: models and docs info dlg ...')
             dlg = ModelsAndDocsInfoDialog(self.obj, parent=self)
             dlg.show()
         else:
@@ -1929,7 +1929,7 @@ class PgxnObject(QDialog):
             dlg = MiniMelDialog(self.obj, parent=self)
             dlg.show()
         except:
-            orb.log.debug('* MiniMEL encounntered an exception.')
+            orb.log.debug('* MiniMEL encountered an exception.')
 
     def on_new_version(self):
         """
@@ -2360,7 +2360,7 @@ class PgxnObject(QDialog):
                 self.close()
                 return
             else:
-                # orb.log.debug('  [pgxo] saved -- rebuilding ...')
+                orb.log.debug('  [pgxo] saved -- rebuilding ...')
                 self.build_from_object()
                 dispatcher.send("parms set", parms=pdict)
                 return
@@ -2382,8 +2382,8 @@ class PgxnObject(QDialog):
         NOW = dtstamp()
         for name, val in fields_dict.items():
             setattr(self.obj, name, val)
-            # orb.log.debug('  [pgxo] - {}: {}'.format(
-                          # name, val.__repr__()))
+            orb.log.debug('  [pgxo] - {}: {}'.format(
+                          name, val.__repr__()))
         # NOTE:  for new objects, save *ALL* parameters (they are new
         # also); for existing objects, save only modified parameters
         # if parameterz.get(self.obj.oid) and self.new:
@@ -2421,8 +2421,8 @@ class PgxnObject(QDialog):
                                                                     # u_cur))
                     # set parameter values for ALL editable
                     # parameters (faster/simpler than checking for mods)
-                    # orb.log.debug('  - setting {} to {} {}'.format(
-                                  # p_id, str_val, u_cur))
+                    orb.log.debug('  - setting {} to {} {}'.format(
+                                  p_id, str_val, u_cur))
                     set_pval_from_str(self.obj.oid, p_id, str_val,
                                       units=u_cur)
         user_obj = orb.get(state.get('local_user_oid'))
@@ -2464,6 +2464,7 @@ class PgxnObject(QDialog):
                             relevant_product_type=self.obj)
                 orb.save([dpt])
         else:
+            orb.log.debug('  [pgxo] sending "modified object" signal ...')
             dispatcher.send(signal="modified object", obj=self.obj,
                             cname=cname)
             self.obj_modified.emit(self.obj.oid)
@@ -2479,7 +2480,7 @@ class PgxnObject(QDialog):
             self.closing = False
             self.close()
         else:
-            # orb.log.debug('  [pgxo] saved -- rebuilding ...')
+            orb.log.debug('  [pgxo] saved -- rebuilding ...')
             self.build_from_object()
         # if state.get('mode') in ['system', 'component']:
             # dispatcher.send(signal='update product modeler', obj=self.obj)
