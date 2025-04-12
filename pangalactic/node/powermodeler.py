@@ -43,7 +43,8 @@ from pangalactic.core.utils.reports   import write_power_modes_to_xlsx
 from pangalactic.core.validation      import get_level_count
 from pangalactic.node.powerdashboard  import (ModeDefinitionDashboard,
                                               SystemSelectionView)
-from pangalactic.node.dialogs         import DefineModesDialog, PlotDialog
+from pangalactic.node.dialogs         import (DefineModesDialog, PlotDialog,
+                                              NotificationDialog)
 from pangalactic.node.widgets         import ColorLabel, CustomSplitter
 
 LABEL_COLORS = [Qt.darkRed, Qt.darkGreen, Qt.blue, Qt.darkBlue, Qt.cyan,
@@ -673,7 +674,16 @@ class PowerModeler(QWidget):
         if self.usage:
             orb.log.debug(f"  usage: {self.usage.id}")
         else:
-            orb.log.debug("  no usage set; returning.")
+            orb.log.debug("  no usage set; notifying user ...")
+            html = '<h3><font color="red">No System Selected'
+            html += '</font></h3>'
+            html += '<p><b>Click on an item in the '
+            html += '<font color="green">Mission Systems</font> '
+            html += 'tree in the left panel<br>'
+            html += 'to specify a system context for the graph.'
+            dlg = NotificationDialog(html, news=False, parent=self)
+            dlg.show()
+            return
         if isinstance(self.usage, orb.classes['Acu']):
             comp = self.usage.component
         else:
@@ -695,6 +705,7 @@ class PowerModeler(QWidget):
         # p_averages maps "super_act" name to its p_average
         p_averages = {}
         p_peaks = {}
+        zero_duration_acts = []
         if subacts:
             # default is to break out all sub-activity timelines
             # ("subtimelines") -- this can be made configurable in the future
@@ -707,6 +718,8 @@ class PowerModeler(QWidget):
             for a in all_acts:
                 d = orb.get_duration(a, units=time_units)
                 orb.log.debug(f'  {a.name}: {d}')
+                if d == 0:
+                    zero_duration_acts.append(a.name)
                 modal_context = get_modal_context(project.oid, self.usage.oid,
                                                   a.oid)
                 orb.log.debug(f'  modal context: {modal_context}')
@@ -721,6 +734,21 @@ class PowerModeler(QWidget):
                 p_mev_val = round_to(p_cbe_val * factor)
                 orb.log.debug(f'  P[mev]: {p_mev_val}')
                 p_mev_dict[a.oid] = p_mev_val
+        if zero_duration_acts:
+            orb.log.debug("  zero duration activities found ...")
+            html = '<h3><font color="red">Zero Duration Activities'
+            html += '</font></h3>'
+            html += '<p><b>The following activities:<ul>'
+            for name in zero_duration_acts:
+                html += f'<li><font color="green">{name}</font><li>'
+            html += '</ul>'
+            html += 'have zero duration ...<br>'
+            html += 'specify a duration for them in the '
+            html += '<font color="red"><b>Details</b></font> table in '
+            html += 'the upper left panel.'
+            dlg = NotificationDialog(html, news=False, parent=self)
+            dlg.show()
+            return
         total_duration = orb.get_duration(act, units=time_units)
         t_units = time_units or 'seconds'
         d_text = f'  duration of {act.name}: {total_duration} {t_units}'
