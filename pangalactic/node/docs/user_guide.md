@@ -1,5 +1,5 @@
 % Pangalaxian User Guide
-% Stephen Waterbury / Code 585
+% Stephen Waterbury, NASA/GSFC
 % v. 4.3
 
 # Quick Start
