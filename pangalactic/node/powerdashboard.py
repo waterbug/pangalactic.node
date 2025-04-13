@@ -263,6 +263,7 @@ class ModeDefinitionDashboard(QWidget):
         self.main_layout.addLayout(title_layout)
         self.dash_panel = QWidget(parent=self)
         grid = QGridLayout()
+        grid.setVerticalSpacing(2)
         self.dash_panel.setLayout(grid)
         dash_outer_layout = QHBoxLayout()
         dash_outer_layout.addWidget(self.dash_panel)
@@ -560,6 +561,7 @@ class ModeDefinitionDashboard(QWidget):
         except:
             self.dash_panel = QWidget(parent=self)
             grid = QGridLayout()
+            grid.setVerticalSpacing(2)
             self.dash_panel.setLayout(grid)
             self.main_layout.addWidget(self.dash_panel)
         # repopulate it
@@ -576,6 +578,7 @@ class ModeDefinitionDashboard(QWidget):
         except:
             self.dash_panel = QWidget(parent=self)
             grid = QGridLayout()
+            grid.setVerticalSpacing(2)
             self.dash_panel.setLayout(grid)
             self.main_layout.addWidget(self.dash_panel)
         # repopulate it
@@ -714,7 +717,7 @@ class ModeDefinitionDashboard(QWidget):
             orb.log.debug('  component with oid "{oid}" not found.')
 
     def set_row_fields(self, usage, row):
-        name = usage.id
+        # name = usage.id
         # orb.log.debug(f' - set_row_fields({name}, row {row})')
         # fields: power_level, p_cbe, p_mev
         grid = self.dash_panel.layout()
