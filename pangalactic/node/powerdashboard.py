@@ -658,11 +658,11 @@ class ModeDefinitionDashboard(QWidget):
         # instead of a combo box, to indicate it is not settable (permanent
         # "Off" value)
         # default: "unspecified"
-        l_select = ValueLabel("unspecified", w=20)
+        l_select = ValueLabel("unspecified", w=120)
         contexts = get_power_contexts(comp)
         if len(contexts) == 1:
             modal_context = contexts[0]
-            l_select = ValueLabel(modal_context, w=20)
+            l_select = ValueLabel(modal_context, w=120)
         elif len(contexts) > 1:
             l_select = QComboBox(self)
             l_select.addItems(contexts)
@@ -715,7 +715,7 @@ class ModeDefinitionDashboard(QWidget):
 
     def set_row_fields(self, usage, row):
         name = usage.id
-        orb.log.debug(f' - set_row_fields({name}, row {row})')
+        # orb.log.debug(f' - set_row_fields({name}, row {row})')
         # fields: power_level, p_cbe, p_mev
         grid = self.dash_panel.layout()
         self.p_cbe_fields = {}
@@ -730,7 +730,7 @@ class ModeDefinitionDashboard(QWidget):
             # assembly = usage.assembly
         modal_context = get_modal_context(self.project.oid, usage.oid,
                                           self.act.oid)
-        orb.log.debug(f' - modal_context = {modal_context}')
+        # orb.log.debug(f' - modal_context = {modal_context}')
         # --------------------
         # edit buttons (col 1)
         # --------------------
@@ -752,11 +752,11 @@ class ModeDefinitionDashboard(QWidget):
                                           self.act.oid)
         if row == 1:
             # modal_context = '[computed]'
-            label = ValueLabel(modal_context, w=40)
+            label = ValueLabel(modal_context, w=120)
             grid.addWidget(label, row, 2)
         else:
             if modal_context == '[computed]':
-                label = ValueLabel(modal_context, w=40)
+                label = ValueLabel(modal_context, w=120)
                 grid.addWidget(label, row, 2)
             else:
                 if not modal_context:
@@ -790,7 +790,7 @@ class ModeDefinitionDashboard(QWidget):
                         l_sel.setCurrentIndex(i)
                     grid.addWidget(l_sel, row, 2)
                 else:
-                    label = ValueLabel(modal_context, w=40)
+                    label = ValueLabel(modal_context, w=120)
                     grid.addWidget(label, row, 2)
         # -------------------
         # p_cbe (col 3)
@@ -810,7 +810,7 @@ class ModeDefinitionDashboard(QWidget):
         if p_cbe_field:
             p_cbe_field.setText(p_cbe_val_str)
         else:
-            p_cbe_field = ValueLabel(p_cbe_val_str, w=20)
+            p_cbe_field = ValueLabel(p_cbe_val_str, w=120)
             self.p_cbe_fields[comp.oid] = p_cbe_field
             grid.addWidget(p_cbe_field, row, 3)
         # -------------------
@@ -826,7 +826,7 @@ class ModeDefinitionDashboard(QWidget):
         if p_mev_field:
             p_mev_field.setText(p_mev_val_str)
         else:
-            p_mev_field = ValueLabel(p_mev_val_str, w=20)
+            p_mev_field = ValueLabel(p_mev_val_str, w=120)
             self.p_mev_fields[comp.oid] = p_mev_field
             grid.addWidget(p_mev_field, row, 4)
 
