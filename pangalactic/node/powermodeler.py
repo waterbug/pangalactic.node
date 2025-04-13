@@ -196,7 +196,10 @@ class PowerModeler(QWidget):
         mode_dash_layout = QVBoxLayout()
         mode_dash_layout.addWidget(self.toolbar)
         mode_dash_layout.addWidget(self.mode_dash)
+        mode_dash_layout.addStretch(1)
         mode_dash_panel = QWidget()
+        mode_dash_panel.setSizePolicy(QSizePolicy.Preferred,
+                                      QSizePolicy.Fixed)
         mode_dash_panel.setLayout(mode_dash_layout)
         self.main_splitter.addWidget(mode_dash_panel)
         main_layout = QHBoxLayout()
