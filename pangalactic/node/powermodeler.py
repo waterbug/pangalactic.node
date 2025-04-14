@@ -843,11 +843,10 @@ class PowerModeler(QWidget):
                 # position it in the middle of the interval
                 x_label = (t_start + t_end) / 2
                 align_label = Qt.AlignCenter
-            elif (t_end >= total_duration
-                  and (t_end - t_start < .3 * total_duration)):
+            elif (total_duration - t_end < t_end - t_start):
                 # activity/mode near the end of the timeline: left-align the
                 # label and position its right side at the end of the timeline
-                x_label = total_duration
+                x_label = t_end
                 align_label = Qt.AlignLeft
             else:
                 # activity/mode is short and is not close to the end of the
