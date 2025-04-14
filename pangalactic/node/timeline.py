@@ -439,7 +439,7 @@ class TimelineScene(QGraphicsScene):
         # new_name = getattr(new_act, 'name', 'unknown')
         # orb.log.debug(f'  old item: {old_name}')
         # orb.log.debug(f'  new item: {new_name}')
-        if hasattr(old_item, 'activity'):
+        if hasattr(old_item, 'activity') and hasattr(new_item, 'activity'):
             old_item.unhighlight()
         if hasattr(self.focusItem(), 'activity'):
             self.focusItem().highlight()
@@ -589,7 +589,7 @@ class TimelineWidget(QWidget):
         Create a new scene with new subject activity or an empty scene if no
         subject activity.
         """
-        orb.log.debug('  - set_new_scene ...')
+        # orb.log.debug('  - set_new_scene ...')
         scene = TimelineScene(self, self.subject)
         subacts = getattr(self.subject, 'sub_activities', []) or []
         subacts.sort(key=lambda x: getattr(x,
@@ -761,7 +761,7 @@ class TimelineWidget(QWidget):
         Load the last timeline from "timeline history" and remove it from the
         stack.
         """
-        orb.log.debug('* load last timeline')
+        # orb.log.debug('* load last timeline')
         if state.get('timeline history'):
             oid = state['timeline history'].pop() or ''
             self.subject = orb.get(oid)
@@ -774,10 +774,10 @@ class TimelineWidget(QWidget):
             dispatcher.send("new timeline", subject=self.subject)
 
     def add_default_activities(self):
-        orb.log.debug('* add_default_activities()')
+        # orb.log.debug('* add_default_activities()')
         sub_acts = getattr(self.subject, 'sub_activities', None)
         if sub_acts:
-            orb.log.debug('  subject already has sub-activities, returning.')
+            # orb.log.debug('  subject already has sub-activities, returning.')
             return
         acts = []
         seq = 0
@@ -810,16 +810,16 @@ class TimelineWidget(QWidget):
         Keyword Args:
             oid (str): oid of the object to be deleted
         """
-        orb.log.debug('* TimelineWidget.delete_activity(')
-        orb.log.debug(f'      oid="{oid}", cname="{cname}", remote={remote})')
+        # orb.log.debug('* TimelineWidget.delete_activity(')
+        # orb.log.debug(f'      oid="{oid}", cname="{cname}", remote={remote})')
         if oid is None:
             return
         obj = orb.get(oid)
         if not obj:
-            orb.log.debug(f'  - obj with oid "{oid}" not found.')
+            # orb.log.debug(f'  - obj with oid "{oid}" not found.')
             return
         if not isinstance(obj, orb.classes['Activity']):
-            orb.log.debug('  - obj is not an Activity or Mission.')
+            # orb.log.debug('  - obj is not an Activity or Mission.')
             return
         subj_oid = getattr(self.subject, 'oid', '')
         # name = getattr(obj, 'name', None) or '[no name]'
@@ -833,7 +833,7 @@ class TimelineWidget(QWidget):
             if obj.sub_activities:
                 objs_to_delete += obj.sub_activities
             if oid == subj_oid:
-                orb.log.debug('  is current subject ...')
+                # orb.log.debug('  is current subject ...')
                 project = orb.get(state.get('project'))
                 mission = orb.select('Mission', owner=project)
                 if obj is mission:
@@ -879,22 +879,22 @@ class TimelineWidget(QWidget):
 
     def sceneScaleChanged(self, index):
         percentscale = self.scene_scales[index]
-        orb.log.debug(f'* rescaling to {percentscale}')
+        # orb.log.debug(f'* rescaling to {percentscale}')
         newscale = pct_to_decimal(percentscale)
         self.view.setTransform(QTransform().scale(newscale, newscale))
 
     def auto_rescale_timeline(self):
-        orb.log.debug('* auto_rescale_timeline()')
+        # orb.log.debug('* auto_rescale_timeline()')
         n = len(self.scene.timeline.evt_blocks)
         if n <= 8:
-            orb.log.debug('  <= 8 activity blocks ... no rescale.')
+            # orb.log.debug('  <= 8 activity blocks ... no rescale.')
             self.scale = 70
         else:
-            orb.log.debug(f'  {n} activity blocks -- rescaling ...')
+            # orb.log.debug(f'  {n} activity blocks -- rescaling ...')
             delta = n - 7
             self.scale = 70 - (delta // 2) * 10
         pscale = str(self.scale) + "%"
-        orb.log.debug(f'  new scale is {pscale}')
+        # orb.log.debug(f'  new scale is {pscale}')
         new_index = self.scene_scales.index(pscale)
         self.scene_scale_select.setCurrentIndex(new_index)
         self.sceneScaleChanged(new_index)
@@ -905,7 +905,7 @@ class TimelineWidget(QWidget):
         """
         Adjust the viewport dimensions and center the timeline in it.
         """
-        orb.log.debug('* center_timeline()')
+        # orb.log.debug('* center_timeline()')
         br = self.scene.itemsBoundingRect()
         # br_parms = (br.x(), br.y(), br.width(), br.height())
         # orb.log.debug(f'  scene items bounding rect: ({br_parms})')
@@ -973,8 +973,8 @@ class ActivityWidget(QWidget):
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
-        name = getattr(subject, 'name', 'None')
-        orb.log.info(f'* ActivityWidget initializing for "{name}" ...')
+        # name = getattr(subject, 'name', 'None')
+        # orb.log.info(f'* ActivityWidget initializing for "{name}" ...')
         self.timeline = timeline
         self.subject = subject
         self.project = orb.get(state.get('project'))
@@ -1078,12 +1078,12 @@ class ActivityWidget(QWidget):
             self.on_activity_added(activity.sub_activity_of.oid)
 
     def on_activity_added(self, oid):
-        orb.log.debug('  - ActivityWidget.on_activity_added()')
+        # orb.log.debug('  - ActivityWidget.on_activity_added()')
         if oid in [act.oid for act in self.activities]:
             self.reset_table()
 
     def on_activity_removed(self, oid):
-        orb.log.debug('  - ActivityWidget.on_activity_removed()')
+        # orb.log.debug('  - ActivityWidget.on_activity_removed()')
         self.reset_table()
 
     def on_drill_down(self, obj=None, position=None):
@@ -1127,14 +1127,14 @@ class TimelineModeler(QWidget):
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
-        orb.log.info('* TimelineModeler initializing')
+        # orb.log.info('* TimelineModeler initializing')
         if subject:
             self.subject = subject
         else:
             proj_id = self.project.id
             self.mission = orb.select('Mission', owner=self.project)
             if not self.mission:
-                orb.log.debug('* [TimelineModeler] creating a new Mission ...')
+                # orb.log.debug('* [TimelineModeler] creating a new Mission ...')
                 message = f"{proj_id} had no Mission object; creating one ..."
                 popup = QMessageBox(
                             QMessageBox.Information,
@@ -1210,14 +1210,14 @@ class TimelineModeler(QWidget):
 
     def init_toolbar(self):
         # NOTE: toolbar is currently empty but may have a role later ...
-        orb.log.debug(' - TimelineModeler.init_toolbar() ...')
+        # orb.log.debug(' - TimelineModeler.init_toolbar() ...')
         self.toolbar = QToolBar("Tools")
 
     def create_toolbox(self):
         """
         Create the toolbox for activities and modes.
         """
-        orb.log.debug(' - TimelineModeler.create_toolbox() ...')
+        # orb.log.debug(' - TimelineModeler.create_toolbox() ...')
         acts_layout = QGridLayout()
         square = QPixmap(os.path.join( orb.home, 'images', 'square.png'))
         triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
@@ -1256,7 +1256,7 @@ class TimelineModeler(QWidget):
         Note that focusing (mouse click) on an activity in the timeline will
         make that activity the subject (current activity) in the ConOpsModeler.
         """
-        orb.log.debug(' - TimelineModeler.set_widgets() ...')
+        # orb.log.debug(' - TimelineModeler.set_widgets() ...')
         self.main_timeline = TimelineWidget(self.subject)
         self.main_timeline.setSizePolicy(QSizePolicy.MinimumExpanding,
                                          QSizePolicy.Fixed)
