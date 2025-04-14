@@ -269,7 +269,6 @@ class ModeDefinitionDashboard(QWidget):
         dash_outer_layout.addWidget(self.dash_panel)
         dash_outer_layout.addStretch(1)
         self.main_layout.addLayout(dash_outer_layout)
-        # self.main_layout.addWidget(self.dash_panel)
         self.main_layout.addStretch()
         self.setup_dash_interface()
         self.setup_dash_data()

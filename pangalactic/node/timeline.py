@@ -422,27 +422,31 @@ class TimelineScene(QGraphicsScene):
             # orb.log.debug(f'* TimelineScene act_of: {name}')
         self.timeline = Timeline(scene=self)
         # self.addItem(self.timeline)
-        self.focusItemChanged.connect(self.focus_changed_handler)
-        self.current_focus = None
         self.grabbed_item = None
+        self.current_focus = None
         self.setSceneRect(QRectF(150.0, 150.0, 1200.0, 300.0))
         width = self.sceneRect().width()
         height = self.sceneRect().height()
         orb.log.debug(f'* TimelineScene size: ({width}, {height}).')
         dispatcher.connect(self.on_act_name_mod, "act name mod")
+        self.focusItemChanged.connect(self.focus_changed_handler)
 
     def focus_changed_handler(self, new_item, old_item):
-        if getattr(self, "right_button_pressed", False):
-            # ignore: context menu event
-            self.right_button_pressed = False
-            return
-        elif (new_item is not None and
-              new_item != self.current_focus):
+        # orb.log.debug('* TimelineScene: focus changed')
+        # old_act = getattr(old_item, 'activity', 'no activity')
+        # old_name = getattr(old_act, 'name', 'unknown')
+        # new_act = getattr(new_item, 'activity', 'no activity')
+        # new_name = getattr(new_act, 'name', 'unknown')
+        # orb.log.debug(f'  old item: {old_name}')
+        # orb.log.debug(f'  new item: {new_name}')
+        if hasattr(old_item, 'activity'):
+            old_item.unhighlight()
+        if hasattr(self.focusItem(), 'activity'):
+            self.focusItem().highlight()
+        if (new_item is not None and
+            new_item != self.current_focus):
             self.current_focus = new_item
             if hasattr(self.focusItem(), 'activity'):
-                new_item.highlight()
-                if hasattr(old_item, 'activity'):
-                    old_item.unhighlight()
                 dispatcher.send("activity focused",
                                 act=self.focusItem().activity)
 
