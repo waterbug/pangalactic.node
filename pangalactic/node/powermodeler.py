@@ -904,14 +904,14 @@ class PowerModeler(QWidget):
                 # dur was 0? ignore
                 pass
             p_averages[super_act.name] = p_average
-            label_txt = f'  {super_act.name}  \n'
-            label_txt += f' Peak Power: {p_peak} W '
+            label_txt = f'  {super_act.name}   \n'
+            label_txt += f' P[peak]: {p_peak} W  '
             if p_average > 0:
-                label_txt += f'\n Average Power: {p_average} W '
+                label_txt += f'\n P[avg]: {p_average} W  '
             pen = QPen(LABEL_COLORS[j], 1)
             white_brush = QBrush(Qt.white)
             sa_name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
-                                         pointsize=12, borderpen=pen,
+                                         pointsize=10, borderpen=pen,
                                          borderradius=0.0, brush=white_brush)
             y_label = (1.45 - .15 * j) * max_val
             orb.log.debug(f'  super act: {super_act.name}')
