@@ -923,14 +923,28 @@ class PowerModeler(QWidget):
             rect_symbol = qwt.QwtSymbol.make(pen=pen, brush=symbol_brush,
                                              style=qwt.QwtSymbol.Rect,
                                              size=symbol_size)
-            qwt.QwtPlotMarker.make(
-                xvalue=(t_start + t_end) / 2,
-                yvalue=y_label,
-                z=4.0,
-                label=sa_name_label,
-                symbol=rect_symbol,
-                plot=plot
-                )
+            if ((total_duration - t_end < .01 * total_duration)
+                and t_end - t_start < 0.1 * total_duration):
+                # if cycle ends near end of graph and duration of the cycle is
+                # less than .1 of the total duration, left align ...
+                qwt.QwtPlotMarker.make(
+                    xvalue=t_end,
+                    yvalue=y_label,
+                    align=Qt.AlignLeft,
+                    z=4.0,
+                    label=sa_name_label,
+                    plot=plot
+                    )
+            else:
+                # otherwise, center on the cycle ...
+                qwt.QwtPlotMarker.make(
+                    xvalue=(t_start + t_end) / 2,
+                    yvalue=y_label,
+                    z=4.0,
+                    label=sa_name_label,
+                    symbol=rect_symbol,
+                    plot=plot
+                    )
             j += 1
         # compute power average over all activities ...
         overall_avg = None
