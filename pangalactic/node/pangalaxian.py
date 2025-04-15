@@ -6185,6 +6185,7 @@ class Main(QMainWindow):
         win = ConOpsModeler(parent=self)
         win.move(50, 50)
         state['conops'] = True
+        win.setAttribute(Qt.WA_DeleteOnClose)
         win.show()
 
     def sc_42_modeler(self):
