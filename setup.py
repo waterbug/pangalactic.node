@@ -5,7 +5,7 @@ Engineering Framework (PGEF) desktop GUI client.
 import os, site
 from setuptools import setup, find_packages
 
-VERSION = open('VERSION').read()[:-1]
+VERSION = '4.3'
 
 doc_mod_path = os.path.join('pangalactic', 'node', 'docs')
 doc_paths = [os.path.join(doc_mod_path, p)
