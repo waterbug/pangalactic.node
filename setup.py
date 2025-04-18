@@ -42,6 +42,19 @@ setup(
     maintainer_email='waterbug@pangalactic.us',
     license='TBD',
     packages=find_packages(),
+    install_requires=[
+        'pangalactic.core>=4.3',
+        'autobahn',
+        'binaryornot',
+        'packaging',
+        'pynacl',
+        'pyqt',
+        'pythonocc-core',
+        'pythonqwt',
+        'qt5reactor',
+        'twisted',
+        'websocket-client'
+        ],
     data_files=[
         # doc files
         (os.path.join(sitepkg_dir, doc_mod_path), doc_paths),

@@ -17,7 +17,6 @@ syntax: glob
 *.pprj
 *.xcf
 build
-bump_version.sh
 .glimpse*
 ipython.*
 junk*
@@ -30,6 +29,5 @@ pangalaxian/*
 pangalactic/test/pangalaxian_test
 private.key
 *.pickle
-sedscr
 test_bump_version.sh
 _trial_temp
