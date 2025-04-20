@@ -9,7 +9,7 @@ Based on:
     https://github.com/estan/gauges
   * crossbar examples "advanced" (CRA) auth example
 """
-import argparse, math, os, pprint, random, sys, time
+import argparse, math, os, pprint, random, shutil, sys, time
 from copy import deepcopy
 from uuid import uuid4
 
@@ -326,6 +326,11 @@ class MainWindow(QMainWindow):
         if self.cert:
             cert_fname = 'server_cert.pem'
             cert_path = cert_fname
+            if os.path.exists(cert_path):
+                # if cert file is found in cwd, copy it to orb.home
+                shutil.copy(cert_fname, os.path.join(orb.home, cert_fname))
+            else:
+                cert_path = os.path.join(orb.home, cert_fname)
             try:
                 cert = crypto.load_certificate(
                         crypto.FILETYPE_PEM,
@@ -1020,7 +1025,8 @@ if __name__ == "__main__":
                         help='the port to connect to [default: 8080]')
     parser.add_argument('--auth', dest='auth', type=str, default='cryptosign',
             help='authentication method [default: "cryptosign" (pubkey auth)]')
-    parser.add_argument('--cert', dest='cert', action="store_true")
+    parser.add_argument('--cert', dest='cert', action="store_true",
+                        help='the server uses a self-signed certificate')
     options = parser.parse_args()
     app = QApplication(sys.argv)
     home = os.path.join(os.getcwd(), 'junk_home')

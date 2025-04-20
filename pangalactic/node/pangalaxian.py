@@ -162,6 +162,8 @@ class Main(QMainWindow):
                               release_mode will be appended if "dev" or "test"
         app_version (str):    version of the app (if any)
         release_mode (str):   release status: production, dev, or test
+        host (str):           the host to connect to [default: localhost])
+        port (str):           the port to connect to [default: 8080])
         auth_method (str):    authentication method ("cryptosign" or "ticket")
         auto (bool):          whether to automatically connect to the
                               repository at startup (default: True)
@@ -216,9 +218,10 @@ class Main(QMainWindow):
     units_set = pyqtSignal()
 
     def __init__(self, app_base_name='Pangalaxian', app_version='',
-                 release_mode='', home='', auth_method='cryptosign', auto=True,
-                 mode= '', test_data=None, width=None, height=None,
-                 use_tls=True, reactor=None, console=False, debug=False):
+                 release_mode='', home='', host=None, port=None,
+                 auth_method='cryptosign', cert=False, auto=True, mode= '',
+                 test_data=None, width=None, height=None, use_tls=True,
+                 reactor=None, console=False, debug=False):
         """
         Initialize main window.
 
@@ -229,7 +232,10 @@ class Main(QMainWindow):
             app_version (str): version string
             release_mode (str): release status: production, dev, or test
             home (str):        full path of the app home directory
+            host (str):        the host to connect to [default: localhost])
+            port (str):        the port to connect to [default: 8080])
             auth_method (str): authentication method ("cryptosign" or "ticket")
+            cert (bool):       if True, the server uses a self-signed cert
             auto (bool):       whether to automatically connect to the
                                repository at startup (default: True)
             console (bool):    if True: send log messages to stdout
@@ -260,6 +266,12 @@ class Main(QMainWindow):
                 self.app_name = self.app_base_name
         config['app_name'] = self.app_name
         config['app_base_name'] = self.app_base_name
+        config['host'] = host
+        if port:
+            try:
+                config['port'] = int(port)
+            except:
+                pass
         self.splash_msg = ''
         self.add_splash_msg('Starting ...')
         self.channels = []
@@ -355,13 +367,23 @@ class Main(QMainWindow):
         # the server is using a CA-signed cert, there is no server_cert.pem
         # ---------------------------------------------------------------------
         self.cert_path = None
+        if cert:
+            # argument from cmd line overrides and sets config
+            config['self_signed_cert'] = True
+        cert_fname = 'server_cert.pem'
         if config.get('self_signed_cert'):
-            self.cert_path = os.path.join(orb.home, 'server_cert.pem')
+            self.cert_path = os.path.join(orb.home, cert_fname)
             if os.path.exists(self.cert_path):
-                orb.log.debug('    server cert found.')
+                orb.log.debug('    server cert found in orb home dir.')
             else:
-                orb.log.debug('    server cert not found ...')
-                orb.log.debug('    config "self_signed_cert" requires one!')
+                # if not in home dir, try cwd
+                if os.path.exists(cert_fname):
+                    self.cert_path = cert_fname
+                    orb.log.debug('    server cert found in current dir.')
+                    shutil.copy(cert_fname, os.path.join(orb.home, cert_fname))
+                else:
+                    orb.log.debug('    server cert not found ...')
+                    orb.log.debug('    config "self_signed_cert" requires one')
         else:
             config['self_signed_cert'] = False
         # set "auto" for auto-connect ...
@@ -7012,8 +7034,8 @@ def cleanup_and_save():
     write_trash(os.path.join(orb.home, 'trash'))
 
 def run(app_base_name='', app_version='', app_home='', release_mode='',
-        splash_image=None, use_tls=True, auth_method='crypto', console=False,
-        debug=False):
+        host=None, port=None, use_tls=True, auth_method='crypto', cert=False,
+        splash_image=None, console=False, debug=False):
     """
     app_base_name (str): base name of the app; default: "Pangalaxian";
                          release_mode will be appended if "dev" or "test"
@@ -7022,9 +7044,12 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
                          default: empty str
     release_mode (str):  release status (production, dev, or test)
                          default: production (empty string)
-    splash_image (str):  name of the splash image file
+    host (str):          the host to connect to [default: localhost])
+    port (str):          the port to connect to [default: 8080])
     use_tls (bool):      use tls to connect to message bus
     auth_method (str):   authentication method ("cryptosign" or "ticket")
+    cert (bool):         if True, the server uses a self-signed cert
+    splash_image (str):  name of the splash image file
     console (bool):      send log messages to stdout (default: False)
     debug (bool):        set logging to debug level (default: False)
     """
@@ -7122,15 +7147,15 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
         QApplication.processEvents()
         # TODO:  updates to showMessage() using thread/slot+signal
         main = Main(home=home, app_base_name=app_base_name,
-                    app_version=app_version, use_tls=use_tls,
-                    auth_method=auth_method, reactor=reactor, console=console,
-                    debug=debug)
+                    app_version=app_version, host=host, port=port,
+                    use_tls=use_tls, auth_method=auth_method, cert=cert,
+                    reactor=reactor, console=console, debug=debug)
         splash.finish(main)
     else:
         main = Main(home=home, app_base_name=app_base_name,
-                    app_version=app_version, use_tls=use_tls,
-                    auth_method=auth_method, reactor=reactor, console=console,
-                    debug=debug)
+                    app_version=app_version, host=host, port=port,
+                    use_tls=use_tls, auth_method=auth_method, cert=cert,
+                    reactor=reactor, console=console, debug=debug)
     main.setContextMenuPolicy(Qt.PreventContextMenu)
     main.show()
     main.auto_connect()
@@ -7163,38 +7188,49 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--debug', action='store_true',
-                        help='debug mode (verbose logging)')
-    parser.add_argument('-c', '--console', action='store_true',
-                        help='send log msgs to stdout (default: False)')
-    parser.add_argument('-u', '--unencrypted', action='store_true',
-                        help='use unencrypted transport (no tls)')
+    parser.add_argument('--home', dest='app_home', type=str,
+                        default='',
+                        help='name of application home directory '
+                             '[defaults to "pangalaxian_home")')
+    parser.add_argument('--host', dest='host', type=str,
+                        default='localhost',
+                        help='the host to connect to [default: "localhost"]')
+    parser.add_argument('--port', dest='port', type=int,
+                        default=8080,
+                        help='the port to connect to [default: 8080]')
+    # DO NOT ever use an unencrypted transport!
+    # parser.add_argument('-u', '--unencrypted', action='store_true',
+                        # help='use unencrypted transport (no tls)')
     parser.add_argument('--auth', dest='auth', type=str, default='cryptosign',
                         help='authentication method: "ticket" or "cryptosign" '
                              '[default: "cryptosign" (pubkey auth)]')
-    parser.add_argument('-n', '--name', dest='app_base_name', type=str,
+    parser.add_argument('--cert', dest='cert', action="store_true",
+                        help='the server uses a self-signed certificate')
+    parser.add_argument('--name', dest='app_name', type=str,
                         default='Pangalaxian',
-                        help='app base name, default: "Pangalaxian"')
-    parser.add_argument('-v', '--version', dest='app_version', type=str,
+                        help='application name, default: "Pangalaxian"')
+    parser.add_argument('--version', dest='version', type=str,
                         default='',
                         help='app version string, default: ""')
-    parser.add_argument('-a', '--app_home', dest='app_home', type=str,
-                        default='',
-                        help='specified name of app home directory '
-                             '[defaults to "pangalaxian_home")')
-    parser.add_argument('-r', '--release_mode', dest='release_mode', type=str,
+    parser.add_argument('--release_mode', dest='release_mode', type=str,
                         default='',
                         help='release mode '
                         '(possible values: "production", "dev", or "test") '
                         'default: "production"')
-    parser.add_argument('-s', '--splash_image', dest='splash_image', type=str,
+    parser.add_argument('--splash_image', dest='splash_image', type=str,
                         default='pangalactic_logo_splash.png',
-                        help='name of a splash image file '
+                        help='name of an image file to use as a splash image '
                              '[default: pangalactic_logo_splash.png)')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='debug mode (verbose logging)')
+    parser.add_argument('-c', '--console', action='store_true',
+                        help='send log msgs to stdout (default: False)')
     options = parser.parse_args()
-    tls = not options.unencrypted
-    run(app_base_name=options.app_base_name, app_version=options.app_version,
+    # DO NOT ever use an unencrypted transport!
+    # tls = not options.unencrypted
+    run(app_base_name=options.app_name, app_version=options.version,
         app_home=options.app_home, release_mode=options.release_mode,
-        debug=options.debug, console=options.console, use_tls=tls,
-        auth_method=options.auth, splash_image=options.splash_image)
+        host=options.host, port=options.port, cert=options.cert,
+        debug=options.debug, console=options.console, auth_method=options.auth,
+        splash_image=options.splash_image)
 
