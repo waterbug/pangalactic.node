@@ -266,7 +266,8 @@ class Main(QMainWindow):
                 self.app_name = self.app_base_name
         config['app_name'] = self.app_name
         config['app_base_name'] = self.app_base_name
-        config['host'] = host
+        if host:
+            config['host'] = host
         if port:
             try:
                 config['port'] = int(port)
