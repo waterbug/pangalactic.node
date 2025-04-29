@@ -1338,6 +1338,13 @@ class PortBlock(QGraphicsItem):
     ObjectBlock.  A Port can be associated with a Flow (e.g. energy, electrons,
     water), which is represented by a RoutedConnector attached to the
     PortBlock.
+
+    Attributes:
+        parent_block (Block):  Block on which the PortBlock is created
+        port (Port):  Port instance represented by the PortBlock
+        right_port (bool):  flag telling the PortBlock which side of its parent
+            block it is on (used for routing connectors)
+        connectors (list of RoutedConnector):
     """
     def __init__(self, parent_block, port, style=None, right=False):
         """
@@ -1543,8 +1550,8 @@ class PortBlock(QGraphicsItem):
 
     def delete_all_flows(self, remote=False):
         """
-        Delete all associated Flows within this assembly and their
-        RoutedConnector objects.
+        For this PortBlock, delete all associated Flows within this assembly
+        and their RoutedConnector objects.
 
         Keyword Args:
             remote (bool):  if True, action originated remotely, so a local
@@ -1800,7 +1807,7 @@ class RoutedConnector(QGraphicsItem):
     # * black ......... gas lines (e.g. N2 or O2)
 
     def __init__(self, start_item, end_item, routing_channel, context=None,
-                 arrow=False, pen_width=2):
+                 order=None, arrow=False, pen_width=2):
         """
         Initialize RoutedConnector.
 
@@ -1812,6 +1819,8 @@ class RoutedConnector(QGraphicsItem):
 
         Keyword Args:
             context (ManagedObject):  object that is the subject of the diagram
+            order (int):  position of connection line among other connections
+                within the conext
             arrow (bool):  flag indicating whether connector gets an arrow
             pen_width (int):  width of pen
         """
@@ -1819,6 +1828,10 @@ class RoutedConnector(QGraphicsItem):
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.segments = []
         self.routing_channel = routing_channel
+        if order is not None:
+            self.order = order
+        else:
+            self.order = 0
         # default is Electrical Power (red)
         self.type_of_flow = getattr(start_item.port.type_of_port, 'id',
                                     'electrical_power')
@@ -1876,12 +1889,21 @@ class RoutedConnector(QGraphicsItem):
             # new Flow -> context object is modified
             context.mod_datetime = dtstamp()
             context.modifier = user
-            orb.save([context])
-            dispatcher.send('modified object', obj=context)
-        # orb.log.debug("* RoutedConnector created:")
+            # orb.save([context])
+            orb.save([self.flow])
+            # NOTE (**IMPORTANT**): the 'modified object' signal triggers the
+            # vger.save() rpc to be called with serialize() being called for
+            # the context object *with* "include_components=True" kw arg, for
+            # which the serialization includes all components, ports, *and*
+            # flows ...  thus the new Flow instance is sent to the server,
+            # along with the "updated" context object.
+            # dispatcher.send('modified object', obj=context)
+            dispatcher.send('new object', obj=self.flow)
+        orb.log.debug("* RoutedConnector created:")
         # orb.log.debug("  - start port id: {}".format(self.start_item.port.id))
         # orb.log.debug("  - end port id: {}".format(self.end_item.port.id))
         # orb.log.debug("  - context id: {}".format(self.context.id))
+        orb.log.debug("  - order: {}".format(self.order))
 
     def contextMenuEvent(self, event):
         # check whether user has permission to modify the 'context' object --
@@ -1983,6 +2005,10 @@ class RoutedConnector(QGraphicsItem):
         self.end = self.mapFromItem(self.end_item, 0, 0)
 
     def paint(self, painter, option, widget=None):
+        """
+        Paint the RoutedConnector, from the initial PortBlock (self.start_item)
+        to the terminal PortBlock (self.end_item).
+        """
         # self.paints += 1
         # orb.log.debug("RoutedConnector.paint %i ..." % self.paints)
         if (self.start_item.collidesWithItem(self.end_item)):
@@ -2008,8 +2034,10 @@ class RoutedConnector(QGraphicsItem):
             rc_left_x, rc_right_x = self.routing_channel
         else:
             rc_left_x, rc_right_x = 300, 400
-        vertical_x = ((rc_left_x + rc_right_x)/2  # center of channel (?)
-                      + SEPARATION * PORT_TYPES.index(self.type_of_flow))
+        # vertical_x = ((rc_left_x + rc_right_x)/2  # center of channel
+                      # + SEPARATION * PORT_TYPES.index(self.type_of_flow))
+        vertical_x = ((rc_left_x + rc_right_x)/2  # center of channel
+                      + SEPARATION * self.order)
         if start_right and not end_right:
         # [1] from left (obj right port), to right (obj left port)
             # arrow should point right

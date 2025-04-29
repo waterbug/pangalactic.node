@@ -5254,7 +5254,7 @@ class Main(QMainWindow):
         self.right_dock.setVisible(True)
 
     def set_system_model_window(self, system=None):
-        # orb.log.debug('* setting system model window ...')
+        orb.log.debug('* setting system model window ...')
         if system:
             # orb.log.debug('  - using specified system {} ...'.format(
                                                                 # system.id))

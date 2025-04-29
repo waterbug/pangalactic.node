@@ -18,6 +18,16 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.node.diagrams.shapes import (ObjectBlock, PortBlock,
                                               RoutedConnector, SubjectBlock)
 
+# NOTE: the "diagramz" cache has a new format (as of 2025-04-26 / SCW):
+# {diagram subject (usage) oid:
+#      {'ordering':
+#           a list containing 2 lists (the output of get_block_ordering()):
+#           [0] oids of usages of blocks in order of the left column,
+#           [1] same for the right column.
+#       'flows':
+#           a list of Flow instance oids
+#  ...}
+
 
 class DiagramScene(QGraphicsScene):
     """
@@ -253,10 +263,15 @@ class DiagramScene(QGraphicsScene):
 
                         # TODO:  color will be determined by type of Port(s)
                         routing_channel = self.get_routing_channel()
+                        order = 0
+                        flows = diagramz.get(self.subject.oid, {}).get('flows')
+                        if flows:
+                            order = len(flows)
                         connector = RoutedConnector(
                                         start_item, end_item,
                                         routing_channel,
                                         context=self.subject,
+                                        order=order,
                                         pen_width=3)
                         start_item.add_connector(connector)
                         end_item.add_connector(connector)
@@ -267,6 +282,7 @@ class DiagramScene(QGraphicsScene):
                                         start_item=start_item,
                                         end_item=end_item)
                         self.update()
+                        # update diagramz "flows" ...
                 self.line = None
                 super().mouseReleaseEvent(mouseEvent)
         else:
@@ -281,7 +297,9 @@ class DiagramScene(QGraphicsScene):
             super().mouseReleaseEvent(mouseEvent)
             ordering = self.get_block_ordering()
             if self.positions != self.get_block_positions():
-                diagramz[self.subject.oid] = ordering
+                if not diagramz.get(self.subject.oid):
+                    diagramz[self.subject.oid] = {}
+                diagramz[self.subject.oid]['ordering'] = ordering
                 dispatcher.send('refresh diagram')
 
     ##########################################################################
@@ -466,10 +484,10 @@ class DiagramScene(QGraphicsScene):
                 the right column (this ordering is returned by
                 get_block_ordering()).
         """
-        # obj_id = getattr(obj, 'id', 'unknown')
-        # sig = f'{obj_id}, ordering={ordering}'
-        # sig = f'{obj_id}'
-        # orb.log.debug(f'* DiagramScene: generate_ibd({sig})')
+        obj_id = getattr(obj, 'id', 'unknown')
+        sig = f'{obj_id}, ordering={ordering}'
+        sig = f'{obj_id}'
+        orb.log.debug(f'* DiagramScene: generate_ibd({sig})')
         if self.subject is None:
             # ignore if self.subject is None -- may cause a crash
             return
@@ -481,6 +499,9 @@ class DiagramScene(QGraphicsScene):
         elif hasattr(obj, 'systems') and len(obj.systems):
             # obj is a Project
             usages = obj.systems
+        # if systems / components exist, create a "diagramz" entry
+        if usages and not diagramz.get(self.subject.oid):
+            diagramz[self.subject.oid] = {}
         w = 100
         h = 150
         i = 1.0
@@ -497,13 +518,17 @@ class DiagramScene(QGraphicsScene):
         if self.items():
             for shape in self.items():
                 self.removeItem(shape)
-        ordering = ordering or self.get_block_ordering()
+        # block ordering can be [1] specified, [2] the ordering saved in the
+        # "diagramz" cache, [3] the ordering in the current diagram
+        ordering = (ordering or diagramz.get(obj.oid, {}).get('ordering')
+                    or self.get_block_ordering())
         if not len(ordering) == 2:
             # if ordering is read from a 'diagramz' cache that was in an
             # old or improper format, it will fail -- in which case, just
             # use the output of 'get_block_ordering()' instead ...
             ordering = self.get_block_ordering()
         if ordering:
+            orb.log.debug(f'  - using ordering {ordering}')
             left_oids, right_oids = ordering
             # exclude any oids that don't appear in the provided 'usages'
             usage_dict = {u.oid : u for u in usages}
@@ -562,13 +587,14 @@ class DiagramScene(QGraphicsScene):
                     items.append(new_item)
                     y_right_next += new_item.rect.height() + spacing
         else:
+            orb.log.debug('  - no ordering specified ...')
             # no ordering is provided and the diagram currently has no blocks
             # -> place blocks in arbitrary order
             for usage in usages:
                 obj = (getattr(usage, 'component', None)
                        or getattr(usage, 'system', None))
                 all_ports += getattr(obj, 'ports', [])
-                # orb.log.debug('  - creating block for "%s" ...' % obj.name)
+                orb.log.debug('  - creating block for "%s" ...' % obj.name)
                 if i == 2.0:
                     left_col = right_ports = False
                     p = QPointF(x_right, y_right_next)
@@ -577,8 +603,8 @@ class DiagramScene(QGraphicsScene):
                     left_col = right_ports = True
                     p = QPointF(x_left, y_left_next)
                     i += 1.0
-                # orb.log.debug('    ... at position ({}, {}) ...'.format(
-                                                            # p.x(), p.y()))
+                orb.log.debug('    ... at position ({}, {}) ...'.format(
+                                                            p.x(), p.y()))
                 new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
                                              right_ports=right_ports)
                 for oid, port_block in new_item.port_blocks.items():
@@ -594,21 +620,34 @@ class DiagramScene(QGraphicsScene):
             self.usage_port_blocks[None, oid] = port_block
         # if Flows exist, create RoutedConnectors for them ...
         # subject might be a Project, so need getattr here ...
-        # orb.log.debug('  - checking for flows ...')
-        flows = []
+        orb.log.debug('  - checking for flows ...')
+        flows_list = []
         for usage in usages:
-            flows += orb.search_exact(cname='Flow', start_port_context=usage)
-            flows += orb.search_exact(cname='Flow', end_port_context=usage)
-        flows = list(set(flows))
-        orphaned_flow_oids = []
+            flows_list += set(orb.search_exact(cname='Flow',
+                         start_port_context=usage))
+            flows_list += set(orb.search_exact(cname='Flow',
+                         end_port_context=usage))
+        flows = set(flows_list)
         if flows:
-            # orb.log.debug('  - Flow objects found')
+            orb.log.debug('  - Flow objects found')
             # WAY more verbose -- list all Flow objects ...
             # orb.log.debug('  - Flow objects found: {}'.format(
                                     # str([f.id for f in flows])))
+            orphaned_flow_oids = []
+            flow_order = diagramz.get(obj.oid, {}).get('flows', [])
+            ordered_flows = []
+            if flow_order:
+                flows_by_oid = {flow.oid : flow for flow in flows}
+                ordered_flows = [flows_by_oid[oid] for oid in flow_order]
+                if len(ordered_flows) < len(flows):
+                    remainder_flows = flows - set(ordered_flows)
+                    for flow in remainder_flows:
+                        ordered_flows.append(flow)
+            else:
+                ordered_flows = flows
             routing_channel = self.get_routing_channel()
-            # orb.log.debug('    creating routed connectors ...')
-            for flow in flows:
+            orb.log.debug('    creating routed connectors ...')
+            for i, flow in enumerate(ordered_flows):
                 # check in case flows in db out of sync with diagram
                 start_item = self.usage_port_blocks.get(
                                 (getattr(flow.start_port_context, 'oid', None),
@@ -627,6 +666,7 @@ class DiagramScene(QGraphicsScene):
                 connector = RoutedConnector(start_item, end_item,
                                             routing_channel,
                                             context=self.subject,
+                                            order=i,
                                             pen_width=3)
                 # orb.log.debug('      add to start and end ...')
                 start_item.add_connector(connector)
@@ -638,14 +678,15 @@ class DiagramScene(QGraphicsScene):
                 # orb.log.debug('      update position.')
                 connector.updatePosition()
         else:
-            # orb.log.debug('  - no flows found')
+            orb.log.debug('  - no flows found')
             pass
         # set the upper left corner scene ...
-        # orb.log.debug('  - centering scene in views ...')
+        orb.log.debug('  - centering scene in views ...')
         for n, view in enumerate(self.views()):
             # orb.log.debug('    view {}'.format(n))
             view.centerOn(0, 0)
-        diagramz[self.subject.oid] = ordering
+        if ordering:
+            diagramz[self.subject.oid]['ordering'] = ordering
         orb._save_diagramz()
         # self.positions is used to test whether any block has been moved
         self.positions = self.get_block_positions()

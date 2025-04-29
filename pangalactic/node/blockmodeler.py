@@ -11,7 +11,12 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
 from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
-from pangalactic.core             import diagramz, orb, state
+try:
+    from pangalactic.core             import orb
+except:
+    import pangalactic.core.set_uberorb
+    from pangalactic.core             import orb
+from pangalactic.core             import diagramz, state
 from pangalactic.core.access      import get_perms
 # from pangalactic.core.clone       import clone
 # from pangalactic.core.names       import (get_block_model_id,
@@ -63,8 +68,8 @@ class ModelWindow(QMainWindow):
         """
         super().__init__(parent=parent)
         self.setWindowTitle('Block Modeler')
-        # orb.log.debug('* ModelWindow initializing with:')
-        # orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
+        orb.log.debug('* ModelWindow initializing with:')
+        orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
         self.obj = obj
         self.logo = logo
         self.external = external
@@ -132,10 +137,10 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
-        # orb.log.debug('* ModelWindow.set_subject({})'.format(
-                      # getattr(obj, 'id', 'None')))
-        # if msg:
-            # orb.log.debug('  {}'.format(msg))
+        orb.log.debug('* ModelWindow.set_subject({})'.format(
+                      getattr(obj, 'id', 'None')))
+        if msg:
+            orb.log.debug('  {}'.format(msg))
         if hasattr(self, 'view_cad_action'):
             try:
                 self.view_cad_action.setVisible(False)
@@ -158,7 +163,7 @@ class ModelWindow(QMainWindow):
             # TODO:  enable multiple CAD models (e.g. "detailed", "simplified")
             models = self.get_models()
             if models or self.obj.doc_references:
-                # orb.log.debug('* ModelWindow: subject has models ...')
+                orb.log.debug('* ModelWindow: subject has models ...')
                 if hasattr(self, 'models_and_docs_info_action'):
                     try:
                         self.models_and_docs_info_action.setVisible(True)
@@ -340,7 +345,7 @@ class ModelWindow(QMainWindow):
         self.placeholder = new_placeholder
 
     # def display_external_window(self):
-        # # orb.log.debug('* ModelWindow.display_external_window() ...')
+        # orb.log.debug('* ModelWindow.display_external_window() ...')
         # mw = ModelWindow(obj=self.obj, scene=self.diagram_view.scene(),
                          # logo=self.logo, external=True,
                          # parent=self.parent())
@@ -519,7 +524,7 @@ class ModelWindow(QMainWindow):
         """
         Display a block diagram for the currently selected product or project.
         """
-        # orb.log.debug('* Modeler:  display_block_diagram()')
+        orb.log.debug('* Modeler:  display_block_diagram()')
         if state.get('mode') in ['data', 'db']:
             # NOTE:  without this we will crash -- there is no model window in
             # these modes!
@@ -562,12 +567,12 @@ class ModelWindow(QMainWindow):
         # whenever a new scene is created (in association with the view), its
         # "deleted_object" signal (and possibly other signals) must be
         # connected ...
-        block_ordering = diagramz.get(self.obj.oid)
+        block_ordering = diagramz.get(self.obj.oid, {}).get('ordering')
         if block_ordering:
-            # orb.log.debug('  - generating diagram with ordering ...')
+            orb.log.debug('  - generating diagram with ordering ...')
             scene.generate_ibd(self.obj, ordering=block_ordering)
         else:
-            # orb.log.debug('  - generating new block diagram ...')
+            orb.log.debug('  - generating new block diagram ...')
             scene.generate_ibd(self.obj)
         # # TODO: create a SysML IBD Model object if self.obj doesn't have one
         # block_model_type = orb.get(BLOCK_OID)
@@ -619,7 +624,7 @@ class ModelWindow(QMainWindow):
             # ignore if self.obj is None -- otherwise may crash
             return
         oid = getattr(self.obj, 'oid', '') or ''
-        block_ordering = diagramz.get(oid)
+        block_ordering = diagramz.get(oid, {}).get('ordering')
         if block_ordering:
             # orb.log.debug('  - generating diagram with ordering ...')
             scene.generate_ibd(self.obj, ordering=block_ordering)
@@ -680,7 +685,9 @@ class ModelWindow(QMainWindow):
             # this is deprecated in favor of using the ordering of the blocks
             # to generate the diagram with 2 uniform columns of blocks
             # diagramz[self.obj.oid] = scene.get_diagram_geometry()
-            diagramz[self.obj.oid] = scene.get_block_ordering()
+            if not diagramz.get(self.obj.oid):
+                diagramz[self.obj.oid] = dict(ordering=None, flows=None)
+            diagramz[self.obj.oid]['ordering'] = scene.get_block_ordering()
             # orb.log.debug('  ... cached.')
         except:
             # orb.log.debug('  ... could not cache (C++ obj deleted?)')
@@ -865,7 +872,12 @@ if __name__ == '__main__':
     from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import (create_test_project,
                                              create_test_users)
-    orb.start(home='junk_home', debug=True)
+    from pangalactic.node.startup import setup_dirs_and_state
+    home = os.path.join(os.getcwd(), 'junk_home')
+    if not os.path.exists(home):
+        os.makedirs(home, mode=0o755)
+    orb.start(home=home, console=True, debug=True)
+    setup_dirs_and_state()
     obj = orb.get('test:spacecraft0')
     if not obj:
         if not state.get('test_users_loaded'):
