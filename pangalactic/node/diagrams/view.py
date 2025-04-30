@@ -631,12 +631,12 @@ class DiagramScene(QGraphicsScene):
             flows_list += set(orb.search_exact(cname='Flow',
                          end_port_context=usage))
         flows = set(flows_list)
+        orphaned_flow_oids = []
         if flows:
             orb.log.debug('  - Flow objects found')
             # WAY more verbose -- list all Flow objects ...
             # orb.log.debug('  - Flow objects found: {}'.format(
                                     # str([f.id for f in flows])))
-            orphaned_flow_oids = []
             flow_order = diagramz.get(obj.oid, {}).get('flows', [])
             ordered_flows = []
             if flow_order:
