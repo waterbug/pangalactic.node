@@ -283,6 +283,9 @@ class DiagramScene(QGraphicsScene):
                                         end_item=end_item)
                         self.update()
                         # update diagramz "flows" ...
+                        if flows:
+                            diagramz[self.subject.oid]['flows'].append(
+                                                            connector.flow.oid)
                 self.line = None
                 super().mouseReleaseEvent(mouseEvent)
         else:
