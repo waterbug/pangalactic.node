@@ -2099,7 +2099,8 @@ class RoutedConnector(QGraphicsItem):
             # arrow should point right
             right_arrow = True
             shim = 4.0 * POINT_SIZE
-            x_jog = shim + (SEPARATION * PORT_TYPES.index(self.type_of_flow))
+            # x_jog = shim + (SEPARATION * PORT_TYPES.index(self.type_of_flow))
+            x_jog = shim + (SEPARATION * self.order)
             # *******************************************************
             # compute segment end points x, y coords.
             # *******************************************************
@@ -2127,7 +2128,8 @@ class RoutedConnector(QGraphicsItem):
             # arrow should point left
             right_arrow = False
             shim = 4.0 * POINT_SIZE
-            x_jog = shim + (SEPARATION * PORT_TYPES.index(self.type_of_flow))
+            # x_jog = shim + (SEPARATION * PORT_TYPES.index(self.type_of_flow))
+            x_jog = shim + (SEPARATION * self.order)
             # *******************************************************
             # compute segment end points x, y coords.
             # *******************************************************
