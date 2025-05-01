@@ -84,7 +84,7 @@ PORT_TYPE_COLORS = OrderedDict([
     ('electrical_power',   Qt.red),
     ('propulsion_power',   QColor(255, 140, 0)),  # orange
     ('electronic_control', QColor(165, 42, 42)),  # brown
-    ('analog_data',        Qt.cyan),
+    ('analog_data',        Qt.magenta),
     ('digital_data',       Qt.green),
     ('comm',               Qt.blue),
     ('thermal',            Qt.lightGray),
@@ -1795,15 +1795,14 @@ class RoutedConnector(QGraphicsItem):
     # [2] multiple connectors and spacing layout
     # [3] options for horizontal or vertical layout
     # ===============================================
-    # Proposed colors for Ports / connectors:
+    # Colors of Ports / connectors (see PORT_TYPE_COLORS)
     # * green ......... digital data
-    # * purple/cyan ... analog sensor data
+    # * magenta ....... analog sensor data
     # * red ........... electrical power
-    # * yellow ........ thermal (e.g. heat pipes?)
-    # * lt. grey ...... "mechanical" (is that some kind of linkage?)
+    # * lt. grey ...... thermal (e.g. heat pipes?)
     # * dk. grey ...... "environmental" energy flows of various types
     # * blue dashed ... EM waves (comm. signals)
-    # * brown ......... actuator signal (e.g. launch dock actuator drive)
+    # * brown ......... actuator signal (a.k.a. "electronic control")
     # * black ......... gas lines (e.g. N2 or O2)
 
     def __init__(self, start_item, end_item, routing_channel, context=None,
