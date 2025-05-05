@@ -197,11 +197,11 @@ class DiagramScene(QGraphicsScene):
                             spc = start_port_context.id
                         orb.log.debug(f"  - start_port_context: {spc}")
                         if isinstance(end_parent, SubjectBlock):
-                            spc = "None"
+                            epc = "None"
                         elif isinstance(end_parent, ObjectBlock):
                             end_port_context = end_parent.usage
-                            spc = end_port_context.id
-                        orb.log.debug(f"  - end_port_context: {spc}")
+                            epc = end_port_context.id
+                        orb.log.debug(f"  - end_port_context: {epc}")
                         if (start_port_context is None or
                             end_port_context is None):
                             if ((p1_dir == 'input' and p2_dir == 'output') or
@@ -239,27 +239,27 @@ class DiagramScene(QGraphicsScene):
                             notice.setText(txt)
                             notice.exec_()
                             return
-                        orb.log.debug('   drawing RoutedConnector ...')
-                        orb.log.debug('   * start item:')
-                        usage_id = getattr(start_port_context, 'id', "None")
-                        orb.log.debug(f'     - usage: {usage_id}')
-                        orb.log.debug('     - port id: {}'.format(
-                                        start_item.port.id))
-                        side = 'right'
-                        if start_item.right_port:
-                            side = 'left'
-                        orb.log.debug('     ({} side)'.format(side))
-                        orb.log.debug('   * end item:')
-                        usage_id = getattr(end_port_context, 'id', "None")
-                        orb.log.debug(f'     - usage: {usage_id}')
-                        orb.log.debug('     - port id: {}'.format(
-                                        end_item.port.id))
-                        orb.log.debug('   * context id:  {}'.format(
-                                        self.subject.id))
-                        side = 'right'
-                        if end_item.right_port:
-                            side = 'left'
-                        orb.log.debug('     ({} side)'.format(side))
+                        # orb.log.debug('   drawing RoutedConnector ...')
+                        # orb.log.debug('   * start item:')
+                        # usage_id = getattr(start_port_context, 'id', "None")
+                        # orb.log.debug(f'     - usage: {usage_id}')
+                        # orb.log.debug('     - port id: {}'.format(
+                                        # start_item.port.id))
+                        # side = 'right'
+                        # if start_item.right_port:
+                            # side = 'left'
+                        # orb.log.debug('     ({} side)'.format(side))
+                        # orb.log.debug('   * end item:')
+                        # usage_id = getattr(end_port_context, 'id', "None")
+                        # orb.log.debug(f'     - usage: {usage_id}')
+                        # orb.log.debug('     - port id: {}'.format(
+                                        # end_item.port.id))
+                        # orb.log.debug('   * context id:  {}'.format(
+                                        # self.subject.id))
+                        # side = 'right'
+                        # if end_item.right_port:
+                            # side = 'left'
+                        # orb.log.debug('     ({} side)'.format(side))
 
                         # TODO:  color will be determined by type of Port(s)
                         routing_channel = self.get_routing_channel()
@@ -487,10 +487,10 @@ class DiagramScene(QGraphicsScene):
                 the right column (this ordering is returned by
                 get_block_ordering()).
         """
-        obj_id = getattr(obj, 'id', 'unknown')
-        sig = f'{obj_id}, ordering={ordering}'
-        sig = f'{obj_id}'
-        orb.log.debug(f'* DiagramScene: generate_ibd({sig})')
+        # obj_id = getattr(obj, 'id', 'unknown')
+        # sig = f'{obj_id}, ordering={ordering}'
+        # sig = f'{obj_id}'
+        # orb.log.debug(f'* DiagramScene: generate_ibd({sig})')
         if self.subject is None:
             # ignore if self.subject is None -- may cause a crash
             return
@@ -531,7 +531,7 @@ class DiagramScene(QGraphicsScene):
             # use the output of 'get_block_ordering()' instead ...
             ordering = self.get_block_ordering()
         if ordering:
-            orb.log.debug(f'  - using ordering {ordering}')
+            # orb.log.debug(f'  - using ordering {ordering}')
             left_oids, right_oids = ordering
             # exclude any oids that don't appear in the provided 'usages'
             usage_dict = {u.oid : u for u in usages}
@@ -590,14 +590,14 @@ class DiagramScene(QGraphicsScene):
                     items.append(new_item)
                     y_right_next += new_item.rect.height() + spacing
         else:
-            orb.log.debug('  - no ordering specified ...')
+            # orb.log.debug('  - no ordering specified ...')
             # no ordering is provided and the diagram currently has no blocks
             # -> place blocks in arbitrary order
             for usage in usages:
                 obj = (getattr(usage, 'component', None)
                        or getattr(usage, 'system', None))
                 all_ports += getattr(obj, 'ports', [])
-                orb.log.debug('  - creating block for "%s" ...' % obj.name)
+                # orb.log.debug('  - creating block for "%s" ...' % obj.name)
                 if i == 2.0:
                     left_col = right_ports = False
                     p = QPointF(x_right, y_right_next)
@@ -606,8 +606,8 @@ class DiagramScene(QGraphicsScene):
                     left_col = right_ports = True
                     p = QPointF(x_left, y_left_next)
                     i += 1.0
-                orb.log.debug('    ... at position ({}, {}) ...'.format(
-                                                            p.x(), p.y()))
+                # orb.log.debug('    ... at position ({}, {}) ...'.format(
+                                                            # p.x(), p.y()))
                 new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
                                              right_ports=right_ports)
                 for oid, port_block in new_item.port_blocks.items():
@@ -623,7 +623,7 @@ class DiagramScene(QGraphicsScene):
             self.usage_port_blocks[None, oid] = port_block
         # if Flows exist, create RoutedConnectors for them ...
         # subject might be a Project, so need getattr here ...
-        orb.log.debug('  - checking for flows ...')
+        # orb.log.debug('  - checking for flows ...')
         flows_list = []
         for usage in usages:
             flows_list += set(orb.search_exact(cname='Flow',
@@ -633,7 +633,7 @@ class DiagramScene(QGraphicsScene):
         flows = set(flows_list)
         orphaned_flow_oids = []
         if flows:
-            orb.log.debug('  - Flow objects found')
+            # orb.log.debug('  - Flow objects found')
             # WAY more verbose -- list all Flow objects ...
             # orb.log.debug('  - Flow objects found: {}'.format(
                                     # str([f.id for f in flows])))
@@ -649,7 +649,7 @@ class DiagramScene(QGraphicsScene):
             else:
                 ordered_flows = flows
             routing_channel = self.get_routing_channel()
-            orb.log.debug('    creating routed connectors ...')
+            # orb.log.debug('    creating routed connectors ...')
             for i, flow in enumerate(ordered_flows):
                 # check in case flows in db out of sync with diagram
                 start_item = self.usage_port_blocks.get(
@@ -681,10 +681,10 @@ class DiagramScene(QGraphicsScene):
                 # orb.log.debug('      update position.')
                 connector.updatePosition()
         else:
-            orb.log.debug('  - no flows found')
+            # orb.log.debug('  - no flows found')
             pass
         # set the upper left corner scene ...
-        orb.log.debug('  - centering scene in views ...')
+        # orb.log.debug('  - centering scene in views ...')
         for n, view in enumerate(self.views()):
             # orb.log.debug('    view {}'.format(n))
             view.centerOn(0, 0)

@@ -432,7 +432,7 @@ class ObjectBlock(Block):
         self.update()
 
     def contextMenuEvent(self, event):
-        orb.log.debug("* ObjectBlock: context menu evt")
+        # orb.log.debug("* ObjectBlock: context menu evt")
         self.scene().clearSelection()
         self.setSelected(True)
         menu = QMenu()
@@ -442,7 +442,7 @@ class ObjectBlock(Block):
             obj = self.usage.component
         elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
             obj = self.usage.system
-        orb.log.debug("  permissions on usage: {}".format(str(perms)))
+        # orb.log.debug("  permissions on usage: {}".format(str(perms)))
         if getattr(obj, 'id', 'TBD') == 'TBD':
             if isinstance(self.usage, orb.classes['Acu']):
                 # block is TBD and usage is Acu ...
@@ -626,13 +626,13 @@ class ObjectBlock(Block):
         NOW = dtstamp()
         assembly = None
         if isinstance(self.usage, orb.classes['Acu']):
-            orb.log.debug('  editing assembly node ...')
+            # orb.log.debug('  editing assembly node ...')
             ref_des = self.usage.reference_designator
             quantity = self.usage.quantity
             system = False
             assembly = self.usage.assembly
         elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
-            orb.log.debug('  editing project system node ...')
+            # orb.log.debug('  editing project system node ...')
             ref_des = self.usage.system_role
             quantity = None
             system = True
@@ -1898,11 +1898,11 @@ class RoutedConnector(QGraphicsItem):
             # along with the "updated" context object.
             # dispatcher.send('modified object', obj=context)
             dispatcher.send('new object', obj=self.flow)
-        orb.log.debug("* RoutedConnector created:")
+        # orb.log.debug("* RoutedConnector created:")
         # orb.log.debug("  - start port id: {}".format(self.start_item.port.id))
         # orb.log.debug("  - end port id: {}".format(self.end_item.port.id))
         # orb.log.debug("  - context id: {}".format(self.context.id))
-        orb.log.debug("  - order: {}".format(self.order))
+        # orb.log.debug("  - order: {}".format(self.order))
 
     def contextMenuEvent(self, event):
         # check whether user has permission to modify the 'context' object --
