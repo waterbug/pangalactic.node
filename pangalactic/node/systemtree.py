@@ -337,12 +337,13 @@ class SystemTreeModel(QAbstractItemModel):
     @property
     def cols(self):
         columns = ['System']
-        if self.dash_name == 'System Power Modes':
+        if state.get('dashboard_name') == 'System Power Modes':
             proj_modes = (mode_defz.get(self.project.oid) or {}).get('modes')
             if proj_modes:
                 columns += list(proj_modes)
         else:
-            columns += (prefs.get('dashboards') or {}).get(self.dash_name, [])
+            columns += (prefs.get('dashboards') or {}).get(
+                        state.get('dashboard_name'))
         return columns
 
     def col_def(self, pid):
@@ -546,12 +547,13 @@ class SystemTreeModel(QAbstractItemModel):
         if position < 0 or position > len(self.cols) - 1:
             success = False
         dashboard_name = state.get('dashboard_name', 'MEL')
-        pid = self.cols[position]
-        prefs['dashboards'][dashboard_name].remove(pid)
-        s = 'prefs["dashboards"]["{}"]'.format(dashboard_name)
-        log_msg = '  - column "{}" removed from {}'
-        orb.log.debug(log_msg.format(pid, s))
-        orb.log.debug('    self.cols is now: "{}"'.format(str(self.cols)))
+        if position < len(self.cols):
+            pid = self.cols[position]
+            prefs['dashboards'][dashboard_name].remove(pid)
+            s = 'prefs["dashboards"]["{}"]'.format(dashboard_name)
+            log_msg = '  - column "{}" removed from {}'
+            orb.log.debug(log_msg.format(pid, s))
+            orb.log.debug('    self.cols is now: "{}"'.format(str(self.cols)))
         self.endRemoveColumns()
         return success
 
@@ -770,8 +772,10 @@ class SystemTreeModel(QAbstractItemModel):
                 else:
                     return QVariant(self.get_header(self.cols[section]))
             else:
-                # return self.root.name
-                return QVariant('System')
+                try:
+                    self.removeColumn(section)
+                except:
+                    pass
         elif role == Qt.ToolTipRole:
             if section == 0:
                 return 'System or component identifier'

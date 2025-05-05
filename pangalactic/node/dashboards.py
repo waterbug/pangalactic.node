@@ -29,6 +29,9 @@ from pangalactic.node.dialogs         import (CustomizeColsDialog,
                                               NewDashboardDialog,
                                               NotificationDialog,
                                               UnitPrefsDialog)
+from pangalactic.node.systemtree      import (SystemTreeModel,
+                                              SystemTreeProxyModel,
+                                              SystemTreeView)
 
 
 class SystemDashboard(QTreeView):
@@ -41,7 +44,8 @@ class SystemDashboard(QTreeView):
         Initialize.
 
         Args:
-            view_model (SystemTreeModel): model of the current system tree.
+            view_model (SystemTreeProxyModel): view model of the current system
+                tree.
 
         Keyword Args:
             row_colors (bool): show rows with alternating bg colors
@@ -128,9 +132,9 @@ class SystemDashboard(QTreeView):
         # set_as_pref_action = QAction('set as preferred dashboard', dash_header)
         # set_as_pref_action.triggered.connect(self.set_as_pref_dashboard)
         # dash_header.addAction(set_as_pref_action)
-        # dash_name = state.get('dashboard_name')
+        dash_name = state.get('dashboard_name')
+        # dash_name = 'MEL'
         # -------------------------------------------------------------------
-        dash_name = 'MEL'
         if dash_name in (state.get('app_dashboards') or {}).keys():
             txt = f'use standard {dash_name} dashboard schema'
             use_app_dash_action = QAction(txt, dash_header)
@@ -607,15 +611,17 @@ class MultiDashboard(QWidget):
     """
     Widget to contain multiple dashboards and switch between them.
     """
-    def __init__(self, sys_tree_model, parent=None):
+    def __init__(self, project, parent=None):
         """
         Initialize.
 
         Args:
-            sys_tree_model (SystemTreeModel): the current system tree model
+            project (Project): the current project
         """
         super().__init__(parent=parent)
-        self.dashboard_widget = QStackedWidget()
+        # self.project = project
+        self.project = project
+        self.dashboards = QStackedWidget()
         self.setContextMenuPolicy(Qt.PreventContextMenu)
         dashboard_panel_layout = QVBoxLayout()
         self.dashboard_title_layout = QHBoxLayout()
@@ -634,7 +640,7 @@ class MultiDashboard(QWidget):
             state['dashboard_name'] = prefs['dashboard_names'][0]
         for dash_name in prefs['dashboard_names']:
             self.dash_select.addItem(dash_name, QVariant)
-        if state.get('project', '') in mode_defz:
+        if state.get('project') in mode_defz:
             self.dash_select.addItem('System Power Modes', QVariant)
         if (state.get('dashboard_name') == 'System Power Modes' and
             not (state.get('project', '') in mode_defz)):
@@ -650,16 +656,45 @@ class MultiDashboard(QWidget):
         # --------------------------------------------------------------------
 
         dashboard_panel_layout.addLayout(self.dashboard_title_layout)
+        dashboard_panel_layout.addWidget(self.dashboards)
         self.setLayout(dashboard_panel_layout)
         self.setMinimumSize(500, 200)
+        current_dash_name = state.get('dashboard_name')
+        dash_names = prefs['dashboard_names']
+        if current_dash_name in dash_names:
+            self.set_dashboard(dash_names.index(current_dash_name))
+        else:
+            self.set_dashboard(0)
 
     def add_dashboard(self, dashboard_name):
         if dashboard_name in prefs['dashboard_names']:
-            dash = SystemDashboard(self.sys_tree.model(), parent=window)
+            state['dashboard_name'] = dashboard_name
+            sys_tree_model = SystemTreeModel(self.project)
+            view_model = SystemTreeProxyModel(sys_tree_model)
+            dash = SystemDashboard(view_model, parent=window)
+            self.dashboards.addWidget(dash)
 
-    def set_dashboard(self):
+    def set_dashboard(self, idx):
         orb.log.debug('* set_dashboard()')
-        dash_name = self.dash_select.currentText()
+        # dash_name = self.dash_select.currentText()
+        dash_name = prefs['dashboard_names'][idx]
+        state['dashboard_name'] = dash_name
+        self.dashboards.setCurrentIndex(idx)
+        dash = self.dashboards.widget(idx)
+        # NOTE: the following line appears to cause a segfault:
+        # dash.model().sourceModel().layoutChanged.emit()
+        dash.expandToDepth(2)
+        dash.model().sort(0)
+        for column in range(1, dash.model().sourceModel().columnCount()):
+            dash.resizeColumnToContents(column)
+        dash.resizeColumnToContents(0)
+        # n = state.get('sys_tree_expansion', {}).get(state.get('project'))
+        # if n is not None:
+            # dash.expandToDepth(n + 1)
+            # # orb.log.debug(f'[Dashboard] expanded to level {n + 2}')
+        # else:
+            # dash.expandToDepth(2)
+            # # orb.log.debug('[Dashboard] expanded to default level (2)')
         orb.log.debug(f'  - dashboard set to "{dash_name}"')
 
     def rebuild_dash_selector(self):
@@ -695,7 +730,6 @@ if __name__ == '__main__':
     from pangalactic.core.test.utils import create_test_users
     from pangalactic.core.test.utils import create_test_project
     from pangalactic.node.startup    import setup_dirs_and_state
-    from pangalactic.node.systemtree import SystemTreeView
     app = QApplication(sys.argv)
     parser = argparse.ArgumentParser()
     parser.add_argument('--console', dest='console', action="store_true",
@@ -707,7 +741,7 @@ if __name__ == '__main__':
         os.makedirs(app_home_path, mode=0o755)
     home = app_home_path
     print('* starting orb ...')
-    orb.start(home=home, console=options.console)
+    orb.start(home=home, debug=True, console=True)
     print('  orb started.')
     setup_dirs_and_state()
     print('* loading test project H2G2 ...')
@@ -720,8 +754,8 @@ if __name__ == '__main__':
     sys_tree = SystemTreeView(proj)
     window = QWidget()
     layout = QVBoxLayout(window)
-    # dash = SystemDashboard(sys_tree.model(), parent=window)
-    dash = MultiDashboard(sys_tree_model=sys_tree.model(), parent=window)
+    # dash = SystemDashboard(sys_tree.source_model, parent=window)
+    dash = MultiDashboard(proj, parent=window)
     layout.addWidget(dash)
     layout.addWidget(sys_tree)
     sys_tree.expandAll()
