@@ -68,8 +68,8 @@ class ModelWindow(QMainWindow):
         """
         super().__init__(parent=parent)
         self.setWindowTitle('Block Modeler')
-        orb.log.debug('* ModelWindow initializing with:')
-        orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
+        # orb.log.debug('* ModelWindow initializing with:')
+        # orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
         self.obj = obj
         self.logo = logo
         self.external = external
@@ -137,10 +137,10 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
-        orb.log.debug('* ModelWindow.set_subject({})'.format(
-                      getattr(obj, 'id', 'None')))
-        if msg:
-            orb.log.debug('  {}'.format(msg))
+        # orb.log.debug('* ModelWindow.set_subject({})'.format(
+                      # getattr(obj, 'id', 'None')))
+        # if msg:
+            # orb.log.debug('  {}'.format(msg))
         if hasattr(self, 'view_cad_action'):
             try:
                 self.view_cad_action.setVisible(False)
@@ -524,7 +524,7 @@ class ModelWindow(QMainWindow):
         """
         Display a block diagram for the currently selected product or project.
         """
-        orb.log.debug('* Modeler:  display_block_diagram()')
+        # orb.log.debug('* Modeler:  display_block_diagram()')
         if state.get('mode') in ['data', 'db']:
             # NOTE:  without this we will crash -- there is no model window in
             # these modes!
@@ -569,10 +569,10 @@ class ModelWindow(QMainWindow):
         # connected ...
         block_ordering = diagramz.get(self.obj.oid, {}).get('ordering')
         if block_ordering:
-            orb.log.debug('  - generating diagram with ordering ...')
+            # orb.log.debug('  - generating diagram with ordering ...')
             scene.generate_ibd(self.obj, ordering=block_ordering)
         else:
-            orb.log.debug('  - generating new block diagram ...')
+            # orb.log.debug('  - generating new block diagram ...')
             scene.generate_ibd(self.obj)
         # # TODO: create a SysML IBD Model object if self.obj doesn't have one
         # block_model_type = orb.get(BLOCK_OID)

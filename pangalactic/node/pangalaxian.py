@@ -4838,7 +4838,7 @@ class Main(QMainWindow):
                 system_level_count = get_level_count(system)
                 if system_level_count > level_count:
                     level_count = system_level_count
-        orb.log.debug(f"* level count = {level_count}")
+        # orb.log.debug(f"* level count = {level_count}")
         ######################################################################
         # TODO: possibly use get_bom() or get_assembly() when the current
         # project is set to get all sys tree items for the current project,
