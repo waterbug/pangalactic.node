@@ -78,6 +78,11 @@ def setup_dirs_and_state(app_name='Pangalaxian'):
                                                             dash_name])
                 # append it to dashboard_names
                 prefs['dashboard_names'].append(dash_name)
+    else:
+        # if no "app_dashboards" are set in state, copy all prefs dashboards to
+        # state so they can be used if any dashboard schemas need to reverted
+        # to their original states ...
+        state['app_dashboards'] = deepcopy(prefs['dashboards'])
     if not state.get('dashboard_name'):
         state['dashboard_name'] = prefs['dashboard_names'][0]
     # app config will have been loaded -- add any missing default_parameters or
