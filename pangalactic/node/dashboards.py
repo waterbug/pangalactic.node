@@ -12,7 +12,7 @@ from PyQt5.QtCore    import (pyqtSignal, Qt, QItemSelectionModel, QModelIndex,
                              QVariant)
 from PyQt5.QtWidgets import (QAction, QComboBox, QDialog, QFileDialog,
                              QHBoxLayout, QLabel, QMessageBox, QStackedWidget,
-                             QTreeView, QWidget)
+                             QTreeView, QVBoxLayout, QWidget)
 
 # pangalactic
 try:
@@ -23,6 +23,7 @@ except:
 from pangalactic.core.parametrics     import mode_defz, parm_defz
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import write_mel_to_tsv
+from pangalactic.core.validation      import get_assembly, get_bom_oids
 from pangalactic.node.utils           import extract_mime_data
 from pangalactic.node.dialogs         import (CustomizeColsDialog,
                                               DeleteColsDialog,
@@ -257,9 +258,7 @@ class SystemDashboard(QTreeView):
             icon, pd_oid, pd_id, pd_name, pd_cname = data
             dash_name = state.get('dashboard_name', 'unnamed')
             state['dashboard_name'] = dash_name
-            if not dash_name in prefs['dashboard_names']:
-                prefs['dashboard_names'].append(dash_name)
-            if pd_id not in prefs['dashboards'][dash_name]:
+            if pd_id not in prefs['dashboards'].get(dash_name, []):
                 orb.log.info('[Dashboard] New parameter dropped -- adding '
                              f'column for "{pd_id}" ...')
                 # if dropped PD is not in columns, add it
@@ -579,11 +578,31 @@ class SystemDashboard(QTreeView):
         self.expand(index)
         dispatcher.send(signal='dash node selected', index=index, obj=node.obj)
 
-    def dash_node_expand(self, index=None):
+    # def dash_node_expand(self, index=None):
+        # if not self.model():
+            # return
+        # if index and not self.isExpanded(index):
+            # self.expand(index)
+            # for column in range(1, self.model().columnCount()):
+                # self.resizeColumnToContents(column)
+
+    def dash_node_expand(self, obj=None, link=None):
         if not self.model():
             return
-        if index and not self.isExpanded(index):
-            self.expand(index)
+        # orb.log.debug('Dash: got "sys node expanded" signal ...')
+        idxs = []
+        if obj:
+            # orb.log.debug(f'   ... on object: {obj.id}')
+            idxs = self.object_indexes_in_tree(obj)
+        elif link:
+            # orb.log.debug(f'   ... on link: {link.id}')
+            idxs = self.link_indexes_in_tree(link)
+        else:
+            return
+        if idxs:
+            # orb.log.debug(f'   found {len(idxs)} occurrances in tree.')
+            proxy_idx = self.model().mapFromSource(idxs[0])
+            self.expand(proxy_idx)
             for column in range(1, self.model().columnCount()):
                 self.resizeColumnToContents(column)
 
@@ -605,6 +624,199 @@ class SystemDashboard(QTreeView):
         except:
             # oops -- my C++ object probably got deleted
             pass
+
+    def object_indexes_in_tree(self, obj):
+        """
+        Find the source model indexes of all nodes in the system tree that
+        reference the specified object (this is needed for updating the tree
+        in-place when an object is modified).
+
+        Args:
+            obj (Product):  specified object
+        """
+        # orb.log.debug(f'* object_indexes_in_tree({obj.id})')
+        # try:
+            # model = self.proxy_model.sourceModel()
+        # except:
+            # # oops -- C++ object probably got deleted
+            # return []
+        model = self.model().sourceModel()
+        # orb.log.debug(f'  model is a {type(model)}')
+        project_index = model.index(0, 0, QModelIndex())
+        # project_node = model.get_node(project_index)
+        # orb.log.debug(f'  for project {project_node.obj.id}')
+        # orb.log.debug(f'  (node cname: {project_node.cname})')
+        # NOTE: systems could be created with a list comp except the sanity
+        # check "if psu.system" is needed in case a psu got corrupted
+        systems = []
+        for psu in model.project.systems:
+            if psu.system:
+                systems.append(psu.system)
+        # first check whether obj *is* one of the systems:
+        is_a_system = [sys for sys in systems if sys.oid == obj.oid]
+        # then check whether obj occurs in any system boms:
+        in_system = [sys for sys in systems if obj.oid in get_bom_oids(sys)]
+        if is_a_system or in_system:
+            # systems exist -> project_index has children, so ...
+            sys_idxs = [model.index(row, 0, project_index)
+                        for row in range(model.rowCount(project_index))]
+            system_idxs = []
+            obj_idxs = []
+            if is_a_system:
+                # orb.log.debug('  - object is a system.')
+                # orb.log.debug('    project has {} system(s).'.format(
+                                                            # len(systems)))
+                # orb.log.debug('    tree has {} system(s).'.format(
+                                                            # len(sys_idxs)))
+                for idx in sys_idxs:
+                    system_node = model.get_node(idx)
+                    # orb.log.debug('    + {}'.format(system_node.obj.id))
+                    if system_node.obj.oid == obj.oid:
+                        system_idxs.append(idx)
+                # orb.log.debug('    {} system occurrences found.'.format(
+                              # len(system_idxs)))
+            if in_system:
+                # orb.log.debug('  - object is a component.')
+                for sys_idx in sys_idxs:
+                    obj_idxs += self.object_indexes_in_assembly(obj, sys_idx)
+                # orb.log.debug('    {} component occurrences found.'.format(
+                              # len(obj_idxs)))
+            return list(set(system_idxs + obj_idxs))
+        else:
+            # orb.log.info('  - object not found in tree.')
+            return []
+        return []
+
+    def object_indexes_in_assembly(self, obj, idx):
+        """
+        Find the source model indexes of all nodes in an assembly that reference
+        the specified object and source model index.
+
+        Args:
+            obj (Product):  specified object
+            idx (QModelIndex):  source model index of the assembly or project
+                node
+        """
+        # NOTE: ignore "TBD" objects
+        if getattr(obj, 'oid', '') == 'pgefobjects:TBD':
+            return []
+        model = self.model().sourceModel()
+        assembly_node = model.get_node(idx)
+        assembly = assembly_node.obj
+        # orb.log.debug('* object_indexes_in_assembly({})'.format(assembly.id))
+        if obj.oid == assembly.oid:
+            # orb.log.debug('  assembly *is* the object')
+            return [idx]
+        elif model.hasChildren(idx) and obj.oid in get_bom_oids(assembly):
+            # orb.log.debug('  obj in assembly bom -- look for children ...')
+            obj_idxs = []
+            comp_idxs = [model.index(row, 0, idx)
+                         for row in range(model.rowCount(idx))]
+            for comp_idx in comp_idxs:
+                obj_idxs += self.object_indexes_in_assembly(obj, comp_idx)
+            return obj_idxs
+        else:
+            return []
+
+    def link_indexes_in_tree(self, link):
+        """
+        Find the source model indexes of all nodes in the system tree that
+        reference the specified link (Acu or ProjectSystemUsage) -- this is
+        needed for updating the tree in-place when a link object is modified.
+
+        Args:
+            link (Acu or ProjectSystemUsage):  specified link object
+        """
+        # orb.log.debug('* link_indexes_in_tree({})'.format(link.id))
+        if not link:
+            return []
+        model = self.model().sourceModel()
+        project_index = model.index(0, 0, QModelIndex())
+        # project_node = model.get_node(project_index)
+        # orb.log.debug('  for project {}'.format(project_node.obj.oid))
+        # orb.log.debug('  (node cname: {})'.format(project_node.cname))
+        # ----------------------------------------------------
+        # IMPORTANT: fully populate model with child nodes ...
+        # ----------------------------------------------------
+        model.populate()
+        # first check whether link is a PSU:
+        is_a_psu = [psu for psu in model.project.systems
+                    if psu.oid == link.oid]
+        # then check whether link occurs in any system boms:
+        systems = [psu.system for psu in model.project.systems]
+        in_system = [sys for sys in systems if link in get_assembly(sys)]
+        if is_a_psu or in_system:
+            # systems exist -> project_index has children, so ...
+            child_count = model.rowCount(project_index)
+            if child_count == 0:
+                # orb.log.debug('  - no child nodes found.')
+                return []
+            sys_idxs = [model.index(row, 0, project_index)
+                        for row in range(child_count)]
+            if not sys_idxs:
+                # orb.log.debug('  - no child indexes found.')
+                return []
+            link_idxs = []
+            if is_a_psu:
+                # orb.log.debug('  - link is a ProjectSystemUsage ...')
+                # orb.log.debug('    project has {} system(s).'.format(
+                                                            # len(systems)))
+                # orb.log.debug('    tree has {} system(s).'.format(
+                                                            # len(sys_idxs)))
+                for idx in sys_idxs:
+                    system_node = model.get_node(idx)
+                    if system_node.link.oid == link.oid:
+                        # orb.log.debug('    + {}'.format(system_node.link.id))
+                        # orb.log.debug('      system: {}'.format(
+                                                        # system_node.obj.id))
+                        link_idxs.append(idx)
+                # orb.log.debug('    {} system occurrences found.'.format(
+                              # len(link_idxs)))
+            if in_system:
+                # orb.log.debug('  - link is an Acu ...')
+                for sys_idx in sys_idxs:
+                    link_idxs += self.link_indexes_in_assembly(link, sys_idx)
+                # orb.log.debug('    {} link occurrences found.'.format(
+                              # len(link_idxs)))
+            return link_idxs
+        else:
+            # orb.log.debug('  - link not found in tree.')
+            return []
+        return []
+
+    def link_indexes_in_assembly(self, link, idx):
+        """
+        Find the source model indexes of all nodes in an assembly that have the
+        specified link as their `link` attribute and the specified source model
+        index.
+
+        Args:
+            link (Acu):  specified link
+            idx (QModelIndex):  index of the assembly or project node
+        """
+        if link:
+            model = self.model().sourceModel()
+            assembly_node = model.get_node(idx)
+            if assembly_node.link is None:
+                return []
+            if hasattr(assembly_node.link, 'component'):
+                assembly = assembly_node.link.component
+            else:
+                assembly = assembly_node.link.system
+            # orb.log.debug('* link_indexes_in_assembly({})'.format(link.id))
+            if link.oid == assembly_node.link.oid:
+                # orb.log.debug('  assembly node *is* the link node')
+                return [idx]
+            elif model.hasChildren(idx) and link in get_assembly(assembly):
+                # orb.log.debug('  link in assembly -- looking for acus ...')
+                link_idxs = []
+                comp_idxs = [model.index(row, 0, idx)
+                             for row in range(model.rowCount(idx))]
+                for comp_idx in comp_idxs:
+                    link_idxs += self.link_indexes_in_assembly(link, comp_idx)
+                return link_idxs
+            return []
+        return []
 
 
 class MultiDashboard(QWidget):
@@ -637,19 +849,16 @@ class MultiDashboard(QWidget):
                                         'Mechanical', 'Thermal',
                                         'System Resources']
         if not state.get('dashboard_name'):
-            state['dashboard_name'] = prefs['dashboard_names'][0]
-        for dash_name in prefs['dashboard_names']:
-            self.dash_select.addItem(dash_name, QVariant)
-        if state.get('project') in mode_defz:
-            self.dash_select.addItem('System Power Modes', QVariant)
+            state['dashboard_name'] = self.dash_names[0]
         if (state.get('dashboard_name') == 'System Power Modes' and
-            not (state.get('project', '') in mode_defz)):
+            (state.get('project', '') not in mode_defz)):
             state['dashboard_name'] = 'MEL'
-        for dash_name in prefs['dashboard_names']:
+        for dash_name in self.dash_names:
+            self.dash_select.addItem(dash_name, QVariant)
             self.add_dashboard(dash_name)
         dash_name = state.get('dashboard_name', 'MEL')
         state['dashboard_name'] = dash_name
-        self.dash_select.setCurrentText(dash_name)
+        # self.dash_select.setCurrentText(dash_name)
         self.dash_select.activated.connect(self.set_dashboard)
         # orb.log.debug('           adding dashboard selector ...')
         self.dashboard_title_layout.addWidget(self.dash_select)
@@ -660,64 +869,66 @@ class MultiDashboard(QWidget):
         self.setLayout(dashboard_panel_layout)
         self.setMinimumSize(500, 200)
         current_dash_name = state.get('dashboard_name')
-        dash_names = prefs['dashboard_names']
-        if current_dash_name in dash_names:
-            self.set_dashboard(dash_names.index(current_dash_name))
+        if current_dash_name in self.dash_names:
+            self.set_dashboard(self.dash_names.index(current_dash_name))
         else:
             self.set_dashboard(0)
 
+    @property
+    def dash_names(self):
+        names = prefs.get('dashboard_names', ['MEL']) + ['System Power Modes']
+        if state.get('project') not in mode_defz:
+            names.remove('System Power Modes')
+        return names
+
     def add_dashboard(self, dashboard_name):
-        if dashboard_name in prefs['dashboard_names']:
-            state['dashboard_name'] = dashboard_name
-            sys_tree_model = SystemTreeModel(self.project)
-            view_model = SystemTreeProxyModel(sys_tree_model)
-            dash = SystemDashboard(view_model, parent=window)
-            self.dashboards.addWidget(dash)
+        # if dashboard_name in self.dash_names:
+        # state['dashboard_name'] = dashboard_name
+        sys_tree_model = SystemTreeModel(self.project)
+        view_model = SystemTreeProxyModel(sys_tree_model)
+        dash = SystemDashboard(view_model, parent=self)
+        self.dashboards.addWidget(dash)
 
     def set_dashboard(self, idx):
-        orb.log.debug('* set_dashboard()')
-        # dash_name = self.dash_select.currentText()
-        dash_name = prefs['dashboard_names'][idx]
+        # orb.log.debug('* set_dashboard()')
+        dash_name = self.dash_names[idx]
         state['dashboard_name'] = dash_name
         self.dashboards.setCurrentIndex(idx)
         dash = self.dashboards.widget(idx)
-        # NOTE: the following line appears to cause a segfault:
-        # dash.model().sourceModel().layoutChanged.emit()
-        dash.expandToDepth(2)
+        # -----------------------------------------------------------------
+        n = state.get('sys_tree_expansion', {}).get(state.get('project'))
+        if n is not None:
+            dash.expandToDepth(n + 1)
+            # orb.log.debug(f'[Dashboard] expanded to level {n + 2}')
+        else:
+            dash.expandToDepth(2)
+            # orb.log.debug('[Dashboard] expanded to default level (2)')
+        # -----------------------------------------------------------------
         dash.model().sort(0)
         for column in range(1, dash.model().sourceModel().columnCount()):
             dash.resizeColumnToContents(column)
         dash.resizeColumnToContents(0)
-        # n = state.get('sys_tree_expansion', {}).get(state.get('project'))
-        # if n is not None:
-            # dash.expandToDepth(n + 1)
-            # # orb.log.debug(f'[Dashboard] expanded to level {n + 2}')
-        # else:
-            # dash.expandToDepth(2)
-            # # orb.log.debug('[Dashboard] expanded to default level (2)')
         orb.log.debug(f'  - dashboard set to "{dash_name}"')
 
-    def rebuild_dash_selector(self):
-        orb.log.debug('* rebuild_dash_selector()')
-        if getattr(self, 'dashboard_title_layout', None):
-            orb.log.debug('  - dashboard_title_layout exists ...')
-            orb.log.debug('  - removing old dash selector ...')
-            self.dashboard_title_layout.removeWidget(self.dash_select)
-            self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
-            self.dash_select.close()
-            self.dash_select = None
-            # orb.log.debug('  - creating new dash selector ...')
-            new_dash_select = QComboBox()
-            new_dash_select.setStyleSheet(
-                                'font-weight: bold; font-size: 14px')
-            for dash_name in prefs['dashboard_names']:
-                new_dash_select.addItem(dash_name, QVariant)
-            if state.get('project', '') in mode_defz:
-                new_dash_select.addItem('System Power Modes', QVariant)
-            new_dash_select.setCurrentIndex(0)
-            new_dash_select.activated.connect(self.set_dashboard)
-            self.dash_select = new_dash_select
-            self.dashboard_title_layout.addWidget(self.dash_select)
+    # def rebuild_dash_selector(self):
+        # orb.log.debug('* rebuild_dash_selector()')
+        # if getattr(self, 'dashboard_title_layout', None):
+            # orb.log.debug('  - dashboard_title_layout exists ...')
+            # orb.log.debug('  - removing old dash selector ...')
+            # self.dashboard_title_layout.removeWidget(self.dash_select)
+            # self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
+            # self.dash_select.close()
+            # self.dash_select = None
+            # # orb.log.debug('  - creating new dash selector ...')
+            # new_dash_select = QComboBox()
+            # new_dash_select.setStyleSheet(
+                                # 'font-weight: bold; font-size: 14px')
+            # for dash_name in self.dash_names:
+                # new_dash_select.addItem(dash_name, QVariant)
+            # new_dash_select.setCurrentIndex(0)
+            # new_dash_select.activated.connect(self.set_dashboard)
+            # self.dash_select = new_dash_select
+            # self.dashboard_title_layout.addWidget(self.dash_select)
 
 
 if __name__ == '__main__':
@@ -725,7 +936,7 @@ if __name__ == '__main__':
     Cmd line invocation for testing / prototyping
     """
     import argparse, sys
-    from PyQt5.QtWidgets import QApplication, QVBoxLayout, QWidget
+    from PyQt5.QtWidgets import QApplication, QWidget
     from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import create_test_users
     from pangalactic.core.test.utils import create_test_project

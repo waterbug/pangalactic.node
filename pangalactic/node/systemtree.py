@@ -18,8 +18,9 @@ from pangalactic.core             import orb
 from pangalactic.core             import prefs, state
 from pangalactic.core.names       import get_display_name, pname_to_header
 from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
-                                          get_pval, get_pval_as_str, parm_defz,
-                                          mode_defz)
+                                          get_pval, get_pval_as_str, 
+                                          get_modal_context, get_modal_power,
+                                          parm_defz, mode_defz)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -340,7 +341,7 @@ class SystemTreeModel(QAbstractItemModel):
         if state.get('dashboard_name') == 'System Power Modes':
             proj_modes = (mode_defz.get(self.project.oid) or {}).get('modes')
             if proj_modes:
-                columns += list(proj_modes)
+                columns += list(proj_modes.values())
         else:
             columns += (prefs.get('dashboards') or {}).get(
                         state.get('dashboard_name'))
@@ -368,9 +369,14 @@ class SystemTreeModel(QAbstractItemModel):
         data_cols = self.cols[1:]
         return [self.col_def(col_id) for col_id in data_cols]
 
-    def get_header(self, pid):
-        return pname_to_header(pid, 'HardwareProduct',
-                               project_oid=self.project.oid)
+    def get_header(self, col_id):
+        if state.get('dashboard_name') == 'System Power Modes':
+            # col_id is an Activity name ...
+            return '  \n  '.join(wrap(col_id, width=20,
+                                 break_long_words=False))
+        else:
+            return pname_to_header(col_id, 'HardwareProduct',
+                                   project_oid=self.project.oid)
 
     @property
     def rqt(self):
@@ -541,7 +547,7 @@ class SystemTreeModel(QAbstractItemModel):
         return success
 
     def removeColumn(self, position, parent=QModelIndex()):
-        orb.log.debug('* removeColumn({})'.format(position))
+        # orb.log.debug('* removeColumn({})'.format(position))
         self.beginRemoveColumns(parent, position, position)
         success = True
         if position < 0 or position > len(self.cols) - 1:
@@ -594,6 +600,7 @@ class SystemTreeModel(QAbstractItemModel):
     def data(self, index, role):
         if not index.isValid():
             return None
+        # orb.log.debug('* SystemTreeModel.data()')
         node = index.internalPointer()
         if role == Qt.DecorationRole and index.column() == 0:
             return get_pixmap(node.obj)
@@ -611,8 +618,34 @@ class SystemTreeModel(QAbstractItemModel):
             # some columns are data elements, some are parameters ...
             if self.cols:
                 if node.obj.__class__.__name__ == 'Project':
+                    # orb.log.debug('  Project node ...')
                     if index.column() == 0:
                         return node.obj.id
+                    else:
+                        return ''
+                elif ((self.dash_name == 'System Power Modes')
+                      and mode_defz.get(self.project.oid)):
+                    # orb.log.debug('  dash is "System Power Modes" ...')
+                    if index.column() == 0:
+                        return node.name
+                    proj_mode_defz = mode_defz[self.project.oid]
+                    proj_modes = proj_mode_defz.get('modes')
+                    mode_oids = []
+                    if proj_modes:
+                        mode_oids = list(proj_modes)
+                    if len(mode_oids) > index.column() > 0:
+                        mode_oid = mode_oids[index.column() -1]
+                        sys_usage_oid = getattr(node.link, 'oid', None)
+                        oid = getattr(node.obj, 'oid', None)
+                        modal_context = get_modal_context(self.project.oid,
+                                                          sys_usage_oid,
+                                                          mode_oid)
+                        # p_cbe_val = get_modal_power(self.project.oid,
+                                                    # sys_usage_oid,
+                                                    # oid,
+                                                    # mode_oid,
+                                                    # modal_context)
+                        return str(modal_context)
                     else:
                         return ''
                 else:
@@ -987,8 +1020,8 @@ class SystemTreeView(QTreeView):
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0]
             mapped_i = self.proxy_model.mapToSource(i)
-            obj = self.source_model.get_node(mapped_i).obj
-            orb.log.debug(f'  obj: {obj.id}')
+            # obj = self.source_model.get_node(mapped_i).obj
+            # orb.log.debug(f'  obj: {obj.id}')
             link = self.source_model.get_node(mapped_i).link
             # NOTE: root node (project) has a link of None ...
             if link and isinstance(link, (orb.classes['Acu'],
@@ -1025,11 +1058,34 @@ class SystemTreeView(QTreeView):
                     orb.log.debug('  on_show_allocated_to() crashed.')
                     return
 
+    def get_node_for_index(self, index):
+        """
+        Get the tree node with the specified proxy model index.
+        """
+        i = index
+        try:
+            mapped_i = self.proxy_model.mapToSource(i)
+            node = self.source_model.get_node(mapped_i)
+            return node
+        except:
+            # oops -- my C++ object probably got deleted
+            return None
+
+    # NOTE: new version of "sys node expanded" signal for use with
+    # MultiDashboard, which does not use the same model internally, so can't
+    # use an "index" from this model ...
     def sys_node_expanded(self, index):
         if (self.project.id in state['sys_trees'] and
             index not in state['sys_trees'][self.project.id]['expanded']):
             state['sys_trees'][self.project.id]['expanded'].append(index)
-        dispatcher.send(signal='sys node expanded', index=index)
+        node = self.get_node_for_index(index)
+        if node:
+            # orb.log.debug('- node expanded ...')
+            # orb.log.debug('  + obj id: {}'.format(
+                          # getattr(node.obj, 'id', '') or 'id unknown'))
+            # dispatcher.send(signal='sys node expanded', index=index)
+            dispatcher.send(signal='sys node expanded', obj=node.obj,
+                            link=node.link)
 
     def sys_node_collapsed(self, index):
         if (self.project.id in state['sys_trees'] and

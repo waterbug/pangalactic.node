@@ -121,7 +121,8 @@ from pangalactic.node.admin            import AdminDialog, PersonSearchDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import Model3dDialog, Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
-from pangalactic.node.dashboards       import SystemDashboard
+# from pangalactic.node.dashboards       import SystemDashboard
+from pangalactic.node.dashboards       import MultiDashboard
 from pangalactic.node.dialogs          import (FullSyncDialog,
                                                LoginDialog,
                                                NotificationDialog,
@@ -461,7 +462,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_parm_recompute, 'parameters recomputed')
         dispatcher.connect(self.refresh_tree_and_dashboard,
                                                     'refresh tree and dash')
-        dispatcher.connect(self.rebuild_dash_selector, 'dash pref set')
+        # dispatcher.connect(self.rebuild_dash_selector, 'dash pref set')
         # dispatcher.connect(self.on_ldap_search, 'ldap search')
         dispatcher.connect(self.on_add_person, 'add person')
         dispatcher.connect(self.on_update_person, 'update person')
@@ -2649,6 +2650,21 @@ class Main(QMainWindow):
         names = [c for c in orb.classes if orb.get_count(c)]
         names.sort()
         return names
+
+    @property
+    def dashboard(self):
+        """
+        Current dashboard widget.
+        """
+        dash_name = state.get('dashboard_name')
+        multidash = getattr(self, 'multidashboard', None)
+        if (multidash and dash_name in prefs.get('dashboard_names', [])):
+            idx = prefs['dashboard_names'].index(dash_name)
+            return multidash.dashboards.widget(idx)
+        else:
+            dash = QLabel('No Project Selected')
+            dash.setStyleSheet('font-weight: bold; font-size: 16px')
+            return dash
 
     def get_project(self):
         """
@@ -5019,11 +5035,16 @@ class Main(QMainWindow):
                 # self.dash_select.close()
                 # self.dash_select = None
             # ----------------------------------------------------------------
-            if getattr(self, 'dashboard', None):
-                dashboard_panel_layout.removeWidget(self.dashboard)
-                self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
-                self.dashboard.close()
-                self.dashboard = None
+            # if getattr(self, 'dashboard', None):
+                # dashboard_panel_layout.removeWidget(self.dashboard)
+                # self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
+                # self.dashboard.close()
+                # self.dashboard = None
+            if getattr(self, 'multidashboard', None):
+                dashboard_panel_layout.removeWidget(self.multidashboard)
+                self.multidashboard.setAttribute(Qt.WA_DeleteOnClose)
+                self.multidashboard.close()
+                self.multidashboard = None
             # orb.log.debug('    destroying old dashboard_panel ...')
             self.dashboard_panel.setAttribute(Qt.WA_DeleteOnClose)
             self.dashboard_panel.close()
@@ -5054,7 +5075,7 @@ class Main(QMainWindow):
         # dash_name = state.get('dashboard_name', 'MEL')
         # state['dashboard_name'] = dash_name
         # --------------------------------------------------------------------
-        state['dashboard_name'] = 'MEL'
+        # state['dashboard_name'] = 'MEL'
         # --------------------------------------------------------------------
         # self.dash_select.setCurrentText(dash_name)
         # self.dash_select.activated.connect(self.set_dashboard)
@@ -5066,51 +5087,52 @@ class Main(QMainWindow):
         self.top_dock_widget.setWidget(self.dashboard_panel)
         if getattr(self, 'sys_tree', None):
             # orb.log.debug('         + creating new dashboard tree ...')
-            self.dashboard = SystemDashboard(self.sys_tree.model(),
-                                             parent=self)
+            # self.dashboard = SystemDashboard(self.sys_tree.model(),
+                                             # parent=self)
+            self.multidashboard = MultiDashboard(self.project, parent=self)
+            self.dashboard.setFrameStyle(QFrame.Panel | QFrame.Raised)
+            if hasattr(self.dashboard, 'units_set'):
+                self.dashboard.units_set.connect(self.on_units_set)
         else:
             orb.log.debug('         + no sys_tree; using placeholder '
                           'for dashboard...')
-            self.dashboard = QLabel('No Project Selected')
-            self.dashboard.setStyleSheet('font-weight: bold; font-size: 16px')
-        self.dashboard.setFrameStyle(QFrame.Panel |
-                                     QFrame.Raised)
-        self.dashboard.units_set.connect(self.on_units_set)
-        dashboard_panel_layout.addWidget(self.dashboard)
+            # self.dashboard = QLabel('No Project Selected')
+            # self.dashboard.setStyleSheet('font-weight: bold; font-size: 16px')
+        dashboard_panel_layout.addWidget(self.multidashboard)
         gripper = Gripper(self.sys_tree, w=10, h=10)
         dashboard_panel_layout.addWidget(gripper,
-                                  alignment=Qt.AlignRight|Qt.AlignBottom)
+                                      alignment=Qt.AlignRight|Qt.AlignBottom)
         title = 'Systems Dashboard: <font color="purple">{}</font>'.format(
                                                                self.project.id)
         self.dash_title.setText(title)
         self.dash_title.setStyleSheet('font-weight: bold; font-size: 18px')
-        model = self.dashboard.model().sourceModel()
-        for column in range(model.columnCount()):
-            self.dashboard.resizeColumnToContents(column)
+        # model = self.dashboard.model().sourceModel()
+        # for column in range(model.columnCount()):
+            # self.dashboard.resizeColumnToContents(column)
         self.dashboard.setFocus(True)
         self.dashboard.update()
         self.update()
         self.dashboard_rebuilt = True
 
-    def set_dashboard(self, index):
-        """
-        Set the dashboard state to the selected view.
-        """
-        # --------------------------------------------------------------------
-        # NOTE: dash_select temporarily deactivated -- dash switching is
-        # causing segfaults [SCW 2024-02-07]
-        # --------------------------------------------------------------------
-        # dash_name = self.dash_select.currentText()
-        # --------------------------------------------------------------------
-        dash_name = 'MEL'
-        if (dash_name == 'System Power Modes' and
-            not (state.get('project', '') in mode_defz)):
-            dash_name = 'MEL'
-        # --------------------------------------------------------------------
-        # self.dash_select.setCurrentText(dash_name)
-        # --------------------------------------------------------------------
-        state['dashboard_name'] = dash_name
-        self.refresh_tree_and_dashboard()
+    # def set_dashboard(self, index):
+        # """
+        # Set the dashboard state to the selected view.
+        # """
+        # # --------------------------------------------------------------------
+        # # NOTE: dash_select temporarily deactivated -- dash switching is
+        # # causing segfaults [SCW 2024-02-07]
+        # # --------------------------------------------------------------------
+        # # dash_name = self.dash_select.currentText()
+        # # --------------------------------------------------------------------
+        # dash_name = 'MEL'
+        # if (dash_name == 'System Power Modes' and
+            # not (state.get('project', '') in mode_defz)):
+            # dash_name = 'MEL'
+        # # --------------------------------------------------------------------
+        # # self.dash_select.setCurrentText(dash_name)
+        # # --------------------------------------------------------------------
+        # state['dashboard_name'] = dash_name
+        # self.refresh_tree_and_dashboard()
 
     def refresh_dashboard(self):
         # orb.log.debug('* refreshing dashboard ...')

@@ -163,7 +163,7 @@ class ModelWindow(QMainWindow):
             # TODO:  enable multiple CAD models (e.g. "detailed", "simplified")
             models = self.get_models()
             if models or self.obj.doc_references:
-                orb.log.debug('* ModelWindow: subject has models ...')
+                # orb.log.debug('* ModelWindow: subject has models ...')
                 if hasattr(self, 'models_and_docs_info_action'):
                     try:
                         self.models_and_docs_info_action.setVisible(True)
