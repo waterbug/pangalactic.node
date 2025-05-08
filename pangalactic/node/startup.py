@@ -9,7 +9,9 @@ from copy import deepcopy
 # pangalactic
 from pangalactic.core         import orb
 from pangalactic.core         import config, prefs, state
-from pangalactic.core.meta    import DEFAULT_CLASS_PARAMETERS, PGXN_PARAMETERS
+from pangalactic.core.meta    import (DEFAULT_CLASS_PARAMETERS,
+                                      DEFAULT_DASHBOARD_SCHEMAS,
+                                      PGXN_PARAMETERS)
 from pangalactic.node         import docs, icons, images
 from pangalactic.node.docs    import images as doc_images
 
@@ -42,31 +44,7 @@ def setup_dirs_and_state(app_name='Pangalaxian'):
     # the save state file -- that way "app_" items are ALWAYS set from the
     # current app release.
     if not prefs.get('dashboards'):
-        prefs['dashboards'] = {
-            'MEL' : 
-                ['m[CBE]', 'm[Ctgcy]', 'm[MEV]',
-                 'P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]',
-                 'R_D[CBE]', 'R_D[Ctgcy]', 'R_D[MEV]',
-                 'Vendor', 'Cost', 'TRL'],
-            'Mass':
-                ['m[CBE]', 'm[Ctgcy]', 'm[MEV]'],
-            'Power':
-                ['P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]', 'P[standby]',
-                 'P[survival]', 'Area_active', 'Area_substrate'],
-            'Data Rates':
-                ['R_D[CBE]', 'R_D[Ctgcy]', 'R_D[MEV]'],
-            'Mechanical':
-                ['m[CBE]', 'm[Ctgcy]', 'm[MEV]', 'height', 'width', 'depth'],
-            'Thermal':
-                ['T[operational_max]', 'T[operational_min]', 'T[survival_max]',
-                 'T[survival_min]', 'P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]',
-                 'P[survival]'],
-            'System Resources':
-                ['m[CBE]', 'm[Ctgcy]', 'm[MEV]', 'm[NTE]', 'm[Margin]',
-                 'P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]', 'P[NTE]',
-                 'P[Margin]', 'R_D[CBE]', 'R_D[Ctgcy]', 'R_D[MEV]',
-                 'R_D[NTE]', 'R_D[Margin]']
-            }
+        prefs['dashboards'] = deepcopy(DEFAULT_DASHBOARD_SCHEMAS)
         prefs['dashboard_names'] = list(prefs['dashboards'].keys())
     # state contains app-specified dashboards (app_dashboards)
     # update prefs from any new app dashboards in state
