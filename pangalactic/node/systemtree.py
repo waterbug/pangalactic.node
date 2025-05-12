@@ -338,13 +338,12 @@ class SystemTreeModel(QAbstractItemModel):
     @property
     def cols(self):
         columns = ['System']
-        if state.get('dashboard_name') == 'System Power Modes':
+        if self.dash_name == 'System Power Modes':
             proj_modes = (mode_defz.get(self.project.oid) or {}).get('modes')
             if proj_modes:
                 columns += list(proj_modes.values())
         else:
-            columns += (prefs.get('dashboards') or {}).get(
-                        state.get('dashboard_name'))
+            columns += (prefs.get('dashboards') or {}).get(self.dash_name)
         return columns
 
     def col_def(self, pid):
@@ -370,7 +369,7 @@ class SystemTreeModel(QAbstractItemModel):
         return [self.col_def(col_id) for col_id in data_cols]
 
     def get_header(self, col_id):
-        if state.get('dashboard_name') == 'System Power Modes':
+        if self.dash_name == 'System Power Modes':
             # col_id is an Activity name ...
             return '  \n  '.join(wrap(col_id, width=20,
                                  break_long_words=False))
@@ -552,11 +551,10 @@ class SystemTreeModel(QAbstractItemModel):
         success = True
         if position < 0 or position > len(self.cols) - 1:
             success = False
-        dashboard_name = state.get('dashboard_name', 'MEL')
         if position < len(self.cols):
             pid = self.cols[position]
-            prefs['dashboards'][dashboard_name].remove(pid)
-            s = 'prefs["dashboards"]["{}"]'.format(dashboard_name)
+            prefs['dashboards'][self.dash_name].remove(pid)
+            s = f'prefs["dashboards"]["{self.dash_name}"]'
             log_msg = '  - column "{}" removed from {}'
             orb.log.debug(log_msg.format(pid, s))
             orb.log.debug('    self.cols is now: "{}"'.format(str(self.cols)))
@@ -804,11 +802,11 @@ class SystemTreeModel(QAbstractItemModel):
                     return QVariant('System')
                 else:
                     return QVariant(self.get_header(self.cols[section]))
-            else:
-                try:
-                    self.removeColumn(section)
-                except:
-                    pass
+            # else:
+                # try:
+                    # self.removeColumn(section)
+                # except:
+                    # pass
         elif role == Qt.ToolTipRole:
             if section == 0:
                 return 'System or component identifier'
@@ -882,8 +880,7 @@ class SystemTreeModel(QAbstractItemModel):
         if element_id in self.cols:
             orb.log.debug("  - we already got one, it's verra nahce.")
         else:
-            dashboard_name = state.get('dashboard_name', 'MEL')
-            prefs['dashboards'][dashboard_name].append(element_id)
+            prefs['dashboards'][self.dash_name].append(element_id)
             success = self.insertColumn(len(self.cols)-1)
             if success:
                 orb.log.debug('  - success')
@@ -965,6 +962,9 @@ class SystemTreeView(QTreeView):
         self.setUniformRowHeights(True)
         # delegate = HTMLDelegate()
         # self.setItemDelegate(delegate)
+        # --------------------------------------------------------------------
+        # the system tree (view) has no headers or columns ...
+        # --------------------------------------------------------------------
         self.setHeaderHidden(True)
         cols = self.source_model.cols
         if cols:
@@ -1015,7 +1015,7 @@ class SystemTreeView(QTreeView):
         self.pgxnobj_action.triggered.connect(self.view_object)
 
     def contextMenuEvent(self, event):
-        # orb.log.debug('* contextMenuEvent()')
+        orb.log.debug('* contextMenuEvent()')
         menu = QMenu()
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0]
@@ -1062,6 +1062,7 @@ class SystemTreeView(QTreeView):
         """
         Get the tree node with the specified proxy model index.
         """
+        # orb.log.debug('*  get_node_for_index() ...')
         i = index
         try:
             mapped_i = self.proxy_model.mapToSource(i)
@@ -1075,6 +1076,7 @@ class SystemTreeView(QTreeView):
     # MultiDashboard, which does not use the same model internally, so can't
     # use an "index" from this model ...
     def sys_node_expanded(self, index):
+        # orb.log.debug('*  sys_node_expanded() ...')
         if (self.project.id in state['sys_trees'] and
             index not in state['sys_trees'][self.project.id]['expanded']):
             state['sys_trees'][self.project.id]['expanded'].append(index)
@@ -1094,6 +1096,7 @@ class SystemTreeView(QTreeView):
         dispatcher.send(signal='sys node collapsed', index=index)
 
     def sys_node_selected(self, index):
+        # orb.log.debug('*  sys_node_selected() ...')
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0]
             # need to expand when selected so its children are visible in the
@@ -1155,6 +1158,7 @@ class SystemTreeView(QTreeView):
             pass
 
     def sys_node_expand(self, index=None):
+        # orb.log.debug('* sys_node_expand()')
         try:
             if index and not self.isExpanded(index):
                 self.expand(index)
@@ -1163,6 +1167,7 @@ class SystemTreeView(QTreeView):
             pass
 
     def sys_node_collapse(self, index=None):
+        # orb.log.debug('* sys_node_collapse()')
         try:
             if index and self.isExpanded(index):
                 self.collapse(index)
@@ -1171,7 +1176,7 @@ class SystemTreeView(QTreeView):
             pass
 
     def on_new_diagram_block(self, acu=None):
-        orb.log.debug('- systree: "new diagram block" signal received.')
+        orb.log.debug('* systree: "new diagram block" signal received.')
         if acu:
             try:
                 idxs = self.object_indexes_in_tree(acu.assembly)

@@ -3,7 +3,8 @@
 """
 Dashboards:  a dashboard in Pangalaxian is a dockable widget in the top section
 of the main window, in which columns can be added to display the current values
-and realtime updates of specified parameters of a system that is being modeled.
+of specified parameters of the system that is being modeled, with realtime
+updates.
 """
 import os
 from pydispatch import dispatcher
@@ -51,7 +52,7 @@ class SystemDashboard(QTreeView):
         Keyword Args:
             row_colors (bool): show rows with alternating bg colors
                 (default: True)
-            grid_lines (bool): show grid lines separting rows/columns
+            grid_lines (bool): show grid lines separating rows/columns
                 (default: True)
             parent (QWidget):  parent widget
         """
@@ -124,7 +125,7 @@ class SystemDashboard(QTreeView):
         delete_columns_action.triggered.connect(self.delete_columns)
         dash_header.addAction(delete_columns_action)
         # -------------------------------------------------------------------
-        # NOTE: dash board mods temporarily deactivated -- dash switching is
+        # NOTE: dash board mods deactivated -- dash switching was
         # causing segfaults [SCW 2024-02-07]
         # -------------------------------------------------------------------
         # create_dashboard_action = QAction('create new dashboard', dash_header)
@@ -133,8 +134,7 @@ class SystemDashboard(QTreeView):
         # set_as_pref_action = QAction('set as preferred dashboard', dash_header)
         # set_as_pref_action.triggered.connect(self.set_as_pref_dashboard)
         # dash_header.addAction(set_as_pref_action)
-        dash_name = state.get('dashboard_name')
-        # dash_name = 'MEL'
+        dash_name = state.get('dashboard_name', 'MEL')
         # -------------------------------------------------------------------
         if dash_name in (state.get('app_dashboards') or {}).keys():
             txt = f'use standard {dash_name} dashboard schema'
@@ -154,7 +154,7 @@ class SystemDashboard(QTreeView):
         export_tsv_pref_action.triggered.connect(self.export_tsv_pref)
         dash_header.addAction(export_tsv_pref_action)
         dash_header.setContextMenuPolicy(Qt.ActionsContextMenu)
-        # NOTE: moving a section currently causes a crash -- temporarily
+        # NOTE: on_section_moved() currently causes a crash -- temporarily
         # deactivated [SCW 2024-02-07]
         # dash_header.sectionMoved.connect(self.on_section_moved)
         dash_header.setStretchLastSection(False)
@@ -177,11 +177,17 @@ class SystemDashboard(QTreeView):
         else:
             self.expandToDepth(1)
             # orb.log.debug('[Dashboard] expanded to default level (2)')
-        for column in range(1, view_model.sourceModel().columnCount()):
-            self.resizeColumnToContents(column)
+        self.adjust_columns()
         # self.header().resizeSection(0, 400)
         # DO NOT use `setMinimumSize()` here -- it breaks the slider that
         # appears when window size is too small to display the full width
+
+    def adjust_columns(self):
+        # orb.log.debug('[Dashboard] adjust_columns()')
+        self.sortByColumn(0, Qt.AscendingOrder)
+        for column in range(1, self.model().sourceModel().columnCount()):
+            self.resizeColumnToContents(column)
+        self.resizeColumnToContents(0)
 
     def sizeHintForColumn(self, i):
         if i == 0:
@@ -209,17 +215,21 @@ class SystemDashboard(QTreeView):
 
     def on_section_moved(self, logical, old, new):
         orb.log.debug('[Dashboard] section moved')
-        # orb.log.debug(' + logical: {} old: {} new: {}'.format(
-                                                        # logical, old, new))
-        cols = prefs['dashboards'][state.get('dashboard_name', 'MEL')]
-        # orb.log.debug('   cols: {}'.format(str(cols)))
-        colname = cols.pop(old-1)
-        # orb.log.debug(f'   colname: {colname}')
-        cols.insert(new-1, colname)
-        # orb.log.debug('   inserting at {}'.format(new-1))
-        prefs['dashboards'][state['dashboard_name']] = cols[:]
-        # orb.log.debug('   new pref cols: {}'.format(str(cols)))
-        dispatcher.send(signal='dashboard mod')
+        try:
+            orb.log.debug(' + logical: {} old: {} new: {}'.format(
+                                                            logical, old, new))
+            cols = prefs['dashboards'][state.get('dashboard_name', 'MEL')]
+            orb.log.debug('   old pref cols: {}'.format(str(cols)))
+            colname = cols[old-1]
+            orb.log.debug(f'   moved colname: {colname}')
+            # cols.insert(new-1, colname)
+            # orb.log.debug('   inserting at {}'.format(new-1))
+            # prefs['dashboards'][state['dashboard_name']] = cols[:]
+            # orb.log.debug('   new pref cols: {}'.format(str(cols)))
+            # dispatcher.send(signal='dashboard mod')
+        except:
+            # pass
+            orb.log.debug('   save of the move failed.')
 
     def mimeTypes(self):
         """
@@ -341,6 +351,7 @@ class SystemDashboard(QTreeView):
     def delete_columns(self):
         """
         Dialog displayed in response to 'delete columns' context menu item.
+        NOTE: this action actually deletes columns from the source model.
         """
         dlg = DeleteColsDialog(parent=self)
         if dlg.exec_() == QDialog.Accepted:
@@ -357,8 +368,7 @@ class SystemDashboard(QTreeView):
                 if 0 in indexes:
                     dispatcher.send(signal='refresh tree and dash')
                 else:
-                    for column in range(1, src_model.columnCount()):
-                        self.resizeColumnToContents(column)
+                    self.adjust_columns()
 
     def select_prescriptive_parms(self):
         """
@@ -555,23 +565,22 @@ class SystemDashboard(QTreeView):
             mapped_sdi = self.model().mapFromSource(sdi)
             if mapped_sdi:
                 self.expand(mapped_sdi)
-        for column in range(1, self.model().columnCount()):
-            self.resizeColumnToContents(column)
+        self.adjust_columns()
 
     def dash_node_expanded(self, index):
+        # orb.log.debug('Dash: dash_node_expanded()')
         if not self.model():
             return
-        for column in range(1, self.model().columnCount()):
-            self.resizeColumnToContents(column)
+        self.adjust_columns()
         dispatcher.send(signal='dash node expanded', index=index)
 
     def dash_node_collapsed(self, index):
-        # for column in range(self.model().columnCount()):
-            # self.resizeColumnToContents(column)
+        # orb.log.debug('Dash: dash_node_collapsed()')
+        # self.adjust_columns()
         dispatcher.send(signal='dash node collapsed', index=index)
 
     def dash_node_selected(self, index):
-        # map to source model index
+        # orb.log.debug('Dash: dash_node_selected()')
         mapped_i = self.model().mapToSource(index)
         node = self.model().sourceModel().get_node(mapped_i)
         state['system'][state.get('project')] = node.obj.oid
@@ -583,10 +592,10 @@ class SystemDashboard(QTreeView):
             # return
         # if index and not self.isExpanded(index):
             # self.expand(index)
-            # for column in range(1, self.model().columnCount()):
-                # self.resizeColumnToContents(column)
+            # self.adjust_columns()
 
     def dash_node_expand(self, obj=None, link=None):
+        # orb.log.debug('Dash: dash_node_expand()')
         if not self.model():
             return
         # orb.log.debug('Dash: got "sys node expanded" signal ...')
@@ -603,10 +612,10 @@ class SystemDashboard(QTreeView):
             # orb.log.debug(f'   found {len(idxs)} occurrances in tree.')
             proxy_idx = self.model().mapFromSource(idxs[0])
             self.expand(proxy_idx)
-            for column in range(1, self.model().columnCount()):
-                self.resizeColumnToContents(column)
+            self.adjust_columns()
 
     def dash_node_collapse(self, index=None):
+        # orb.log.debug('Dash: dash_node_collapse()')
         if index and self.isExpanded(index):
             self.collapse(index)
 
@@ -697,6 +706,7 @@ class SystemDashboard(QTreeView):
             idx (QModelIndex):  source model index of the assembly or project
                 node
         """
+        # orb.log.debug(f'* object_indexes_in_assembly({obj.id})')
         # NOTE: ignore "TBD" objects
         if getattr(obj, 'oid', '') == 'pgefobjects:TBD':
             return []
@@ -727,7 +737,7 @@ class SystemDashboard(QTreeView):
         Args:
             link (Acu or ProjectSystemUsage):  specified link object
         """
-        # orb.log.debug('* link_indexes_in_tree({})'.format(link.id))
+        orb.log.debug('* link_indexes_in_tree({})'.format(link.id))
         if not link:
             return []
         model = self.model().sourceModel()
@@ -858,8 +868,7 @@ class MultiDashboard(QWidget):
             self.add_dashboard(dash_name)
         dash_name = state.get('dashboard_name', 'MEL')
         state['dashboard_name'] = dash_name
-        # self.dash_select.setCurrentText(dash_name)
-        self.dash_select.activated.connect(self.set_dashboard)
+        self.dash_select.currentTextChanged.connect(self.set_dashboard)
         # orb.log.debug('           adding dashboard selector ...')
         self.dashboard_title_layout.addWidget(self.dash_select)
         # --------------------------------------------------------------------
@@ -870,9 +879,9 @@ class MultiDashboard(QWidget):
         self.setMinimumSize(500, 200)
         current_dash_name = state.get('dashboard_name')
         if current_dash_name in self.dash_names:
-            self.set_dashboard(self.dash_names.index(current_dash_name))
+            self.dash_select.setCurrentText(current_dash_name)
         else:
-            self.set_dashboard(0)
+            self.dash_select.setCurrentText('MEL')
 
     @property
     def dash_names(self):
@@ -889,10 +898,10 @@ class MultiDashboard(QWidget):
         dash = SystemDashboard(view_model, parent=self)
         self.dashboards.addWidget(dash)
 
-    def set_dashboard(self, idx):
-        # orb.log.debug('* set_dashboard()')
-        dash_name = self.dash_names[idx]
+    def set_dashboard(self, dash_name):
+        orb.log.debug(f'* set_dashboard({dash_name})')
         state['dashboard_name'] = dash_name
+        idx = self.dash_names.index(dash_name)
         self.dashboards.setCurrentIndex(idx)
         dash = self.dashboards.widget(idx)
         # -----------------------------------------------------------------
@@ -904,10 +913,9 @@ class MultiDashboard(QWidget):
             dash.expandToDepth(2)
             # orb.log.debug('[Dashboard] expanded to default level (2)')
         # -----------------------------------------------------------------
-        dash.model().sort(0)
-        for column in range(1, dash.model().sourceModel().columnCount()):
-            dash.resizeColumnToContents(column)
-        dash.resizeColumnToContents(0)
+        # dash.model().sort(0)
+        # dash.sortByColumn(0, Qt.AscendingOrder)
+        # dash.adjust_columns()
         orb.log.debug(f'  - dashboard set to "{dash_name}"')
 
     # def rebuild_dash_selector(self):
