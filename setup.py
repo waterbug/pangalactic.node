@@ -5,7 +5,7 @@ Engineering Framework (PGEF) desktop GUI client.
 import os, site
 from setuptools import setup, find_packages
 
-VERSION = '4.3'
+VERSION = '4.4.dev0'
 
 doc_mod_path = os.path.join('pangalactic', 'node', 'docs')
 doc_paths = [os.path.join(doc_mod_path, p)
@@ -43,7 +43,7 @@ setup(
     license='TBD',
     packages=find_packages(),
     install_requires=[
-        'pangalactic.core>=4.3',
+        'pangalactic.core>=4.4.dev0',
         'autobahn',
         'binaryornot',
         'packaging',

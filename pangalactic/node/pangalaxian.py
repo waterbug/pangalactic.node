@@ -205,7 +205,8 @@ class Main(QMainWindow):
                        Version('4.3.dev9'),
                        Version('4.3.dev10'),
                        Version('4.3.dev11'),
-                       Version('4.3')
+                       Version('4.3'),
+                       Version('4.4.dev0')
                        ]
 
     # signals
@@ -1793,8 +1794,8 @@ class Main(QMainWindow):
             # base msg
             log_msg = "  "
             if subject == 'decloaked':
-                # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
-                # -- it is now a list of serialized objects
+                # NOTE: content of 'decloaked' msg changed in version 4.3
+                # -- it is now a tuple: (authid, list of serialized objects)
                 n = len(content)
                 orb.log.debug(f'received {n} "decloaked" object(s)')
                 authid, sobjs = content
@@ -1815,7 +1816,7 @@ class Main(QMainWindow):
                 orb.log.debug(f'received {n} "new" object(s)')
                 self.on_received_objects(sobjs)
             elif subject == 'modified':
-                # NOTE: content of 'new' msg changed in version 4.3
+                # NOTE: content of 'modified' msg changed in version 4.3
                 # -- it is now a tuple: (userid, list of serialized objects)
                 authid, sobjs = content
                 if authid == userid:
