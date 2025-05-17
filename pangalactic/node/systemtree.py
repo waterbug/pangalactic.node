@@ -1089,11 +1089,17 @@ class SystemTreeView(QTreeView):
             dispatcher.send(signal='sys node expanded', obj=node.obj,
                             link=node.link)
 
+    # NOTE: new version of "sys node collapsed" signal for use with
+    # MultiDashboard, which does not use the same model internally, so can't
+    # use an "index" from this model ...
     def sys_node_collapsed(self, index):
         if (self.project.id in state['sys_trees'] and
             index in state['sys_trees'][self.project.id]['expanded']):
             state['sys_trees'][self.project.id]['expanded'].remove(index)
-        dispatcher.send(signal='sys node collapsed', index=index)
+        node = self.get_node_for_index(index)
+        if node:
+            dispatcher.send(signal='sys node collapsed', obj=node.obj,
+                            link=node.link)
 
     def sys_node_selected(self, index):
         # orb.log.debug('*  sys_node_selected() ...')
