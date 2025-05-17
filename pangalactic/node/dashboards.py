@@ -12,8 +12,8 @@ from pydispatch import dispatcher
 from PyQt5.QtCore    import (pyqtSignal, Qt, QItemSelectionModel, QModelIndex,
                              QVariant)
 from PyQt5.QtWidgets import (QAction, QComboBox, QDialog, QFileDialog,
-                             QHBoxLayout, QLabel, QMessageBox, QStackedWidget,
-                             QTreeView, QVBoxLayout, QWidget)
+                             QHBoxLayout, QHeaderView, QLabel, QMessageBox,
+                             QStackedWidget, QTreeView, QVBoxLayout, QWidget)
 
 # pangalactic
 try:
@@ -185,9 +185,10 @@ class SystemDashboard(QTreeView):
     def adjust_columns(self):
         # orb.log.debug('[Dashboard] adjust_columns()')
         self.sortByColumn(0, Qt.AscendingOrder)
-        for column in range(1, self.model().sourceModel().columnCount()):
-            self.resizeColumnToContents(column)
-        self.resizeColumnToContents(0)
+        self.header().setSectionResizeMode(QHeaderView.ResizeToContents)
+        # for column in range(1, self.model().sourceModel().columnCount()):
+            # self.resizeColumnToContents(column)
+        # self.resizeColumnToContents(0)
 
     def sizeHintForColumn(self, i):
         if i == 0:
