@@ -10,7 +10,7 @@ integration, synthesis, and transformation.
 Documentation
 -------------
 User documentation is in pangalactic/node/docs.  Developer documentation is in
-the pangalactic.core package.
+the pangalactic.core package, NOTES_FOR_DEVELOPERS.md and other "NOTES" files.
 
 Installation
 ------------
