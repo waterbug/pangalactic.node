@@ -10,7 +10,7 @@ integration, synthesis, and transformation.
 Documentation
 -------------
 User documentation is in pangalactic/node/docs.  Developer documentation is in
-the pangalactic.core package, NOTES_FOR_DEVELOPERS.md and other "NOTES" files.
+the pangalactic.core package as NOTES_FOR_DEVELOPERS.md and other "NOTES" files.
 
 Installation
 ------------
@@ -21,16 +21,18 @@ Acknowledgments
 Pangalactic depends on several excellent open source libraries,
 applications, and frameworks, most notably:
 
-Python ...... http://www.python.org
-PyQt ........ https://www.riverbankcomputing.com/software/pyqt/intro
-Twisted ..... http://twistedmatrix.com (Twisted Matrix Laboratories)
-Autobahn .... https://pypi.org/project/autobahn
-PythonOCC ... https://github.com/tpaviot/pythonocc-core
+  - Python ...... http://www.python.org
+  - PyQt ........ https://www.riverbankcomputing.com/software/pyqt/intro
+  - Twisted ..... http://twistedmatrix.com (Twisted Matrix Laboratories)
+  - Autobahn .... https://pypi.org/project/autobahn
+  - PythonOCC ... https://github.com/tpaviot/pythonocc-core
 
 Thanks to all the talented and dedicated folks who have developed and
 continue to maintain those packages and others in the formidable open
 source code base that makes the Pan Galactic Engineering Framework
 possible!
+
+----------------------------------------------------------------------------
 
 NOTICE:
 Copyright 2022 United States Government as represented by the Administrator
