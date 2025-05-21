@@ -1,5 +1,5 @@
-What is it?
------------
+What is the Pan Galactic Engineering Framework?
+-----------------------------------------------
 The Pan Galactic Engineering Framework (pangalactic) is an open-architecture,
 standards-based software framework for engineering applications such as systems
 engineering data and tool integration, product lifecycle management (PLM),
@@ -7,25 +7,36 @@ computer-aided tools (CAX) integration, collaborative systems engineering,
 design, and analysis, and multi-disciplinary product model capture,
 integration, synthesis, and transformation.
 
-Documentation
--------------
-User documentation is in pangalactic/node/docs.  Developer documentation is in
-the pangalactic.core package as NOTES_FOR_DEVELOPERS.md and other "NOTES" files.
+The framework consists of 3 Python "namespace packages":
+
+  - **`pangalactic.core`** contains the [ontology](https://pangalactic.us/pgef_ontology.html), a sqlalchemy-based object-relational api (the "uberorb"), and various utility functions, reference data, and metadata definitions.
+  - **`pangalactic.node`** (this package) contains the pyqt-based GUI client, **pangalaxian**.
+  - **`pangalactic.vger`** contains the repository service.
+
+As you might guess, **`pangalactic.node`** and **`pangalactic.vger`** both depend on
+**`pangalactic.core`** for their infrastructure. The client and repository service
+both have databases with the same schema, although the client uses sqlite and
+the repository uses postgresql.
 
 Installation
 ------------
-For detailed instructions see the file INSTALL in the pangalactic.core package
+For detailed instructions see the file INSTALL in the **`pangalactic.core`** package
+
+Documentation
+-------------
+User documentation is in pangalactic/node/docs.  Developer documentation is in
+the **`pangalactic.core`** package NOTES_FOR_DEVELOPERS.md and other "NOTES" files.
 
 Acknowledgments
 ---------------
 Pangalactic depends on several excellent open source libraries,
 applications, and frameworks, most notably:
 
-  - Python ...... http://www.python.org
-  - PyQt ........ https://www.riverbankcomputing.com/software/pyqt/intro
-  - Twisted ..... http://twistedmatrix.com (Twisted Matrix Laboratories)
-  - Autobahn .... https://pypi.org/project/autobahn
-  - PythonOCC ... https://github.com/tpaviot/pythonocc-core
+  - **[Python](http://www.python.org)**
+  - **[Twisted](http://twistedmatrix.com)**
+  - **[Autobahn](https://pypi.org/project/autobahn)**
+  - **[PyQt](https://www.riverbankcomputing.com/software/pyqt/intro)**
+  - **[PythonOCC](https://github.com/tpaviot/pythonocc-core)**
 
 Thanks to all the talented and dedicated folks who have developed and
 continue to maintain those packages and others in the formidable open
