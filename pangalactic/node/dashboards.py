@@ -134,13 +134,14 @@ class SystemDashboard(QTreeView):
         # set_as_pref_action = QAction('set as preferred dashboard', dash_header)
         # set_as_pref_action.triggered.connect(self.set_as_pref_dashboard)
         # dash_header.addAction(set_as_pref_action)
-        dash_name = state.get('dashboard_name', 'MEL')
         # -------------------------------------------------------------------
-        if dash_name in (state.get('app_dashboards') or {}).keys():
-            txt = f'use standard {dash_name} dashboard schema'
-            use_app_dash_action = QAction(txt, dash_header)
-            use_app_dash_action.triggered.connect(self.use_app_dash_schema)
-            dash_header.addAction(use_app_dash_action)
+        # NOTE: use_app_dash_schema() currently causes core dump ...
+        # dash_name = state.get('dashboard_name', 'MEL')
+        # if dash_name in (state.get('app_dashboards') or {}).keys():
+            # txt = f'use standard {dash_name} dashboard schema'
+            # use_app_dash_action = QAction(txt, dash_header)
+            # use_app_dash_action.triggered.connect(self.use_app_dash_schema)
+            # dash_header.addAction(use_app_dash_action)
         # delete_dashboard_action = QAction('delete dashboard', dash_header)
         # delete_dashboard_action.triggered.connect(self.delete_dashboard)
         # dash_header.addAction(delete_dashboard_action)
@@ -158,8 +159,8 @@ class SystemDashboard(QTreeView):
         # deactivated [SCW 2024-02-07]
         # dash_header.sectionMoved.connect(self.on_section_moved)
         dash_header.setStretchLastSection(False)
-        # "successful_drop" refers to product drops on sys tree (for syncing)
         # *** DEPRECATED now that tree is not editable
+        # "successful_drop" refers to product drops on sys tree (for syncing)
         # view_model.sourceModel().successful_drop.connect(
                                                # self.on_successful_drop)
         dispatcher.connect(self.dash_node_expand, 'sys node expanded')
@@ -186,9 +187,6 @@ class SystemDashboard(QTreeView):
         # orb.log.debug('[Dashboard] adjust_columns()')
         self.sortByColumn(0, Qt.AscendingOrder)
         self.header().setSectionResizeMode(QHeaderView.ResizeToContents)
-        # for column in range(1, self.model().sourceModel().columnCount()):
-            # self.resizeColumnToContents(column)
-        # self.resizeColumnToContents(0)
 
     def sizeHintForColumn(self, i):
         if i == 0:
@@ -418,19 +416,21 @@ class SystemDashboard(QTreeView):
 
     def create_dashboard(self):
         """
-        Dialog displayed in response to 'create new dashboard' context menu
-        item.
+        Handler for 'create new dashboard' context menu item.
+        (Revised to send "create dashboard" signal to MultiDashboard
+        as of 2025-05-17 [SCW].)
         """
-        dlg = NewDashboardDialog(parent=self)
-        if dlg.exec_() == QDialog.Accepted:
-            dash_name = dlg.new_dash_name.text()
-            prefs['dashboards'][dash_name] = []
-            if dlg.preferred_dash.isChecked():
-                prefs['dashboard_names'].insert(0, dash_name)
-            else:
-                prefs['dashboard_names'].append(dash_name)
-            state['dashboard_name'] = dash_name
-            dispatcher.send(signal='refresh tree and dash')
+        # dlg = NewDashboardDialog(parent=self)
+        # if dlg.exec_() == QDialog.Accepted:
+            # dash_name = dlg.new_dash_name.text()
+            # prefs['dashboards'][dash_name] = []
+            # if dlg.preferred_dash.isChecked():
+                # prefs['dashboard_names'].insert(0, dash_name)
+            # else:
+                # prefs['dashboard_names'].append(dash_name)
+            # state['dashboard_name'] = dash_name
+            # dispatcher.send(signal='refresh tree and dash')
+        dispatcher.send(signal='create dashboard')
 
     def set_as_pref_dashboard(self):
         """
@@ -442,15 +442,16 @@ class SystemDashboard(QTreeView):
         state['dashboard_name'] = dash_name
         dispatcher.send(signal='dash pref set')
 
-    def use_app_dash_schema(self):
-        """
-        Handler for 'use standard [name] dashboard schema' context menu item.
-        """
-        dash_name = state['dashboard_name']
-        app_dash_schema = (state.get('app_dashboards') or {}).get(dash_name)
-        if app_dash_schema:
-            prefs['dashboards'][dash_name] = app_dash_schema
-            dispatcher.send(signal='refresh tree and dash')
+    # NOTE: currently causes core dump ...
+    # def use_app_dash_schema(self):
+        # """
+        # Handler for 'use standard [name] dashboard schema' context menu item.
+        # """
+        # dash_name = state['dashboard_name']
+        # app_dash_schema = (state.get('app_dashboards') or {}).get(dash_name)
+        # if app_dash_schema:
+            # prefs['dashboards'][dash_name] = app_dash_schema
+            # dispatcher.send(signal='refresh tree and dash')
 
     def delete_dashboard(self):
         """
@@ -555,18 +556,20 @@ class SystemDashboard(QTreeView):
             orb.log.debug('  ... export to tsv cancelled.')
             return
 
-    def on_successful_drop(self):
-        """
-        Expand the currently selected node (connected to 'rowsInserted' signal,
-        to expand the drop target after a new node has been created).
-        """
-        sdi = self.model().sourceModel().successful_drop_index
-        # map to proxy_model index
-        if sdi:
-            mapped_sdi = self.model().mapFromSource(sdi)
-            if mapped_sdi:
-                self.expand(mapped_sdi)
-        self.adjust_columns()
+    # *** DEPRECATED now that tree is not editable (was not very user-friendly,
+    # since tree was too sensitive to *exactly* where drop occurred)
+    # def on_successful_drop(self):
+        # """
+        # Expand the currently selected node (connected to 'rowsInserted' signal,
+        # to expand the drop target after a new node has been created).
+        # """
+        # sdi = self.model().sourceModel().successful_drop_index
+        # # map to proxy_model index
+        # if sdi:
+            # mapped_sdi = self.model().mapFromSource(sdi)
+            # if mapped_sdi:
+                # self.expand(mapped_sdi)
+        # self.adjust_columns()
 
     def dash_node_expanded(self, index):
         # orb.log.debug('Dash: dash_node_expanded()')
@@ -596,29 +599,58 @@ class SystemDashboard(QTreeView):
             # self.adjust_columns()
 
     def dash_node_expand(self, obj=None, link=None):
-        # orb.log.debug('Dash: dash_node_expand()')
-        if not self.model():
-            return
-        # orb.log.debug('Dash: got "sys node expanded" signal ...')
-        idxs = []
-        if obj:
-            # orb.log.debug(f'   ... on object: {obj.id}')
-            idxs = self.object_indexes_in_tree(obj)
-        elif link:
-            # orb.log.debug(f'   ... on link: {link.id}')
-            idxs = self.link_indexes_in_tree(link)
-        else:
-            return
-        if idxs:
-            # orb.log.debug(f'   found {len(idxs)} occurrances in tree.')
-            proxy_idx = self.model().mapFromSource(idxs[0])
-            self.expand(proxy_idx)
-            self.adjust_columns()
+        try:
+            # orb.log.debug('Dash: dash_node_expand()')
+            if not self.model():
+                return
+            # orb.log.debug('Dash: got "sys node expanded" signal ...')
+            idxs = []
+            if obj:
+                # orb.log.debug(f'   ... on object: {obj.id}')
+                idxs = self.object_indexes_in_tree(obj)
+            elif link:
+                # orb.log.debug(f'   ... on link: {link.id}')
+                idxs = self.link_indexes_in_tree(link)
+            else:
+                return
+            if idxs:
+                # orb.log.debug(f'   found {len(idxs)} occurrances in tree.')
+                proxy_idx = self.model().mapFromSource(idxs[0])
+                self.expand(proxy_idx)
+                self.adjust_columns()
+        except:
+            # oops, my C++ object was deleted ...
+            pass
 
-    def dash_node_collapse(self, index=None):
-        # orb.log.debug('Dash: dash_node_collapse()')
-        if index and self.isExpanded(index):
-            self.collapse(index)
+    # def dash_node_collapse(self, index=None):
+        # # orb.log.debug('Dash: dash_node_collapse()')
+        # if index and self.isExpanded(index):
+            # self.collapse(index)
+
+    def dash_node_collapse(self, obj=None, link=None):
+        try:
+            # orb.log.debug('Dash: dash_node_collapse()')
+            if not self.model():
+                return
+            # orb.log.debug('Dash: got "sys node expanded" signal ...')
+            idxs = []
+            if obj:
+                # orb.log.debug(f'   ... on object: {obj.id}')
+                idxs = self.object_indexes_in_tree(obj)
+            elif link:
+                # orb.log.debug(f'   ... on link: {link.id}')
+                idxs = self.link_indexes_in_tree(link)
+            else:
+                return
+            if idxs:
+                # orb.log.debug(f'   found {len(idxs)} occurrances in tree.')
+                proxy_idx = self.model().mapFromSource(idxs[0])
+                if self.isExpanded(proxy_idx):
+                    self.collapse(proxy_idx)
+                    self.adjust_columns()
+        except:
+            # oops, my C++ object was deleted ...
+            pass
 
     def dash_node_select(self, index=None):
         try:
@@ -865,7 +897,6 @@ class MultiDashboard(QWidget):
             (state.get('project', '') not in mode_defz)):
             state['dashboard_name'] = 'MEL'
         for dash_name in self.dash_names:
-            self.dash_select.addItem(dash_name, QVariant)
             self.add_dashboard(dash_name)
         dash_name = state.get('dashboard_name', 'MEL')
         state['dashboard_name'] = dash_name
@@ -898,6 +929,7 @@ class MultiDashboard(QWidget):
         view_model = SystemTreeProxyModel(sys_tree_model)
         dash = SystemDashboard(view_model, parent=self)
         self.dashboards.addWidget(dash)
+        self.dash_select.addItem(dashboard_name, QVariant)
 
     def set_dashboard(self, dash_name):
         orb.log.debug(f'* set_dashboard({dash_name})')
