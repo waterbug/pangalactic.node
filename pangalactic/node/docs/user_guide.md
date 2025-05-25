@@ -1,6 +1,4 @@
 % Pangalaxian User Guide
-% Stephen Waterbury, NASA/GSFC
-% v. 4.3
 
 # Quick Start
 

@@ -1,6 +1,4 @@
 % Pan Galactic Engineering Framework Reference
-% Stephen Waterbury / Code 585
-% v. 1.8
 
 # Overview:  The Pan Galactic Architecture
 
