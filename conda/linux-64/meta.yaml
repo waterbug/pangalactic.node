@@ -3,7 +3,7 @@ package:
   version: "4.4.dev0"
 
 source:
-  path: /home/waterbug/clones/pangalactic.node
+  path: {{path-to-source}}
 
 build:
   entry_points:

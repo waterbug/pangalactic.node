@@ -1049,8 +1049,7 @@ class PowerModeler(QWidget):
 
 if __name__ == '__main__':
     from pangalactic.node.startup import setup_dirs_and_state
-    home = '/home/waterbug/cattens_home_dev'
-    # orb.start(home='junk_home', debug=True)
+    home = 'junk_home'
     orb.start(home=home, console=True, debug=True)
     setup_dirs_and_state()
     app = QApplication(sys.argv)

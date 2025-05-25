@@ -1200,13 +1200,12 @@ if __name__ == "__main__":
     import sys
 
     app = QApplication(sys.argv)
-    orb.start(home='/home/waterbug/cattens_home_dev', debug=True, console=True)
-
+    home = 'junk_home'
+    orb.start(home=home, debug=True, console=True)
     # window = FilterPanel(None, cname='ProductType', label='Product Type',
     #                      parent=None)
     window = FilterPanel(None, cname='Requirement', label='Requirements',
                          parent=None)
     window.show()
-
     sys.exit(app.exec_())
 

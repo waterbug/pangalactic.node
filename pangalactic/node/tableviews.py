@@ -753,8 +753,8 @@ class SystemInfoTable(QTableWidget):
 
 if __name__ == "__main__":
     import sys
-    orb.start(home='/home/waterbug/cattens_home_dev', debug=True, test=True,
-              console=True)
+    home = 'junk_home'
+    orb.start(home=home, debug=True, test=True, console=True)
     app = QApplication(sys.argv)
     # example code goes here ...
     sys.exit(app.exec_())

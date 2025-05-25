@@ -1420,8 +1420,8 @@ if __name__ == '__main__':
     from pangalactic.core.test.utils import (create_test_project,
                                              create_test_users)
     from pangalactic.node.startup import setup_dirs_and_state
-    # orb.start(home='junk_home', debug=True)
-    orb.start(home='/home/waterbug/cattens_home_dev', debug=True)
+    home = 'junk_home'
+    orb.start(home=home, debug=True)
     setup_dirs_and_state(app_name='Pangalaxian')
     if state.get('test_project_loaded'):
         print('* test project H2G2 already loaded.')
