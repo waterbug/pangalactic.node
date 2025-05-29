@@ -1,4 +1,4 @@
-Generating the html versions depends on the "pandoc" utility.
+Generating the html docs with *htmlify* uses the **pandoc** utility.
 
     ./htmlify user_guide.md
     ./htmlify reference.md
