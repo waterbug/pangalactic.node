@@ -7,7 +7,7 @@ source:
 
 build:
   entry_points:
-    - pangalaxian = pangalactic.node.pangalaxian:run
+    - pgxn = pangalactic.node.pgxn:main
 
 requirements:
   build:
@@ -41,7 +41,12 @@ requirements:
     - websocket-client
 
 about:
-  # home: https://pangalactic.us
-  license: NASA
-  # license_file: LICENSE
+  home: https://github.com/waterbug/pangalactic.node
+  license: NOSA
+  license_file: NOSA_18985_Pan_Galactic_Engineering_Framework_3.0.pdf
+
+app:
+  entry: pangalaxian
+  icon: pangalacticon.ico
+  summary: "Pangalaxian"
 

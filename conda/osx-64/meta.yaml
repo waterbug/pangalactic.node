@@ -7,7 +7,7 @@ source:
 
 build:
   entry_points:
-    - pangalaxian = pangalactic.node.pangalaxian:run
+    - pangalaxian = pangalactic.node.pgxn:run
 
 requirements:
   build:
