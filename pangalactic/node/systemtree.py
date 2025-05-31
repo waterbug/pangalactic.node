@@ -1128,8 +1128,7 @@ class SystemTreeView(QTreeView):
                                                     # 'id', 'fake root')))
                 state['system'][state['project']] = obj.oid
                 # orb.log.debug(f'* sys node selected: {obj.oid}')
-                dispatcher.send(signal='sys node selected', index=index,
-                                obj=obj, link=link)
+                dispatcher.send(signal='sys node selected', obj=obj, link=link)
             except:
                 # oops -- my C++ object probably got deleted
                 pass

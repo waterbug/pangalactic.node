@@ -166,7 +166,10 @@ class SystemDashboard(QTreeView):
         dispatcher.connect(self.dash_node_expand, 'sys node expanded')
         dispatcher.connect(self.dash_node_collapse, 'sys node collapsed')
         dispatcher.connect(self.dash_node_select, 'sys node selected')
-        dispatcher.connect(self.dash_node_select, 'diagram go back')
+        # -------------------------------------------------------------
+        # NOTE: there is currently no "diagram go back" ...
+        # dispatcher.connect(self.dash_node_select, 'diagram go back')
+        # -------------------------------------------------------------
         dispatcher.connect(self.dash_node_select, 'diagram tree index')
         self.expanded.connect(self.dash_node_expanded)
         self.collapsed.connect(self.dash_node_collapsed)
@@ -632,7 +635,7 @@ class SystemDashboard(QTreeView):
             # orb.log.debug('Dash: dash_node_collapse()')
             if not self.model():
                 return
-            # orb.log.debug('Dash: got "sys node expanded" signal ...')
+            # orb.log.debug('Dash: got "sys node collapsed" signal ...')
             idxs = []
             if obj:
                 # orb.log.debug(f'   ... on object: {obj.id}')
@@ -652,20 +655,55 @@ class SystemDashboard(QTreeView):
             # oops, my C++ object was deleted ...
             pass
 
-    def dash_node_select(self, index=None):
+    def dash_node_select(self, obj=None, link=None):
         try:
-            if index:
-                self.selectionModel().setCurrentIndex(index,
-                                          QItemSelectionModel.ClearAndSelect)
+            # orb.log.debug('Dash: dash_node_select()')
+            if not self.model():
+                return
+            # orb.log.debug('Dash: got "sys node selected" signal ...')
+            idxs = []
+            if obj:
+                # orb.log.debug(f'   ... on object: {obj.id}')
+                idxs = self.object_indexes_in_tree(obj)
+            elif link:
+                # orb.log.debug(f'   ... on link: {link.id}')
+                idxs = self.link_indexes_in_tree(link)
             else:
-                # if no index, assume we want the project to be selected
-                self.selectionModel().setCurrentIndex(
-                    self.model().mapFromSource(
-                    self.model().sourceModel().index(0, 0, QModelIndex())),
-                    QItemSelectionModel.ClearAndSelect)
+                return
+            if idxs:
+                # orb.log.debug(f'   found {len(idxs)} occurrances in tree.')
+                proxy_idx = self.model().mapFromSource(idxs[0])
+                if proxy_idx:
+                    self.selectionModel().setCurrentIndex(proxy_idx,
+                                              QItemSelectionModel.ClearAndSelect)
+                else:
+                    # if no index, assume we want the project to be selected
+                    self.selectionModel().setCurrentIndex(
+                        self.model().mapFromSource(
+                        self.model().sourceModel().index(0, 0, QModelIndex())),
+                        QItemSelectionModel.ClearAndSelect)
+                    self.collapse(proxy_idx)
+                    self.adjust_columns()
         except:
-            # oops -- my C++ object probably got deleted
+            # oops, my C++ object was deleted ...
             pass
+        # -------------------------------------------------------------------
+        # Deprecated implementation, for single dash, using passed index
+        # -------------------------------------------------------------------
+        # try:
+            # if index:
+                # self.selectionModel().setCurrentIndex(index,
+                                          # QItemSelectionModel.ClearAndSelect)
+            # else:
+                # # if no index, assume we want the project to be selected
+                # self.selectionModel().setCurrentIndex(
+                    # self.model().mapFromSource(
+                    # self.model().sourceModel().index(0, 0, QModelIndex())),
+                    # QItemSelectionModel.ClearAndSelect)
+        # except:
+            # # oops -- my C++ object probably got deleted
+            # pass
+        # -------------------------------------------------------------------
 
     def object_indexes_in_tree(self, obj):
         """
