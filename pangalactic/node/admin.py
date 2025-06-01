@@ -431,7 +431,6 @@ class AddPersonDialog(QDialog):
         outer_vbox.addWidget(save_button)
         # make sure we are deleted when closed
         self.setAttribute(Qt.WA_DeleteOnClose)
-        dispatcher.connect(self.on_person_added_success, 'person added')
 
     def on_get_key(self):
         orb.log.debug('* on_get_key()')
