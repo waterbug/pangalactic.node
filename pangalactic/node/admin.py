@@ -88,9 +88,9 @@ class RADropLabel(ColorLabel):
         """
         ra_oid = self.ra.oid
         orb.delete([self.ra])
-        # dispatcher.send(signal='deleted object', oid=ra_oid,
-                        # cname='RoleAssignment')
-        self.deleted_object.emit(ra_oid, 'RoleAssignment')
+        dispatcher.send(signal='deleted object', oid=ra_oid,
+                        cname='RoleAssignment')
+        # self.deleted_object.emit(ra_oid, 'RoleAssignment')
 
     def adjust_parent_size(self):
         self.parent().adjustSize()
@@ -179,9 +179,9 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                # dispatcher.send(signal='deleted object', oid=deleted_oid,
-                                # cname='RoleAssignment')
-                self.deleted_object.emit(deleted_oid, 'RoleAssignment')
+                dispatcher.send(signal='deleted object', oid=deleted_oid,
+                                cname='RoleAssignment')
+                # self.deleted_object.emit(deleted_oid, 'RoleAssignment')
             elif self.mime == 'application/x-pgef-role':
                 data = extract_mime_data(event, 'application/x-pgef-role')
                 icon, r_oid, r_id, r_name, r_cname = data
@@ -221,9 +221,9 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(role.name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                # dispatcher.send(signal='deleted object', oid=deleted_oid,
-                                # cname='RoleAssignment')
-                self.deleted_object.emit(deleted_oid, 'RoleAssignment')
+                dispatcher.send(signal='deleted object', oid=deleted_oid,
+                                cname='RoleAssignment')
+                # self.deleted_object.emit(deleted_oid, 'RoleAssignment')
             else:
                 event.ignore()
         else:
@@ -431,8 +431,7 @@ class AddPersonDialog(QDialog):
         outer_vbox.addWidget(save_button)
         # make sure we are deleted when closed
         self.setAttribute(Qt.WA_DeleteOnClose)
-        # DEPRECATED:  now closed by pangalaxian
-        # dispatcher.connect(self.on_person_added_success, 'person added')
+        dispatcher.connect(self.on_person_added_success, 'person added')
 
     def on_get_key(self):
         orb.log.debug('* on_get_key()')
@@ -509,8 +508,7 @@ class AddPersonDialog(QDialog):
 
 class AdminDialog(QDialog):
     """
-    Dialog for admin operations: basically, role provisioning for persons
-    relative to organizations.
+    Dialog for provisioning Roles to Persons in the context of an Organization.
     """
 
     deleted_object = pyqtSignal(str, str)
@@ -569,9 +567,7 @@ class AdminDialog(QDialog):
         self.updateGeometry()
         dispatcher.connect(self.adjust_size, 'admin contents resized')
         # dispatcher.connect(self.refresh_roles, 'deleted object')
-        # DEPRECATED: on_person_added_success() now called directly in
-        # pangalaxian
-        # dispatcher.connect(self.on_person_added_success, 'person added')
+        dispatcher.connect(self.on_person_added_success, 'person added')
         # DEPRECATED: on_got_people() now called directly in pgxn
         # dispatcher.connect(self.on_got_people, 'got people')
         # dispatcher.connect(self.refresh_roles, 'refresh admin tool')

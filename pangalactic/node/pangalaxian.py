@@ -1980,8 +1980,8 @@ class Main(QMainWindow):
                 obj_id = content['id']
                 log_msg += obj_id
             elif subject == 'person added':
-                ser_objs = content
                 try:
+                    pk_added, ser_objs = content
                     objs = deserialize(orb, ser_objs)
                     if objs:
                         # NOTE: if the deserializer returned person and/or
@@ -1998,12 +1998,9 @@ class Main(QMainWindow):
                                 txt = f'person "{display_name}" saved.'
                                 orb.log.debug(f'  - {txt}')
                                 log_msg += ' ... ' + txt
-                                # NOTE: this dispatcher signal is only sent as
-                                # a result of the vger.add_person() rpc being
-                                # successful (see below)
-                                # dispatcher.send('person added', obj=obj,
-                                                # display_name=display_name,
-                                                # pk_added=pk_added)
+                                dispatcher.send('person added', obj=obj,
+                                                display_name=display_name,
+                                                pk_added=pk_added)
                             elif isinstance(obj, orb.classes['Organization']):
                                 orb.log.debug('  - org "{}" saved.'.format(
                                                                     obj.name))
