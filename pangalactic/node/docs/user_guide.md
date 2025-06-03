@@ -32,17 +32,17 @@ process that **Pangalaxian** uses to log in to its Repository Service.
 *public.key* file for the production version of **Pangalaxian** on Windows is
 located here:  
 
-**C:\\Users\\[your AUID]\\pangalaxian_home\\public.key**
+**C:\\Users\\[your userid]\\pangalaxian_home\\public.key**
 
 ... and for the development version on Windows it is here:  
 
-**C:\\Users\\[your AUID]\\pangalaxian_home_dev\\public.key**
+**C:\\Users\\[your userid]\\pangalaxian_home_dev\\public.key**
 
 On the Mac, the locations are:
 
-**/Users/[your AUID]/pangalaxian_home/public.key**
+**/Users/[your userid]/pangalaxian_home/public.key**
 and
-**/Users/[your AUID]/pangalaxian_home_dev/public.key**
+**/Users/[your userid]/pangalaxian_home_dev/public.key**
 
 ![public key file](images/public_key_file.png "public key file")
 

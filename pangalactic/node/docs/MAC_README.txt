@@ -13,7 +13,7 @@ The install process will prompt you for input at certain stages:
 
 You should accept the proposed location (simply by pressing
 ENTER), which will be a directory called "pgxn" within your
-home directory (/Users/[your AUID]).
+home directory (/Users/[your userid]).
 
 When the install script has finished copying the required
 libraries into that directory, it will ask "Do you wish the
