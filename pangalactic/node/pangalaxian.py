@@ -6868,7 +6868,8 @@ class Main(QMainWindow):
         orb.log.info('* do_person_search()')
         q = {}
         if self.person_dlg.db_mode:
-            q = {'known_users': 'result'}
+            q = {'known_users': 'result',
+                 'id': 'x'}
         for name, w in self.person_dlg.form_widgets.items():
             val = w.get_value()
             if val:
@@ -6888,8 +6889,8 @@ class Main(QMainWindow):
                     self.set_bus_state()
                     return
         else:
-            ldap_schema = config.get('ldap_schema', {'userid', 'id',
-                                                     'email', 'email'})
+            ldap_schema = config.get('ldap_schema', {'userid': 'id',
+                                                     'email': 'email'})
             names = []
             for ext_name, field in ldap_schema.items():
                 if field in ['id', 'email', 'oid']:
