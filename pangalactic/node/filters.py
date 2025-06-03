@@ -949,6 +949,11 @@ class FilterPanel(QWidget):
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
+        if self.as_library and self.cname:
+            # orb.log.debug(f'* FilterPanel is {self.cname} library ...')
+            objs = orb.get_by_type(self.cname) or []
+            self.objs = [o for o in objs
+                         if o.oid not in self.excluded_oids]
         self.set_source_model(self.create_model(self.objs))
         self.repaint()
 
