@@ -6867,13 +6867,13 @@ class Main(QMainWindow):
     def do_person_search(self):
         orb.log.info('* do_person_search()')
         q = {}
-        if self.person_dlg.test_mode:
-            q = {'test': 'result'}
+        if self.person_dlg.db_mode:
+            q = {'known_users': 'result'}
         for name, w in self.person_dlg.form_widgets.items():
             val = w.get_value()
             if val:
                 q[self.person_dlg.schema[name]] = val
-        if q.get('id') or q.get('oid') or q.get('last_name'):
+        if q.get('id') or q.get('oid') or q.get('email'):
             orb.log.info('  query: {}'.format(str(q)))
             # dispatcher.send('ldap search', query=q)
             if state['connected']:
@@ -6888,8 +6888,15 @@ class Main(QMainWindow):
                     self.set_bus_state()
                     return
         else:
-            orb.log.info('  bad query: must have Last Name, AUID, or UUPIC')
-            message = "Query must include Last Name, AUID, or UUPIC"
+            ldap_schema = config.get('ldap_schema', {'userid', 'id',
+                                                     'email', 'email'})
+            names = []
+            for ext_name, field in ldap_schema.items():
+                if field in ['id', 'email', 'oid']:
+                    names.append(ext_name)
+            ext_names = ', '.join(names)
+            orb.log.info(f'  bad query: must have one of {ext_names}')
+            message = f"Query must include one of {ext_names}"
             popup = QMessageBox(QMessageBox.Warning, 'Invalid Query',
                                 message, QMessageBox.Ok, self)
             popup.show()

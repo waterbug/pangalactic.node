@@ -243,7 +243,7 @@ class PersonSearchDialog(QDialog):
         """
         orb.log.info('* PersonSearchDialog()')
         super().__init__(parent)
-        self.test_mode = False
+        self.db_mode = False
         self.setWindowTitle("LDAP Search")
         outer_vbox = QVBoxLayout()
         self.setLayout(outer_vbox)
@@ -257,14 +257,13 @@ class PersonSearchDialog(QDialog):
         self.schema = config.get('ldap_schema')
         if not self.schema:
             # if no schema is configured, use a default LDAP schema
-            self.schema = {'UUPIC': 'oid',
-                           'AUID': 'id',
+            self.schema = {'userid': 'id',
                            'First Name': 'first_name',
                            'Last Name': 'last_name',
                            'MI or Name': 'mi_or_name',
                            'Email': 'email',
                            'Employer': 'employer_name',
-                           'Code': 'org_code'}
+                           }
             config['ldap_schema'] = self.schema.copy()
         self.form_widgets = {}
         for name in self.schema:
@@ -274,18 +273,18 @@ class PersonSearchDialog(QDialog):
         outer_vbox.addWidget(self.criteria_panel)
         self.search_button = SizedButton('Search')
         outer_vbox.addWidget(self.search_button)
-        self.test_mode_checkbox = QCheckBox('Test Mode')
-        self.test_mode_checkbox.clicked.connect(self.on_check_cb)
-        outer_vbox.addWidget(self.test_mode_checkbox)
+        self.db_mode_checkbox = QCheckBox('Known Users Only')
+        self.db_mode_checkbox.clicked.connect(self.on_check_cb)
+        outer_vbox.addWidget(self.db_mode_checkbox)
         # dispatcher.connect(self.on_search_result, 'ldap result')
 
     def on_check_cb(self):
-        if self.test_mode_checkbox.isChecked():
-            orb.log.info('* LDAP search test mode activated')
-            self.test_mode = True
+        if self.db_mode_checkbox.isChecked():
+            orb.log.info('* known user mode activated')
+            self.db_mode = True
         else:
-            orb.log.info('* LDAP search test mode deactivated')
-            self.test_mode = False
+            orb.log.info('* known user mode deactivated')
+            self.db_mode = False
 
     def on_search_result(self, res=None):
         """
@@ -361,11 +360,12 @@ class PersonSearchDialog(QDialog):
         orb.log.debug(f'  person selected is: {person_data}')
         # TODO: make "ldap_person_format" a config item ...
         person_display_name = '{}, {} {} ({})'.format(
-                                             person_data['Last Name'],
-                                             person_data['First Name'],
-                                             person_data['MI or Name'],
-                                             person_data['Code']
-                                             )
+                                person_data.get('Last Name', 'LN(?)'),
+                                person_data.get('First Name', 'FN(?)'),
+                                person_data.get('MI or Name', '[No MI]'),
+                                person_data.get('Code',
+                                        person_data.get('Employer', 'No Org.'))
+                                )
         orb.log.debug('  {}'.format(person_display_name))
         orb.log.debug('  ... ldap record: {}'.format(person_data))
         if person_data:
@@ -594,7 +594,8 @@ class AdminDialog(QDialog):
             if pk_added:
                 message += ' with public key'
                 if state.get('active_users'):
-                    state['active_users'].append(userid)
+                    if userid not in state['active_users']:
+                        state['active_users'].append(userid)
                 else:
                     state['active_users'] = [userid]
             orb.log.debug(' - ' + message)
