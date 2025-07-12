@@ -359,15 +359,16 @@ class Main(QMainWindow):
             config['self_signed_cert'] = True
         cert_fname = 'server_cert.pem'
         if config.get('self_signed_cert'):
-            self.cert_path = os.path.join(orb.home, cert_fname)
-            if os.path.exists(self.cert_path):
+            cert_path = os.path.join(orb.home, cert_fname)
+            if os.path.exists(cert_path):
                 orb.log.debug('    server cert found in orb home dir.')
+                self.cert_path = cert_path
             else:
                 # if not in home dir, try cwd
                 if os.path.exists(cert_fname):
-                    self.cert_path = cert_fname
                     orb.log.debug('    server cert found in current dir.')
                     shutil.copy(cert_fname, os.path.join(orb.home, cert_fname))
+                    self.cert_path = os.path.join(orb.home, cert_fname)
                 else:
                     orb.log.debug('    server cert not found ...')
                     orb.log.debug('    config "self_signed_cert" requires one')
@@ -5517,6 +5518,7 @@ class Main(QMainWindow):
     def view_cad_error(self, e):
         orb.log.info('  - view_cad_error: {}'.format(e))
 
+    # experimental -- not active (see note above)
     def open_viewer_dialog(self, file_path):
         dlg = Model3dDialog(file_path, parent=self)
         dlg.show()

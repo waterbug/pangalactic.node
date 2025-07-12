@@ -624,6 +624,7 @@ class MainWindow(QMainWindow):
         """
         Call vger.set_data_elements().
         """
+        self.log('============================================')
         self.log('* calling rpc "vger.set_data_elements()" ...')
         oid = 'test:overthruster'
         self.log('  modifying data elements for Oscillation Overthruster')
