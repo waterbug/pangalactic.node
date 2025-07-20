@@ -7049,8 +7049,8 @@ def cleanup_and_save():
     write_trash(os.path.join(orb.home, 'trash'))
 
 def run(app_base_name='', app_version='', app_home='', release_mode='',
-        host=None, port=None, use_tls=True, auth_method='crypto', cert=False,
-        splash_image=None, console=False, debug=False):
+        auto=False, host=None, port=None, use_tls=True, auth_method='crypto',
+        cert=False, splash_image=None, console=False, debug=False):
     """
     app_base_name (str): base name of the app; default: "Pangalaxian";
                          release_mode will be appended if "dev" or "test"
@@ -7059,6 +7059,8 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
                          default: empty str
     release_mode (str):  release status (production, dev, or test)
                          default: production (empty string)
+    auto (bool):         whether to automatically connect to the repository at
+                         startup (default: False)
     host (str):          the host to connect to [default: localhost])
     port (str):          the port to connect to [default: 8080])
     use_tls (bool):      use tls to connect to message bus
@@ -7162,18 +7164,19 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
         QApplication.processEvents()
         # TODO:  updates to showMessage() using thread/slot+signal
         main = Main(home=home, app_base_name=app_base_name,
-                    app_version=app_version, host=host, port=port,
+                    app_version=app_version, auto=auto, host=host, port=port,
                     use_tls=use_tls, auth_method=auth_method, cert=cert,
                     reactor=reactor, console=console, debug=debug)
         splash.finish(main)
     else:
         main = Main(home=home, app_base_name=app_base_name,
-                    app_version=app_version, host=host, port=port,
+                    app_version=app_version, auto=auto, host=host, port=port,
                     use_tls=use_tls, auth_method=auth_method, cert=cert,
                     reactor=reactor, console=console, debug=debug)
     main.setContextMenuPolicy(Qt.PreventContextMenu)
     main.show()
-    main.auto_connect()
+    if auto or prefs.get('auto'):
+        main.auto_connect()
     atexit.register(cleanup_and_save)
     # run the reactor after creating the main window but before starting the
     # app -- using "runReturn" instead of reactor.run() here to enable the use
@@ -7216,6 +7219,8 @@ if __name__ == "__main__":
     # DO NOT ever use an unencrypted transport!
     # parser.add_argument('-u', '--unencrypted', action='store_true',
                         # help='use unencrypted transport (no tls)')
+    parser.add_argument('--auto', action='store_true',
+                        help='debug mode (verbose logging)')
     parser.add_argument('--auth', dest='auth', type=str, default='cryptosign',
                         help='authentication method: "ticket" or "cryptosign" '
                              '[default: "cryptosign" (pubkey auth)]')
@@ -7245,7 +7250,7 @@ if __name__ == "__main__":
     # tls = not options.unencrypted
     run(app_base_name=options.app_name, app_version=options.version,
         app_home=options.app_home, release_mode=options.release_mode,
-        host=options.host, port=options.port, cert=options.cert,
-        debug=options.debug, console=options.console, auth_method=options.auth,
-        splash_image=options.splash_image)
+        auto=options.auto, host=options.host, port=options.port,
+        cert=options.cert, debug=options.debug, console=options.console,
+        auth_method=options.auth, splash_image=options.splash_image)
 
