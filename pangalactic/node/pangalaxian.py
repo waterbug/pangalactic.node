@@ -33,8 +33,17 @@ Pangalaxian (the PanGalactic GUI client) main window
 # ANY SUCH MATTER SHALL BE THE IMMEDIATE, UNILATERAL TERMINATION OF THIS
 # AGREEMENT.
 
-import argparse, atexit, json, math, os, shutil
-import sys, time, webbrowser
+# to ensure no output unless specified ...
+import sys
+import os
+
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
+import argparse, atexit, json, math, shutil
+import time, webbrowser
 # import traceback
 import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
