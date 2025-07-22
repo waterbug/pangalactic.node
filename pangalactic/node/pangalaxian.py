@@ -7132,19 +7132,22 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
     if os.path.exists(splash_image):
         # if img is in current dir, use it ...
         splash_path = splash_image
-        print(f"* using specified splash image: {splash_image}")
-    elif os.path.exists(std_img_path):
+        if console:
+            print(f"* using specified splash image: {splash_image}")
+    elif os.path.exists(std_img_path) and console:
         print("* splash image is in std path ...")
     elif (images_mod_path and os.path.exists(images_mod_path)
           and os.path.exists(os.path.join(
                             images_mod_path, 'pangalactic_logo_splash.png'))):
-        print("* using splash image from installed images module ...")
+        if console:
+            print("* using splash image from installed images module ...")
         # if splash image not provided and not in "std" path (home), use the
         # splash image from the installed "images" module
         splash_path = os.path.join(images_mod_path,
                                    'pangalactic_logo_splash.png')
     else:
-        print("* splash image not found.")
+        if console:
+            print("* splash image not found.")
         splash_path = ''
     x = screen_resolution.width() // 2
     y = screen_resolution.height() // 2
@@ -7155,7 +7158,8 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
     # from twisted.internet.defer import setDebugging
     # END importing and installing the reactor
     if splash_path:
-        print("* starting splash ...")
+        if console:
+            print("* starting splash ...")
         splash_pix = QPixmap(splash_path)
         splash = SplashScreen(splash_pix, center_point=QPoint(x, y))
         splash.show()
