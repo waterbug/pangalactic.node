@@ -406,7 +406,6 @@ class DocForm(QtWidgets.QDialog):
             self.filename = asciify(fout[0])
         file = None
         try:
-            print('file name is: "%s"' % str(self.filename))
             file = QtCore.QFile(self.filename)
             if not file.open(QtCore.QIODevice.WriteOnly):
                 raise IOError(str(file.errorString()))

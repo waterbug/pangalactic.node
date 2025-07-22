@@ -75,13 +75,6 @@ dtypes = {
     }
 
 
-class PrintLogger:
-    def info(self, txt):
-        print(txt)
-    def debug(self, txt):
-        print(txt)
-
-
 #################################
 #  Data Import Wizard Pages
 #################################
@@ -100,8 +93,6 @@ class DataImportWizard(QWizard):
     def __init__(self, object_type='', file_path='', width=1200, height=700,
                  parent=None): 
         super().__init__(parent=parent)
-        if not hasattr(orb, 'log'):
-            orb.log = PrintLogger()
         orb.log.info('* DataImportWizard')
         # clear the data_wizard_state; otherwise, successive invocations
         # will have state carried over, which would definitely be a bug!
