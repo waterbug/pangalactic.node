@@ -19,13 +19,13 @@ terms related to the objects that **Pangalaxian** creates and manages.
 In the manufacturing domain, there are many terms for the concept of *designed
 artifact*, e.g. **System**, **Subsystem**, **Component**, **Part**.  The
 general term most widely used in engineering data standards is
-**["Product"](#product-a.k.a.-system-subsystem-component-part)** -- hence,
-**PGEF** uses the term **Product** for all of those items.  The use of the
-more general term **Product** is simply a convention and in no way limits the
-types of information and models that can be associated with an artifact,
-independently of whether it is referred to in some contexts as a **System** (a
-complex **Product** with internal structure and behaviors) and in others a
-**Component** (a **Product** used in the assembly of another **Product**).
+**["Product"](#product)** -- hence, **PGEF** uses the term **Product** for all
+of those items.  The use of the more general term **Product** is simply a
+convention and in no way limits the types of information and models that can be
+associated with an artifact, independently of whether it is referred to in some
+contexts as a **System** (a complex **Product** with internal structure and
+behaviors) and in others a **Component** (a **Product** used in the assembly of
+another **Product**).
 
 **PGEF** generally uses the term **System** in the context of a ***white
 box*** model of a **Product** (i.e., one in which the internal structures
@@ -175,7 +175,7 @@ to the **PGEF** server.
 ## Menu: Create New Objects
 
 The **Create New Objects** menu provides functions to create new
-[Products (a.k.a. Systems, Components)](#product-a.k.a.-system-subsystem-component-part),
+[Products (a.k.a. Systems, Components)](#product),
 [Functional Requirements](#requirement), [Performance Requirements](#requirement), and
 [Tests](#test).
 
@@ -203,7 +203,7 @@ Displays a wizard (see figure below) in which the user can create a new
 A **[Requirement](#requirement)** is typically owned (defined and managed) by
 an **Organization**, and when a new **Requirement** is defined, **Pangalaxian**
 assigns the currently selected **Project** as its ***owner*** (the ***owner***
-field is on the **info** tab of the **[Object Editor](#object-viewer-editor)**)
+field is on the **info** tab of the **[Object Editor](#object-viewereditor)**)
 -- note that that is just a default assignment of ***owner***, and can be
 modified by the ***creator*** of the **Requirement** (i.e. the user who is
 editing it).  The ***id*** attribute also gets a default prefix from the
@@ -281,7 +281,7 @@ will be case-sensitive if the **case sensitive** box is checked; otherwise it
 will be case-insensitive (the default).  The user can view details about any
 item in the library by right-clicking on the item (which displays a context
 menu) and then selecting **"View this object"**, which will display the item in
-the **[Object Viewer/Editor](#object-viewer-editor)**.
+the **[Object Viewer/Editor](#object-viewereditor)**.
 
 ![Systems and Components (Hardware Products) Library Dialog](images/hw_lib_dlg.png "Systems and Components (Hardware Products) Library Dialog")
 
@@ -363,13 +363,13 @@ if the **case sensitive** box is checked; otherwise it will be
 case-insensitive (the default).  The user can view details about any item in
 the library by right-clicking on the item (which displays a context menu) and
 then selecting **"View this object"**, which will display the item in the
-**[Object Viewer/Editor](#object-viewer-editor)**.
+**[Object Viewer/Editor](#object-viewereditor)**.
 
 The **Parameter Definitions Library** supports *drag-and-drop*: the user can
 click and drag any item in the library and drop it onto the **parameters
-panel** in the **[Object Viewer/Editor](#object-viewer-editor)** to assign a
+panel** in the **[Object Viewer/Editor](#object-viewereditor)** to assign a
 **Parameter** to an object.  See the
-**[Object Viewer/Editor](#object-viewer-editor)** section for details on how
+**[Object Viewer/Editor](#object-viewereditor)** section for details on how
 the *drag-and-drop* process for adding a **Parameter** works.
 
 ![Parameter Definitions Library Dialog](images/pd_lib_dlg.png "Parameter Definitions Library Dialog")
@@ -396,7 +396,7 @@ if the **case sensitive** box is checked; otherwise it will be
 case-insensitive (the default).  The user can view details about any item in
 the library by right-clicking on the item (which displays a context menu) and
 then selecting **"View this object"**, which will display the item in the
-**[Object Viewer/Editor](#object-viewer-editor)**.
+**[Object Viewer/Editor](#object-viewereditor)**.
 
 ![Data Element Definitions Library Dialog](images/de_defs_lib_dlg.png "Data Element Definitions Library Dialog")
 
@@ -777,7 +777,7 @@ Propulsion Systems**:
 # System / Component Wizard
 
 The **System / Component Wizard** provides a guided process to create a new [System or
-Component (a.k.a. Product)](#product-a.k.a.-system-subsystem-component-part).
+Component (a.k.a. Product)](#product).
 
 Note that any new system or component that is marked **public** will
 automatically be added to the **[Systems and Components (Hardware Products) Library]** and will then be
@@ -920,14 +920,12 @@ fiction television programme *Doctor Who* and its various spin-offs.
 
 ### Template
 
-A **Template** is a pre-defined structure from which a
-**[Product](#product-a.k.a.-system-subsystem-component-part)** can be
-created.  A **Template** has a **[Product Type]** but most importantly it can
-include an internal component structure, so that when a new
-**[Product](#product-a.k.a.-system-subsystem-component-part)** is created from
-the **Template**, the new **Product** will not only have the same **[Product
-Type]** (and **[Parameter]s**) but will also replicate the component structure
-of the **Template**.
+A **Template** is a pre-defined structure from which a **[Product](#product)**
+can be created.  A **Template** has a **[Product Type]** but most importantly
+it can include an internal component structure, so that when a new
+**[Product](#product)** is created from the **Template**, the new **Product**
+will not only have the same **[Product Type]** (and **[Parameter]s**) but will
+also replicate the component structure of the **Template**.
 
 ### Test
 
