@@ -963,7 +963,8 @@ class MultiDashboard(QWidget):
     def add_dashboard(self, dashboard_name):
         # if dashboard_name in self.dash_names:
         # state['dashboard_name'] = dashboard_name
-        sys_tree_model = SystemTreeModel(self.project)
+        sys_tree_model = SystemTreeModel(self.project,
+                                         dash_name=dashboard_name)
         view_model = SystemTreeProxyModel(sys_tree_model)
         dash = SystemDashboard(view_model, parent=self)
         self.dashboards.addWidget(dash)

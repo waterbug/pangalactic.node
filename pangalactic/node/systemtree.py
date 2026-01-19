@@ -288,7 +288,8 @@ class SystemTreeModel(QAbstractItemModel):
     WHITE_BRUSH = QBrush(Qt.white)
 
     def __init__(self, obj, refdes=True, rqt_allocs=False, show_allocs=False,
-                 rqt=None, show_mode_systems=False, parent=None):
+                 rqt=None, show_mode_systems=False, dash_name='MEL',
+                 parent=None):
         """
         Args:
             obj (Project): root object of the tree
@@ -306,11 +307,16 @@ class SystemTreeModel(QAbstractItemModel):
                 highlighted if 'show_allocs' is True
             show_mode_systems (bool):  flag indicating whether to highlight
                 systems selected for the Modes Table
+            dash_name (str):   name of dashboard that model is being used in
+                [SCW added 2026-01-19 to accomodate use of SystemTreeModel for
+                instances of SystemDashboard in new dashboard switching
+                paradigm, using QStackedWidget]
             parent (QWidget): parent widget of the SystemTreeModel
         """
         # orb.log.debug('* SystemTreeModel initializing ...')
         super().__init__(parent=parent)
         self.parent = parent
+        self.dash_name = dash_name  # added 2026-01-19 (see note)
         self.refdes = refdes
         self.rqt_allocs = rqt_allocs
         self.show_allocs = show_allocs
@@ -331,9 +337,10 @@ class SystemTreeModel(QAbstractItemModel):
         # on_remote_deletion() will be called and will set this to True)
         self.remote_deletion = False
 
-    @property
-    def dash_name(self):
-        return state.get('dashboard_name', 'MEL')
+    # NOTE: use of 'dash_name' as a property discontinued -- see note above
+    # @property
+    # def dash_name(self):
+        # return state.get('dashboard_name', 'MEL')
 
     @property
     def cols(self):
