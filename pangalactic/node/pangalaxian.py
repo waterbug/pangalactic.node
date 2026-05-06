@@ -810,7 +810,21 @@ class Main(QMainWindow):
         orb.log.info('* on_mbus_disconnect:  message bus session disconnected.')
         self.reactor.stop()
 
+    def rpc_get_roles(self, userid, data=None, version=None):
+        """
+        Call initial rpc to get user roles.
+        """
+        rpc = self.mbus.session.call('vger.get_user_roles', userid, data=data,
+                                     version=version)
+        rpc.addTimeout(10, self.reactor,
+                       onTimeoutCancel=self.on_rpc_timeout)
+        rpc.addCallback(self.on_rpc_get_user_roles_result)
+        rpc.addErrback(self.on_rpc_get_user_roles_failure)
+
     def sync_with_services(self, force=False):
+        """
+        Begin chain of initial synchronization rpcs.
+        """
         self.force = force
         self.synced = dtstamp()
         self.role_label.setText('syncing library data ...')
@@ -823,16 +837,19 @@ class Main(QMainWindow):
         this_version = self.app_version or __version__
         if state.get('connected'):
             try:
-                rpc = self.mbus.session.call('vger.get_user_roles', userid,
-                                             data=data, version=this_version)
+                self.rpc_get_roles(userid, data=data, version=this_version)
+                # rpc = self.mbus.session.call('vger.get_user_roles', userid,
+                                             # data=data, version=this_version)
             except:
                 orb.log.debug('  rpc "vger.get_user_roles" failed.')
                 orb.log.debug('  trying again ...')
                 time.sleep(1)
                 try:
-                    rpc = self.mbus.session.call('vger.get_user_roles', userid,
-                                                 data=data,
-                                                 version=this_version)
+                    self.rpc_get_roles(userid, data=data, version=this_version)
+                    # rpc = self.mbus.session.call('vger.get_user_roles',
+                                                 # userid,
+                                                 # data=data,
+                                                 # version=this_version)
                 except:
                     orb.log.debug('  rpc "vger.get_user_roles" failed again.')
                     message = "Could not reconnect -- log out & log in again."
@@ -840,10 +857,6 @@ class Main(QMainWindow):
                                         "Connection Lost", message,
                                         QMessageBox.Ok, self)
                     popup.show()
-            rpc.addTimeout(10, self.reactor,
-                           onTimeoutCancel=self.on_rpc_timeout)
-            rpc.addCallback(self.on_rpc_get_user_roles_result)
-            rpc.addErrback(self.on_rpc_get_user_roles_failure)
 
     def on_rpc_timeout(self, result, timeout):
         orb.log.debug(f'* rpc timed out after {timeout} seconds')
