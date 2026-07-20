@@ -932,9 +932,34 @@ class PgxnObject(QDialog):
         # check perms, even if edit_mode is True
         perms = get_perms(obj)
         self.edit_mode    = False
-        if (new or ('modify' in perms)) and edit_mode:
+        UNEDITABLES = (
+            orb.classes['Activity'],
+            orb.classes['ActivityControl'],
+            orb.classes['Actor'],
+            orb.classes['Acu'],
+            orb.classes['Decision'],
+            orb.classes['DigitalFile'],
+            orb.classes['Document'],
+            orb.classes['DocumentReference'],
+            orb.classes['Flow'],
+            orb.classes['Merge'],
+            orb.classes['Mission'],
+            orb.classes['ParameterRelation'],
+            orb.classes['Port'],
+            orb.classes['ProjectSystemUsage'],
+            orb.classes['Qacu'],
+            orb.classes['Relation'],
+            orb.classes['RepresentationFile'],
+            orb.classes['Requirement'],
+            orb.classes['RequirementAncestry'],
+            orb.classes['RoleAssignment'])
+        if ((new or ('modify' in perms)) and edit_mode
+            and not isinstance(obj, UNEDITABLES)):
             self.edit_mode = True
-        self.view_only    = view_only
+        if isinstance(obj, UNEDITABLES):
+            self.view_only = True
+        else:
+            self.view_only = view_only
         self.mode_widgets = {}
         self.mode_widgets['view'] = set()
         self.mode_widgets['edit'] = set()
