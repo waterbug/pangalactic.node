@@ -1770,6 +1770,19 @@ class PgxnObject(QDialog):
         # TODO:  if the Product is used in any frozen assemblies, require that
         # the assemblies be thawed first.
         orb.log.debug('* thaw action called ...')
+        # NOTE: this guard mirrors the one in freeze(). The visibility of
+        # "thaw_action" is decided once, in init_toolbar(), which requires
+        # state['connected'] at that moment -- but the connection can drop
+        # while the editor is open. Without this check, thawing while
+        # disconnected would set self.obj.frozen = False locally while
+        # on_thaw_signal() silently skipped the vger.thaw rpc (it also tests
+        # state['connected']), leaving the client permanently disagreeing with
+        # the repository: nothing rolls the local change back, and because
+        # thaw() does not touch mod_datetime, sync_objects() classifies the
+        # object as "same" and never reconciles it.
+        if not state.get('connected'):
+            orb.log.debug('  not connected -- cannot thaw.')
+            return
         # notice = None
         thaw_permitted = False
         if (orb.is_a(self.obj, 'Product')
@@ -1791,7 +1804,14 @@ class PgxnObject(QDialog):
                                ['<li><b>{}</b><br>({})</li>'.format(
                                a.name, a.id) for a in assemblies if a]))
                     notice.setInformativeText(text)
-                    if notice.exec_():
+                    # NOTE: the result MUST be compared to a specific button.
+                    # QMessageBox.exec_() returns a StandardButton enum value,
+                    # not QDialog's 0/1 -- and every button is non-zero
+                    # (Ok == 1024, Cancel == 4194304), so a bare
+                    # "if notice.exec_():" is true for Cancel and for Esc as
+                    # well as for Ok, i.e. it would thaw the Product no matter
+                    # what the user chose.
+                    if notice.exec_() == QMessageBox.Ok:
                         orb.log.debug('  thaw confirmed ...')
                         thaw_permitted = True
                 else:

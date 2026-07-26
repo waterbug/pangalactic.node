@@ -3169,7 +3169,7 @@ class Main(QMainWindow):
         if state.get('connected') and oids:
             try:
                 rpc = self.mbus.session.call('vger.thaw', oids)
-                rpc.addCallback(self.on_result)
+                rpc.addCallback(self.on_thaw_result)
                 rpc.addErrback(self.on_failure)
             except:
                 orb.log.debug('  ** rpc failed (possible loss of transport)')
@@ -3907,6 +3907,54 @@ class Main(QMainWindow):
             QApplication.processEvents()
         frozens, unauth = stuff
         msg = f'vger: {len(frozens)} frozen, {len(unauth)} unauthorized.'
+        self.statusbar.showMessage(msg)
+
+    def on_thaw_result(self, stuff):
+        """
+        Handle result of the 'vger.thaw' rpc.
+
+        vger.thaw returns (thawed, failed), where "thawed" holds
+        (oid, mod_datetime, modifier_oid) tuples for the objects the
+        repository actually thawed and "failed" holds the oids it refused
+        (e.g. the caller is not a Global Administrator) or could not thaw.
+
+        NOTE: the *successful* thaws are deliberately NOT applied here -- the
+        repository publishes a "thawed" message on the public channel, which
+        this client also receives, and on_pubsub_msg() feeds it to
+        on_remote_freeze_or_thaw(). Applying them here as well would commit
+        the same values twice and pop up a second "thawed" notice.
+
+        What this callback is for is the "failed" list: pgxnobject.thaw() sets
+        obj.frozen = False locally *before* the rpc is sent, so any oid the
+        repository refused has to be reverted here. Otherwise the client would
+        go on showing the object as thawed while the repository still has it
+        frozen, and since thaw() does not bump mod_datetime,
+        vger.sync_objects() would classify the object as "same" and never
+        reconcile the difference.
+        """
+        orb.log.debug('  vger.thaw result: {}'.format(stuff))
+        try:
+            thawed, failed = stuff
+        except:
+            orb.log.debug('  ** unexpected vger.thaw result format; ignoring.')
+            return
+        thawed = thawed or []
+        failed = failed or []
+        reverted = []
+        for oid in failed:
+            obj = orb.get(oid)
+            # only revert objects we had optimistically thawed locally
+            if obj is not None and not getattr(obj, 'frozen', True):
+                obj.frozen = True
+                reverted.append(oid)
+        if reverted:
+            orb.db.commit()
+            n = len(reverted)
+            orb.log.debug(f'  thaw refused by repository for {n} object(s);')
+            orb.log.debug('  local "frozen" state reverted to match it.')
+            # prompt any open editor to re-read the object and fix its toolbar
+            self.remote_frozen.emit(reverted)
+        msg = f'vger: {len(thawed)} thawed, {len(failed)} not thawed.'
         self.statusbar.showMessage(msg)
 
     def on_failure(self, f):
