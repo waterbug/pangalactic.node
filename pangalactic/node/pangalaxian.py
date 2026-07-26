@@ -213,36 +213,37 @@ class Main(QMainWindow):
 
     def __init__(self, app_base_name='Pangalaxian', app_version='',
                  release_mode='', home='', host=None, port=None,
-                 auth_method='cryptosign', cert=False, auto=True, mode= '',
-                 test_data=None, width=None, height=None, use_tls=True,
-                 reactor=None, console=False, debug=False):
+                 auth_method='cryptosign', key_file_name=None, cert=False,
+                 auto=True, mode= '', test_data=None, width=None, height=None,
+                 use_tls=True, reactor=None, console=False, debug=False):
         """
         Initialize main window.
 
         Keyword Args:
             app_base_name (str): base name of the app; default: "Pangalaxian";
-                               the full app name will have release_mode
-                               appended if it is "dev" or "test"
-            app_version (str): version string
-            release_mode (str): release status: production, dev, or test
-            home (str):        full path of the app home directory
-            host (str):        the host to connect to [default: localhost])
-            port (str):        the port to connect to [default: 8080])
-            auth_method (str): authentication method ("cryptosign" or "ticket")
-            cert (bool):       if True, the server uses a self-signed cert
-            auto (bool):       whether to automatically connect to the
-                               repository at startup (default: True)
-            console (bool):    if True: send log messages to stdout
-                                        (*and* log file)
-                               else:    send stdout and stderr to the logger
-            debug (bool):      set log level to DEBUG
-            height (int):      height of main window
-                               (default: max of (screen h - 200) or 600)
-            reactor (Reactor): twisted Reactor instance
-            test_data (list):  list of serialized test objects (dicts)
-            use_tls (bool):    use tls to connect to message bus
-            width (int):       width of main window
-                               (default: max of (screen w - 300) or 1000)
+                                 the full app name will have release_mode
+                                 appended if it is "dev" or "test"
+            app_version (str):   version string
+            release_mode (str):  release status: production, dev, or test
+            home (str):          full path of the app home directory
+            host (str):          the host to connect to [default: localhost])
+            port (str):          the port to connect to [default: 8080])
+            auth_method (str):   authentication method ("cryptosign", "ticket")
+            key_file_name (str): name of file holding the user's private key
+            cert (bool):         if True, the server uses a self-signed cert
+            auto (bool):         whether to automatically connect to the
+                                 repository at startup (default: True)
+            console (bool):      if True: send log messages to stdout
+                                          (*and* log file)
+                                 else:    send stdout and stderr to the logger
+            debug (bool):        set log level to DEBUG
+            height (int):        height of main window
+                                 (default: max of (screen h - 200) or 600)
+            reactor (Reactor):   twisted Reactor instance
+            test_data (list):    list of serialized test objects (dicts)
+            use_tls (bool):      use tls to connect to message bus
+            width (int):         width of main window
+                                 (default: max of (screen w - 300) or 1000)
         """
         super().__init__(parent=None)
         ###################################################
@@ -270,6 +271,7 @@ class Main(QMainWindow):
         self.splash_msg = ''
         self.add_splash_msg('Starting ...')
         self.channels = []
+        self.key_file_name = key_file_name
         self.reactor = reactor
         self.use_tls = use_tls
         self.auth_method = auth_method
@@ -2643,8 +2645,9 @@ class Main(QMainWindow):
         # they all have the same app_base_name and the private key is stored in
         # the user's home directory, so it is not removed or altered when a new
         # release is installed.
-        key_file_name = self.app_base_name.lower() + '.key'
-        return os.path.join(self.user_home, key_file_name)
+        if not self.key_file_name:
+            self.key_file_name = self.app_base_name.lower() + '.key'
+        return os.path.join(self.user_home, self.key_file_name)
 
     @property
     def populated(self):
@@ -7071,7 +7074,8 @@ def cleanup_and_save():
 
 def run(app_base_name='', app_version='', app_home='', release_mode='',
         auto=False, host=None, port=None, use_tls=True, auth_method='crypto',
-        cert=False, splash_image=None, console=False, debug=False):
+        key_file_name=None, cert=False, splash_image=None, console=False,
+        debug=False):
     """
     app_base_name (str): base name of the app; default: "Pangalaxian";
                          release_mode will be appended if "dev" or "test"
@@ -7086,6 +7090,7 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
     port (str):          the port to connect to [default: 8080])
     use_tls (bool):      use tls to connect to message bus
     auth_method (str):   authentication method ("cryptosign" or "ticket")
+    key_file_name (str): name of file holding the user's private key
     cert (bool):         if True, the server uses a self-signed cert
     splash_image (str):  name of the splash image file
     console (bool):      send log messages to stdout (default: False)
@@ -7180,14 +7185,16 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
         # TODO:  updates to showMessage() using thread/slot+signal
         main = Main(home=home, app_base_name=app_base_name,
                     app_version=app_version, auto=auto, host=host, port=port,
-                    use_tls=use_tls, auth_method=auth_method, cert=cert,
-                    reactor=reactor, console=console, debug=debug)
+                    use_tls=use_tls, auth_method=auth_method,
+                    key_file_name=key_file_name, cert=cert, reactor=reactor,
+                    console=console, debug=debug)
         splash.finish(main)
     else:
         main = Main(home=home, app_base_name=app_base_name,
                     app_version=app_version, auto=auto, host=host, port=port,
-                    use_tls=use_tls, auth_method=auth_method, cert=cert,
-                    reactor=reactor, console=console, debug=debug)
+                    use_tls=use_tls, auth_method=auth_method,
+                    key_file_name=key_file_name, cert=cert, reactor=reactor,
+                    console=console, debug=debug)
     main.setContextMenuPolicy(Qt.PreventContextMenu)
     main.show()
     if auto or prefs.get('auto'):
@@ -7239,6 +7246,8 @@ if __name__ == "__main__":
     parser.add_argument('--auth', dest='auth', type=str, default='cryptosign',
                         help='authentication method: "ticket" or "cryptosign" '
                              '[default: "cryptosign" (pubkey auth)]')
+    parser.add_argument('--key', action='store_true',
+                        help="name of file holding the user's private key")
     parser.add_argument('--cert', dest='cert', action="store_true",
                         help='the server uses a self-signed certificate')
     parser.add_argument('--name', dest='app_name', type=str,
@@ -7267,5 +7276,6 @@ if __name__ == "__main__":
         app_home=options.app_home, release_mode=options.release_mode,
         auto=options.auto, host=options.host, port=options.port,
         cert=options.cert, debug=options.debug, console=options.console,
-        auth_method=options.auth, splash_image=options.splash_image)
+        auth_method=options.auth, key_file_name=options.key,
+        splash_image=options.splash_image)
 

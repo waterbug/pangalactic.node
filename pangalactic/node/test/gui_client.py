@@ -129,17 +129,20 @@ class MainWindow(QMainWindow):
     MOD_COUNT = 0
 
     def __init__(self, host, port, cert, auth_method='cryptosign',
-                 reactor=None, parent=None):
+                 key_file_name=None, reactor=None, parent=None):
         super().__init__(parent)
         self.host = host
         self.port = port
         self.cert = cert
         self.auth_method = auth_method
+        self.key_file_name = key_file_name
         self.reactor = reactor
         self.create_main_frame()
         self.log(f'* host set to: {host}')
         self.log(f'* port set to: {port}')
         self.log(f'* auth method set to: "{auth_method}"')
+        if key_file_name:
+            self.log(f'* private key: "{key_file_name}"')
         self.setGeometry(100, 100, 1000, 800)
         self.create_timer()
         dispatcher.connect(self.on_joined, 'onjoined')
@@ -350,7 +353,9 @@ class MainWindow(QMainWindow):
             tls_options = CertificateOptions()
         if self.auth_method == 'cryptosign':
             self.log('* logging in using cryptosign auth ...')
-            key_path = 'private.key'
+            key_path = self.key_file_name
+            if not key_path:
+                key_path = 'private.key'
             if os.path.exists(key_path):
                 message_bus.set_key_path(key_path)
             else:
@@ -1026,6 +1031,9 @@ if __name__ == "__main__":
                         help='the port to connect to [default: 8080]')
     parser.add_argument('--auth', dest='auth', type=str, default='cryptosign',
             help='authentication method [default: "cryptosign" (pubkey auth)]')
+    parser.add_argument('--key', dest='key', type=str, default='',
+            help="name of the file containing the user's private key"
+                 ' [default: private.key]')
     parser.add_argument('--cert', dest='cert', action="store_true",
                         help='the server uses a self-signed certificate')
     options = parser.parse_args()
@@ -1064,6 +1072,7 @@ if __name__ == "__main__":
     from twisted.internet import reactor
     mainwindow = MainWindow(options.host, options.port,
                             auth_method=options.auth,
+                            key_file_name=options.key,
                             cert=options.cert,
                             reactor=reactor)
     print('MainWindow instantiated ...')
