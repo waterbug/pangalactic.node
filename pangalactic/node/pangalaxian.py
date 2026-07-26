@@ -1438,8 +1438,33 @@ class Main(QMainWindow):
         # Project, and the current Project object -- which should NOT be done
         # by a non-privileged user [SCW 2024-02-29]
         # --------------------------------------------------------------------
-        valid_objs_to_save = [obj for obj in objs_to_save
-                              if 'modify' in get_perms(obj)]
+        # NOTE: this filter runs while *connected*, so it evaluates the user's
+        # real permissions. Objects failing it are locally modified work that
+        # will never be accepted by the repository -- they used to be dropped
+        # here with no log entry and no user-visible indication, and because
+        # the local mod_datetime stays newer than the server's, every
+        # subsequent sync re-derived them and dropped them again. They are now
+        # logged and recorded in state['last_sync_report'].
+        valid_objs_to_save = []
+        withheld = []
+        for obj in objs_to_save:
+            if 'modify' in get_perms(obj):
+                valid_objs_to_save.append(obj)
+            else:
+                withheld.append(obj)
+        if withheld:
+            orb.log.info(f'  * {len(withheld)} locally modified object(s) '
+                         'will NOT be sent to the repository')
+            orb.log.info('    (user does not have "modify" permission):')
+            for obj in withheld:
+                obj_id = getattr(obj, 'id', None) or obj.oid
+                cname = obj.__class__.__name__
+                orb.log.info(f'    - {obj_id} ({cname})')
+            report = state.get('last_sync_report') or {}
+            report['withheld'] = list(set((report.get('withheld') or []) +
+                                          [getattr(o, 'id', None) or o.oid
+                                           for o in withheld]))
+            state['last_sync_report'] = report
         if valid_objs_to_save:
             sobjs_to_save = serialize(orb, valid_objs_to_save)
             orb.log.debug('  calling rpc vger.save() ...')
@@ -3809,11 +3834,16 @@ class Main(QMainWindow):
         """
         orb.log.debug('* vger.save rpc result: {}'.format(str(stuff)))
         try:
-            msg = ''
+            # NOTE: these parts are *accumulated* -- they used to be separate
+            # assignments to "msg", so that when more than one category was
+            # present only the last one survived (e.g. a result containing both
+            # modified and unauthorized objects reported only the unauthorized
+            # count). "msg" also serves as a control flag below: empty means
+            # nothing at all came back, so accumulating preserves that meaning.
+            msg_parts = []
             new_acts = []
             if stuff.get('new_obj_dts'):
-                msg = '{} new; '.format(len(stuff['new_obj_dts']))
-                orb.log.debug(f'  {msg}')
+                msg_parts.append('{} new'.format(len(stuff['new_obj_dts'])))
                 new_obj_oids = list(stuff['new_obj_dts'])
                 new_objs = orb.get(oids=new_obj_oids)
                 for obj in new_objs:
@@ -3825,16 +3855,54 @@ class Main(QMainWindow):
                     for act in new_acts:
                         set_dval(act.oid, 'time_units', 'minutes')
             if stuff.get('mod_obj_dts'):
-                msg = '{} modified; '.format(len(stuff['mod_obj_dts']))
-                orb.log.debug(f'  {msg}')
+                msg_parts.append('{} modified'.format(
+                                                len(stuff['mod_obj_dts'])))
+            # ----------------------------------------------------------------
+            # NOTE: "unauth" and "no_owners" are objects the repository
+            # REFUSED to save -- i.e. the user's work did not land. These used
+            # to be logged at debug level only and never shown, so the user got
+            # no indication at all that anything had been rejected. They are
+            # now logged at info level *with the object ids*, and recorded in
+            # state['last_sync_report'] so the sync summary can present them.
+            # ----------------------------------------------------------------
+            rejected = {}
             if stuff.get('unauth'):
-                msg = '{} unauthorized (not saved); '.format(
-                                                    len(stuff['unauth']))
-                orb.log.debug(f'  {msg}')
+                unauth = stuff['unauth']
+                rejected['unauthorized'] = list(unauth)
+                msg_parts.append('{} unauthorized (NOT saved)'.format(
+                                                            len(unauth)))
+                orb.log.info('  * repository REFUSED to save '
+                             f'{len(unauth)} object(s) (unauthorized):')
+                for obj_id in unauth:
+                    orb.log.info(f'    - {obj_id}')
             if stuff.get('no_owners'):
-                msg = '{} no owners (not saved); '.format(
-                                                    len(stuff['no_owners']))
-                orb.log.debug(f'  {msg}')
+                no_owners = stuff['no_owners']
+                rejected['no_owner'] = list(no_owners)
+                msg_parts.append('{} without owner (NOT saved)'.format(
+                                                            len(no_owners)))
+                orb.log.info('  * repository REFUSED to save '
+                             f'{len(no_owners)} object(s) (no owner):')
+                for obj_id in no_owners:
+                    orb.log.info(f'    - {obj_id}')
+            msg = '; '.join(msg_parts)
+            if msg:
+                orb.log.info(f'  vger.save: {msg}.')
+            report = state.get('last_sync_report') or {}
+            if rejected:
+                # merge, so several vger.save calls in one sync accumulate
+                for k, ids in rejected.items():
+                    report[k] = list(set((report.get(k) or []) + ids))
+                state['last_sync_report'] = report
+                # Surface it. NOTE: deferred via singleShot(0) rather than
+                # calling showMessage() directly -- see the CAUTION below;
+                # painting from inside an rpc callback while further rpcs are
+                # pending raises "QBackingStore::endPaint() called ...".
+                # Deferring lets the callback chain unwind first.
+                n = sum(len(ids) for ids in rejected.values())
+                warning = (f'WARNING: {n} item(s) were NOT saved to the '
+                           'repository (see log for details)')
+                QTimer.singleShot(0,
+                            lambda: self.statusbar.showMessage(warning))
             if not msg:
                 msg = 'nothing to save; synced.'
                 # NOTE: CAUTION! ONLY call showMessage if no other rpcs are to
