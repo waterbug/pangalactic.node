@@ -2400,10 +2400,15 @@ class PgxnObject(QDialog):
                                 html=True)
         if list(msg_dict.keys()):   # one or more field values are invalid
             orb.log.debug('  validation errors: {}'.format(str(msg_dict)))
-            # TODO:  validation dialog
             dlg = ValidationDialog(msg_dict)
-            if dlg.exec_():
-                return
+            dlg.exec_()
+            # NOTE: the return is unconditional -- it must NOT be gated on the
+            # value of exec_(). ValidationDialog only has an "Ok" button, but a
+            # QDialog is also rejected by the Esc key or the window close (X)
+            # button, both of which make exec_() return QDialog.Rejected (0);
+            # gating on that would let the invalid field values fall through
+            # and be saved.
+            return
         NOW = dtstamp()
         for name, val in fields_dict.items():
             setattr(self.obj, name, val)
