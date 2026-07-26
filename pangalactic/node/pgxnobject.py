@@ -1016,6 +1016,8 @@ class PgxnObject(QDialog):
         dispatcher.connect(self.on_parameters_recomputed,
                            'parameters recomputed')
         dispatcher.connect(self.on_update_pgxno, 'update pgxno')
+        # keep the check-out indicator in step with the repository
+        dispatcher.connect(self.on_checkouts_changed, 'checkouts changed')
         # listen for "new object" in case it is a related Acu
         dispatcher.connect(self.on_new_object, 'new object')
 
@@ -1361,6 +1363,24 @@ class PgxnObject(QDialog):
                 is_global_admin(orb.get(state.get('local_user_oid')))):
                 # only a global admin can "thaw"
                 self.thaw_action.setVisible(True)
+            # ------------------------------------------------------------
+            # CHECK-OUT indicator (phase 1: advisory -- display only).
+            # Shows whether the repository has an active CheckOut claim on
+            # this object and who holds it. Nothing here affects what the
+            # user may edit: access.py does not consult check-outs yet, so
+            # this is purely informational. See
+            # pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md.
+            # ------------------------------------------------------------
+            self.checkout_action = self.create_action('Checked\nOut',
+                                    slot=self.show_checkout_info,
+                                    # 'info' rather than a lock/snowflake:
+                                    # phase 1 is advisory, so the indicator
+                                    # informs, it does not signal a block
+                                    icon='info',
+                                    tip='Check-out status of this object',
+                                    modes=['edit', 'view'])
+            self.toolbar.addAction(self.checkout_action)
+            self.refresh_checkout_indicator()
             self.clone_action = self.create_action('Clone',
                                     slot=self.on_clone, icon='clone_16',
                                     tip='Clone this object',
@@ -1761,6 +1781,81 @@ class PgxnObject(QDialog):
 
     def frozen(self):
         pass
+
+    # --------------------------------------------------------------------
+    # CHECK-OUT indicator (phase 1: advisory -- display only)
+    # --------------------------------------------------------------------
+
+    def get_checkout(self):
+        """
+        Return the active check-out record for this object, or None.
+
+        The record is a dict {'userid', 'expiry_datetime', 'purpose'} taken
+        from state['checkouts'], which pangalaxian mirrors from the
+        repository (refreshed at sync and by the "checked out"/"checked in"
+        pubsub messages).
+        """
+        return (state.get('checkouts') or {}).get(
+                                        getattr(self.obj, 'oid', None))
+
+    def refresh_checkout_indicator(self):
+        """
+        Show or hide the check-out indicator to match state['checkouts'].
+        """
+        action = getattr(self, 'checkout_action', None)
+        if action is None:
+            return
+        co = self.get_checkout()
+        if not co:
+            action.setVisible(False)
+            return
+        holder = co.get('userid') or '?'
+        me = getattr(orb.get(state.get('local_user_oid')), 'id', None)
+        if holder == me:
+            action.setText('Checked\nOut (you)')
+            tip = 'You have this object checked out'
+        else:
+            action.setText('Checked\nOut')
+            tip = f'Checked out by "{holder}"'
+        expiry = co.get('expiry_datetime')
+        if expiry:
+            tip += f' until {expiry}'
+        purpose = co.get('purpose')
+        if purpose:
+            tip += f' -- {purpose}'
+        action.setToolTip(tip)
+        action.setVisible(True)
+
+    def on_checkouts_changed(self, oids=None):
+        """
+        Handle the local "checkouts changed" dispatcher signal, sent by
+        pangalaxian when the check-out mirror is updated.
+        """
+        if oids and getattr(self.obj, 'oid', None) not in oids:
+            return
+        try:
+            self.refresh_checkout_indicator()
+        except:
+            # C++ object may have gone away
+            pass
+
+    def show_checkout_info(self):
+        """
+        Show who holds the check-out claim on this object.
+        """
+        co = self.get_checkout()
+        if not co:
+            html = 'This object is <b>not checked out</b>.'
+        else:
+            holder = co.get('userid') or '?'
+            html = f'Checked out by <b>{holder}</b>'
+            if co.get('expiry_datetime'):
+                html += f'<br>until <b>{co["expiry_datetime"]}</b>'
+            if co.get('purpose'):
+                html += f'<br><br>Purpose: <i>{co["purpose"]}</i>'
+        notice = QMessageBox(QMessageBox.Information, 'Check-Out Status',
+                             html, QMessageBox.Ok, self)
+        notice.exec_()
 
     def thaw(self):
         """

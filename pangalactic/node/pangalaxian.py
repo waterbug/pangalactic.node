@@ -199,7 +199,7 @@ class Main(QMainWindow):
     # compatible release versions -- used to determine compatibility of the
     # "home" directory
     compat_versions = [
-                       Version('4.4.dev2')
+                       Version('4.4.dev3')
                        ]
     # signals
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
@@ -1036,6 +1036,10 @@ class Main(QMainWindow):
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.on_user_objs_sync_result)
         rpc.addErrback(self.on_failure)
+        # populate the local mirror of active check-out claims (advisory
+        # display only -- see the CHECK-OUT / CHECK-IN section below)
+        rpc.addCallback(self.get_checkouts)
+        rpc.addErrback(self.on_failure)
         if self.force:
             rpc.addCallback(self.force_sync_managed_objs)
             rpc.addErrback(self.on_failure)
@@ -1798,6 +1802,186 @@ class Main(QMainWindow):
         if self.mode == "system" and (frozen_oids or thawed_oids):
             self.refresh_tree_and_dashboard()
 
+    # =====================================================================
+    # CHECK-OUT / CHECK-IN (phase 1: advisory -- display only)
+    # ---------------------------------------------------------------------
+    # state['checkouts'] mirrors the repository's active CheckOut claims:
+    #
+    #     {oid: {'userid': str, 'expiry_datetime': str, 'purpose': str}}
+    #
+    # It is refreshed wholesale by get_checkouts() at sync time and kept up
+    # to date by the "checked out" / "checked in" pubsub messages. Nothing
+    # consults it for authorization yet -- access.py is untouched, so this
+    # is purely informational. Enforcement is phase 2.
+    #
+    # NOTE: new signalling here uses pydispatcher rather than pyqtSignal,
+    # per the ongoing migration back to pydispatcher.
+    # See pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md.
+    # =====================================================================
+
+    def on_remote_checked_out(self, content):
+        """
+        Handle the pubsub "checked out" message.
+
+        Args:
+            content (list of dict):  compact CheckOut records as produced by
+                vger's serialize_checkout()
+        """
+        orb.log.debug('* pubsub: "checked out"')
+        if not isinstance(content, list):
+            orb.log.debug('  unexpected content format; ignored.')
+            return
+        checkouts = state.get('checkouts') or {}
+        oids = []
+        for rec in content:
+            oid = (rec or {}).get('item_oid')
+            if not oid:
+                continue
+            checkouts[oid] = {
+                'userid': rec.get('userid', ''),
+                'expiry_datetime': rec.get('expiry_datetime', ''),
+                'purpose': rec.get('purpose', '')}
+            oids.append(oid)
+        state['checkouts'] = checkouts
+        if oids:
+            orb.log.debug(f'  {len(oids)} object(s) now checked out.')
+            dispatcher.send(signal='checkouts changed', oids=oids)
+
+    def on_remote_checked_in(self, content):
+        """
+        Handle the pubsub "checked in" message.
+
+        Args:
+            content (list of str):  oids of the objects whose claims were
+                released
+        """
+        orb.log.debug('* pubsub: "checked in"')
+        if not isinstance(content, list):
+            orb.log.debug('  unexpected content format; ignored.')
+            return
+        checkouts = state.get('checkouts') or {}
+        oids = []
+        for oid in content:
+            if oid in checkouts:
+                del checkouts[oid]
+                oids.append(oid)
+        state['checkouts'] = checkouts
+        if oids:
+            orb.log.debug(f'  {len(oids)} object(s) released.')
+            dispatcher.send(signal='checkouts changed', oids=oids)
+
+    def get_checkouts(self, *args):
+        """
+        Refresh state['checkouts'] from the repository.
+
+        NOTE: accepts (and ignores) positional args so it can be used
+        directly as a deferred callback in the sync chain, where the
+        preceding rpc's result is passed in.
+        """
+        if not state.get('connected'):
+            return
+        try:
+            rpc = self.mbus.session.call('vger.get_checkouts')
+            rpc.addCallback(self.on_get_checkouts_result)
+            rpc.addErrback(self.on_failure)
+        except:
+            orb.log.debug('  ** vger.get_checkouts rpc failed.')
+
+    def on_get_checkouts_result(self, data):
+        """
+        Handle the result of the 'vger.get_checkouts' rpc: replace the local
+        mirror wholesale, since the repository is authoritative.
+        """
+        if not isinstance(data, list):
+            orb.log.debug('* get_checkouts: unexpected result; ignored.')
+            return
+        checkouts = {}
+        for rec in data:
+            oid = (rec or {}).get('item_oid')
+            if oid:
+                checkouts[oid] = {
+                    'userid': rec.get('userid', ''),
+                    'expiry_datetime': rec.get('expiry_datetime', ''),
+                    'purpose': rec.get('purpose', '')}
+        state['checkouts'] = checkouts
+        orb.log.info(f'* {len(checkouts)} active check-out(s) in repository.')
+        dispatcher.send(signal='checkouts changed', oids=list(checkouts))
+
+    def check_out_objects(self, oids, days=None, purpose=''):
+        """
+        Claim objects for offline editing (rpc "vger.check_out").
+
+        Args:
+            oids (list of str):  oids of the objects to claim
+        """
+        if not (state.get('connected') and oids):
+            return
+        orb.log.info(f'* requesting check-out of {len(oids)} object(s) ...')
+        try:
+            rpc = self.mbus.session.call('vger.check_out', oids,
+                                         days=days, purpose=purpose)
+            rpc.addCallback(self.on_check_out_result)
+            rpc.addErrback(self.on_failure)
+        except:
+            orb.log.debug('  ** vger.check_out rpc failed.')
+
+    def on_check_out_result(self, res):
+        """
+        Handle the result of 'vger.check_out'. Denials are reported rather
+        than dropped -- see the reconciliation-reporting rationale in
+        NOTES_ON_OFFLINE_AND_SYNC.md.
+        """
+        try:
+            granted = res.get('granted') or []
+            denied = res.get('denied') or {}
+        except:
+            orb.log.debug('* check_out: unexpected result; ignored.')
+            return
+        orb.log.info(f'* check-out: {len(granted)} granted, '
+                     f'{len(denied)} denied.')
+        for oid, reason in denied.items():
+            obj = orb.get(oid)
+            obj_id = getattr(obj, 'id', None) or oid
+            orb.log.info(f'    - {obj_id}: {reason}')
+        # the repository publishes "checked out", which updates the mirror;
+        # refresh anyway so the caller sees the result immediately
+        self.get_checkouts()
+        if denied:
+            msg = (f'{len(granted)} item(s) checked out, '
+                   f'{len(denied)} refused (see log)')
+            QTimer.singleShot(0, lambda: self.statusbar.showMessage(msg))
+
+    def check_in_objects(self, oids):
+        """
+        Release the user's own claims (rpc "vger.check_in").
+
+        Args:
+            oids (list of str):  oids of the objects to release
+        """
+        if not (state.get('connected') and oids):
+            return
+        orb.log.info(f'* checking in {len(oids)} object(s) ...')
+        try:
+            rpc = self.mbus.session.call('vger.check_in', oids)
+            rpc.addCallback(self.on_check_in_result)
+            rpc.addErrback(self.on_failure)
+        except:
+            orb.log.debug('  ** vger.check_in rpc failed.')
+
+    def on_check_in_result(self, res):
+        """
+        Handle the result of 'vger.check_in'.
+        """
+        try:
+            checked_in = res.get('checked_in') or []
+            not_held = res.get('not_held') or []
+        except:
+            orb.log.debug('* check_in: unexpected result; ignored.')
+            return
+        orb.log.info(f'* check-in: {len(checked_in)} released, '
+                     f'{len(not_held)} not held by this user.')
+        self.get_checkouts()
+
     def on_toggle_library_size(self, expand=False):
         if getattr(self, 'library_widget', None):
             if expand:
@@ -2008,6 +2192,10 @@ class Main(QMainWindow):
                         self.on_remote_freeze_or_thaw(thawed_attrs, 'thaw')
                 else:
                     orb.log.info('  but it was empty!')
+            elif subject == 'checked out':
+                self.on_remote_checked_out(content)
+            elif subject == 'checked in':
+                self.on_remote_checked_in(content)
             elif subject == 'properties set':
                 self.on_remote_properties_set(content)
             elif subject == 'parameters set':
