@@ -1,0 +1,74 @@
+[build-system]
+# >= 77.0 is required for PEP 639 support ("license" SPDX expression and
+# "license-files" in [project]).
+requires = ["setuptools >= 77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pangalactic.node"
+version = "4.4.dev3"
+description = "Pangalaxian, the PGEF desktop client"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "NASA-1.3"
+license-files = ["NOSA_18985_Pan_Galactic_Engineering_Framework_3.0.pdf"]
+authors = [
+    {name = "Stephen Waterbury", email = "stephen.c.waterbury@nasa.gov"},
+]
+maintainers = [
+    {name = "Stephen Waterbury", email = "waterbug@pangalactic.us"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+# NOTE: transposed as-is from setup.py's install_requires. Several of these
+# are *conda* names ("pyqt", "pythonocc-core") rather than PyPI names, which
+# is fine for this project -- the authoritative runtime dependencies are the
+# "run:" section of the conda recipe -- but they would not resolve on PyPI.
+dependencies = [
+    "pangalactic.core>=4.4.dev3",
+    "autobahn",
+    "binaryornot",
+    "packaging",
+    "pynacl",
+    "pyqt",
+    "pythonocc-core",
+    "pythonqwt",
+    "qt5reactor",
+    "twisted",
+    "websocket-client",
+]
+
+[project.urls]
+repository = "https://github.com/waterbug/pangalactic.node"
+
+# equivalent of setup.py's find_packages()
+[tool.setuptools.packages.find]
+include = ["pangalactic*"]
+
+# ---------------------------------------------------------------------------
+# Replaces setup.py's "data_files" (see the longer explanation in
+# pangalactic.core/pyproject.toml). These four directories all live inside the
+# package and are located package-relative at runtime by
+# pangalactic/node/startup.py, which copies their contents into the app home
+# directory at start-up:
+#     images.__path__[0]      -> [home]/images
+#     icons.__path__[0]       -> [home]/icons
+#     docs.__path__[0]        -> [home]/docs
+#     doc_images.__path__[0]  -> [home]/docs/images
+#
+# NOTE on the docs/images split: setup.py excluded "images" from the docs list
+# (`not p.startswith('images')`) and handled docs/images separately, because
+# data_files takes flat file lists and cannot recurse. package-data is
+# per-package, and docs.images is its own package, so the two entries below
+# express the same thing without the filtering.
+# ---------------------------------------------------------------------------
+[tool.setuptools.package-data]
+"pangalactic.node.images"      = ["*"]
+"pangalactic.node.icons"       = ["*"]
+"pangalactic.node.docs"        = ["*"]
+"pangalactic.node.docs.images" = ["*"]
