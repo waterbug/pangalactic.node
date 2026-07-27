@@ -136,7 +136,9 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
-                                               ParmDefsDialog, PrefsDialog,
+                                               ParmDefsDialog,
+                                               PrefsDialog,
+                                               PrepareForOfflineDialog,
                                                ProgressDialog, VersionDialog)
 from pangalactic.node.filters          import FilterPanel, ProductFilterDialog
 from pangalactic.node.interface42      import SC42Window
@@ -1982,6 +1984,44 @@ class Main(QMainWindow):
                      f'{len(not_held)} not held by this user.')
         self.get_checkouts()
 
+    def prepare_for_offline_work(self):
+        """
+        Let the user claim ("check out") the objects they intend to edit
+        while disconnected, so that no one else changes them meanwhile.
+
+        NOTE (phase 1): check-outs are advisory -- they are recorded,
+        published and displayed, but access.py does not consult them yet, so
+        claiming an object does not by itself change what may be edited.
+        See pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md.
+        """
+        orb.log.info('* prepare for offline work ...')
+        if not state.get('connected'):
+            # claims are granted by the repository, so this needs a
+            # connection -- and the whole point is to do it *before*
+            # disconnecting
+            notice = QMessageBox(QMessageBox.Warning,
+                    'Not Connected',
+                    'You must be connected to the repository to check out '
+                    'items for offline work.', QMessageBox.Ok, self)
+            notice.exec_()
+            return
+        project = self.project
+        if not project:
+            notice = QMessageBox(QMessageBox.Warning,
+                    'No Project Selected',
+                    'Select a project before preparing for offline work.',
+                    QMessageBox.Ok, self)
+            notice.exec_()
+            return
+        dlg = PrepareForOfflineDialog(project, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            oids = dlg.get_selected_oids()
+            if oids:
+                self.check_out_objects(oids, days=dlg.get_days(),
+                                       purpose=dlg.get_purpose())
+            else:
+                orb.log.info('  nothing selected -- nothing checked out.')
+
     def on_toggle_library_size(self, expand=False):
         if getattr(self, 'library_widget', None):
             if expand:
@@ -2725,6 +2765,10 @@ class Main(QMainWindow):
                                     "Force Full Re-Sync",
                                     slot=self.full_resync,
                                     modes=['system', 'component'])
+        self.prepare_offline_action = self.create_action(
+                                    "Prepare for Offline Work ...",
+                                    slot=self.prepare_for_offline_work,
+                                    modes=['system', 'component'])
         self.refresh_tree_action = self.create_action(
                                     "Refresh System Tree and Dashboard",
                                     slot=self.refresh_tree_and_dashboard,
@@ -3168,7 +3212,8 @@ class Main(QMainWindow):
                                 self.update_pgxno_action,
                                 self.sync_project_action,
                                 self.sync_all_projects_action,
-                                self.full_resync_action]
+                                self.full_resync_action,
+                                self.prepare_offline_action]
         system_tools_actions.append(self.view_3d_model_action)
         system_tools_actions.append(self.edit_prefs_action)
         if config.get('test'):

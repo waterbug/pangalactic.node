@@ -22,7 +22,7 @@ from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                              QDialog, QDialogButtonBox, QFileDialog,
                              QFormLayout, QFrame, QHBoxLayout, QLabel,
                              QLineEdit, QProgressDialog, QRadioButton,
-                             QScrollArea, QSizePolicy, QTableView,
+                             QScrollArea, QSizePolicy, QSpinBox, QTableView,
                              QTableWidget, QTextBrowser, QTextEdit,
                              QVBoxLayout, QWidget)
 
@@ -2546,6 +2546,197 @@ class FreezingDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         self.resize(550, 700)
         self.updateGeometry()
+
+
+class PrepareForOfflineDialog(QDialog):
+    """
+    Dialog for claiming ("checking out") the objects a user intends to edit
+    while disconnected from the repository.
+
+    Its purpose is to make offline editing safe. Without a claim, an object
+    edited offline has its changes silently discarded on reconnect if anyone
+    else modified it meanwhile -- the repository treats an equal-or-earlier
+    mod_datetime as "unmodified" and skips it, and nothing reports the loss.
+    Claiming the objects first means no one else can change them, so the
+    conflict cannot arise.
+
+    NOTE (phase 1): check-outs are ADVISORY. They are recorded, published and
+    displayed, but access.py does not yet consult them, so claiming an object
+    does not by itself change what anyone may edit. See
+    pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md.
+
+    Args:
+        project (Project): the project whose objects are offered
+
+    Keyword Args:
+        parent (QWidget): parent of this dialog
+
+    After exec_() returns Accepted, the caller uses:
+        get_selected_oids() -> list of str
+        get_days()          -> int
+        get_purpose()       -> str
+    """
+    def __init__(self, project, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Prepare for Offline Work")
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        proj_id = getattr(project, 'id', '[no project]')
+        orb.log.debug(f'* PrepareForOfflineDialog({proj_id})')
+        self.checkboxes = {}
+        main_layout = QVBoxLayout(self)
+        intro = QLabel(
+            '<p>Select the items you intend to work on while disconnected. '
+            'They will be <b>checked out</b> to you, so that no one else '
+            'changes them in the meantime.</p>'
+            '<p>Items you cannot claim are listed below with the reason.</p>',
+            self)
+        intro.setWordWrap(True)
+        main_layout.addWidget(intro)
+
+        # ---- purpose and expiry -------------------------------------------
+        form = QFormLayout()
+        self.purpose_field = QLineEdit(self)
+        self.purpose_field.setPlaceholderText(
+                                'e.g. thermal rework while travelling')
+        form.addRow(QLabel('Purpose (shown to collaborators):'),
+                    self.purpose_field)
+        self.days_field = QSpinBox(self)
+        self.days_field.setRange(1, 90)
+        self.days_field.setValue(7)
+        self.days_field.setSuffix(' days')
+        form.addRow(QLabel('Claim expires after:'), self.days_field)
+        main_layout.addLayout(form)
+
+        available, unavailable = self.classify(project)
+
+        # ---- claimable items ----------------------------------------------
+        main_layout.addWidget(QLabel(
+            f'<h3>Available to check out ({len(available)}):</h3>', self))
+        items_layout = QVBoxLayout()
+        for oid, label in available:
+            cb = QCheckBox(label, self)
+            cb.setChecked(True)
+            self.checkboxes[oid] = cb
+            items_layout.addWidget(cb)
+        if not available:
+            items_layout.addWidget(QLabel('(nothing available)', self))
+        items_panel = QWidget()
+        items_panel.setLayout(items_layout)
+        items_scroll = QScrollArea()
+        items_scroll.setWidget(items_panel)
+        main_layout.addWidget(items_scroll, 2)
+
+        # ---- select all / none --------------------------------------------
+        buttons_row = QHBoxLayout()
+        all_btn = SizedButton('Select All', parent=self)
+        all_btn.clicked.connect(self.select_all)
+        none_btn = SizedButton('Select None', parent=self)
+        none_btn.clicked.connect(self.select_none)
+        buttons_row.addWidget(all_btn)
+        buttons_row.addWidget(none_btn)
+        buttons_row.addStretch(1)
+        main_layout.addLayout(buttons_row)
+
+        # ---- items that cannot be claimed, and why -------------------------
+        if unavailable:
+            main_layout.addWidget(QLabel(
+                f'<h3>Not available ({len(unavailable)}):</h3>', self))
+            unavail_layout = QVBoxLayout()
+            for label in unavailable:
+                lbl = QLabel(label, self)
+                lbl.setStyleSheet('color: gray;')
+                unavail_layout.addWidget(lbl)
+            unavail_panel = QWidget()
+            unavail_panel.setLayout(unavail_layout)
+            unavail_scroll = QScrollArea()
+            unavail_scroll.setWidget(unavail_panel)
+            main_layout.addWidget(unavail_scroll, 1)
+
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        main_layout.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        self.resize(620, 720)
+        self.updateGeometry()
+
+    def classify(self, project):
+        """
+        Split the project's objects into those the user can claim and those
+        they cannot, with a reason for each of the latter.
+
+        NOTE: this is the *client's* view, for display only. The repository
+        re-decides authoritatively in vger.check_out(), using the same
+        get_perms() rules, and its answer is the one that counts -- so a
+        disagreement here shows up as a denial rather than as a bad claim.
+
+        Returns:
+            tuple: (available, unavailable) where available is a list of
+                (oid, label) and unavailable is a list of label strings
+        """
+        available, unavailable = [], []
+        checkouts = state.get('checkouts') or {}
+        me = getattr(orb.get(state.get('local_user_oid')), 'id', None)
+        objs = orb.get_objects_for_project(project) if project else []
+        for obj in objs:
+            oid = getattr(obj, 'oid', None)
+            if not oid:
+                continue
+            cname = obj.__class__.__name__
+            # [1] Projects and the actor/role objects are not work items.
+            # [2] Objects with no independent existence are excluded: they
+            #     are always created, edited and removed as part of work on
+            #     an owning object, so a claim on one of them in isolation
+            #     would mean nothing -- checking out the owner covers them.
+            #       - Port: only ever added/removed as part of work on its
+            #         Product (there is no way to do it otherwise)
+            #       - Flow: belongs to the usage (Acu) context it connects
+            #       - RepresentationFile: the payload of a Model or Document
+            #       - Relation / ParameterRelation: covered by the object
+            #         whose relationship they reify
+            #     Activities, by contrast, ARE offered: editing them offline
+            #     is useful in its own right.
+            if cname in ('Project', 'Organization', 'Person',
+                         'RoleAssignment', 'Port', 'Flow',
+                         'RepresentationFile', 'Relation',
+                         'ParameterRelation'):
+                continue
+            obj_id = getattr(obj, 'id', None) or oid
+            label = f'{obj_id}  ({cname})'
+            co = checkouts.get(oid)
+            if co and co.get('userid') and co['userid'] != me:
+                unavailable.append(
+                        f'{label} -- checked out by "{co["userid"]}"')
+            elif co:
+                unavailable.append(f'{label} -- already checked out by you')
+            elif getattr(obj, 'frozen', False):
+                unavailable.append(f'{label} -- frozen')
+            elif 'modify' not in get_perms(obj):
+                unavailable.append(f'{label} -- no permission to modify')
+            else:
+                available.append((oid, label))
+        available.sort(key=lambda t: t[1])
+        unavailable.sort()
+        return available, unavailable
+
+    def select_all(self):
+        for cb in self.checkboxes.values():
+            cb.setChecked(True)
+
+    def select_none(self):
+        for cb in self.checkboxes.values():
+            cb.setChecked(False)
+
+    def get_selected_oids(self):
+        return [oid for oid, cb in self.checkboxes.items() if cb.isChecked()]
+
+    def get_days(self):
+        return self.days_field.value()
+
+    def get_purpose(self):
+        return self.purpose_field.text()
 
 
 class FrozenDialog(QDialog):
