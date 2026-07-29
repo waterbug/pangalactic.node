@@ -17,7 +17,9 @@ requirements:
   run:
     - pangalactic.core >=4.4.dev3
     - autobahn
+    - base58
     - binaryornot
+    - ecdsa
     - packaging
     - pynacl
     - pyqt
