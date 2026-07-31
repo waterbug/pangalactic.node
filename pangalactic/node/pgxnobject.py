@@ -2489,6 +2489,22 @@ class PgxnObject(QDialog):
                     set_pval_from_str(self.obj.oid, p_id, str_val)
                     pmods[p_id] = get_pval(self.obj.oid, p_id)
             pdict = {self.obj.oid : pmods}
+            # ----------------------------------------------------------------
+            # NOTE: a parameter edit is an edit to the object, and is stamped
+            # exactly as an attribute edit is (see the same assignments below,
+            # in the general path). This branch used to return without
+            # stamping, which meant the sync classified the object as
+            # "unmodified", never pushed it, and -- since serialize() carries
+            # d['parameters'] with the object -- the parameter values had no
+            # route to the repository other than the "parms set" signal below,
+            # which does nothing while disconnected. The result was that
+            # parameter edits made offline were silently reverted on
+            # reconnect by parameterz.update() from the server's cache.
+            # See pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md sec. 4a.
+            # ----------------------------------------------------------------
+            self.obj.modifier = orb.get(state.get('local_user_oid'))
+            self.obj.mod_datetime = dtstamp()
+            orb.save([self.obj])
             parent = self.parent()
             if parent:
                 parent.setFocus()

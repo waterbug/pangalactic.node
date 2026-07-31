@@ -227,6 +227,44 @@ longer, which raises the value of the write-safety fix already applied to
 `save_parmz`/`save_data_elementz`/`save_mode_defz` and argues for treating
 these caches as first-class sync participants rather than a side channel.
 
+**Update (2026-07-31): "first-class sync participants" is now a measured
+requirement, not a preference.** Offline parameter work is currently lost
+outright — a parameter-only edit never stamps `mod_datetime`, so the object
+is never pushed; `on_parms_set` is connectivity-gated and queues nothing; and
+`parameterz.update(<entire server cache>)` on reconnect replaces each per-oid
+dict wholesale, reverting the local value. A parameter *added* offline is
+dropped entirely. Verified end to end — see
+`pangalaxian_handlers_review.md` #2.
+
+This is a sharper case than §5.C: there, an unauthorized or stale edit is
+discarded but the local object stays diverged; here the local value is
+actively reverted to the server's, so there is nothing left to notice.
+
+Two things follow:
+- It belongs in the 3.3 conflict-policy and 3.4 reporting decisions, not
+  beside them. Parameters are not a minor annex of the data model — see the
+  ontology-explosion rationale now recorded in
+  `pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md` §4: there are roughly an
+  order of magnitude more parameters than ontology properties, which is
+  precisely why they live in caches, and why the bulk of engineering content
+  travels this path.
+- The author has settled the shape of the fix: **offline parameter and
+  data-element adds/mods/deletes are permitted only for checked-out
+  ("locked") objects, and behave exactly as regular attribute editing does.**
+  See §4a of the check-out note for the three requirements that implies
+  (permission, persistence, reconciliation).
+
+**And a constraint on how *not* to fix it.** The wholesale
+`parameterz.update()` in `on_vger_get_parmz_result` must stay. Merging
+per-oid was tried, and in highly active collaborative use clients drifted out
+of sync; full replacement fixed it. The replacement is a convergence
+mechanism — it corrects any local drift on every sync, where a merge would
+let a divergent entry persist forever. `get_parmz` runs at the tail of the
+save chain, so the push has already happened by the time the pull replaces
+the cache. **Protect offline work by guaranteeing the push, never by
+weakening the pull** — which is the same ordering rule §3.2 states for the
+deletion queue.
+
 ### 3.6 CM interaction
 
 Freeze already requires connectivity, and thaw now does too (both check

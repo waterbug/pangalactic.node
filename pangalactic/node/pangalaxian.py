@@ -61,7 +61,7 @@ from pydispatch import dispatcher
 # from pydispatch import dispatcher
 
 # packaging
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 # ruamel_yaml
 import ruamel_yaml as yaml
@@ -162,6 +162,30 @@ from pangalactic.node.widgets          import (AutosizingListWidget, Gripper,
 from pangalactic.node.wizards          import (NewProductWizard,
                                                DataImportWizard,
                                                wizard_state)
+
+
+def safe_version(txt):
+    """
+    Convert a version string to a Version, returning None if it cannot be
+    parsed.
+
+    Version strings reach the client from sources that can be empty, absent,
+    or corrupted -- the "VERSION" file in the app home directory (which a
+    crash or a full disk mid-write can leave empty) and the "min_version"
+    element of the vger.get_user_roles() result (which falls back to '' when
+    the server does not respond).  Version() raises InvalidVersion for both,
+    so callers use this and treat None as "unknown".
+
+    Args:
+        txt (str):  the version string to convert
+
+    Returns:
+        Version or None:  the parsed version, or None if unparseable
+    """
+    try:
+        return Version((txt or '').strip())
+    except InvalidVersion:
+        return None
 
 
 class Main(QMainWindow):
@@ -302,7 +326,12 @@ class Main(QMainWindow):
         if os.path.exists(home):
             if os.path.exists(version_fpath):
                 with open(version_fpath) as f:
-                    home_version = Version(f.read())
+                    # NOTE: an empty or corrupted VERSION file (a plausible
+                    # result of a crash or a full disk mid-write) is treated
+                    # as an unknown -- and therefore incompatible -- version,
+                    # so it degrades into the cleanup path below rather than
+                    # raising InvalidVersion and aborting startup
+                    home_version = safe_version(f.read()) or home_version
             if home_version not in self.compat_versions:
                 compat_home_version = False
         if compat_home_version:
@@ -442,7 +471,6 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_mod_objects_signal, 'modified objects')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
         dispatcher.connect(self.on_thaw_signal, 'thaw')
-        dispatcher.connect(self.on_des_set, 'des set')
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.on_parms_set, 'parms set')
@@ -897,7 +925,16 @@ class Main(QMainWindow):
         orb.log.debug(f'   + bad oids:  {len(bad_oids)}')
         orb.log.debug(f'   + min version:  {min_version}')
         this_version = self.app_version or __version__
-        if (Version(this_version) < Version(min_version)
+        # NOTE: min_version is '' when the server did not respond (the
+        # fallback above), and Version('') raises InvalidVersion -- so if
+        # either side is unparseable the comparison is skipped rather than
+        # turning the "no response" defence into a traceback
+        this_v = safe_version(this_version)
+        min_v = safe_version(min_version)
+        if not (this_v and min_v):
+            orb.log.debug(f'   + version unknown (this: "{this_version}", '
+                          f'min: "{min_version}") -- version check skipped.')
+        if (this_v and min_v and this_v < min_v
             and state.get('connected')):
             orb.log.info('* disconnecting from message bus ...')
             self.statusbar.showMessage(
@@ -3650,7 +3687,13 @@ class Main(QMainWindow):
             orb.log.debug('  [called from on_mod_objects_signal()]')
             orb.log.debug('  - saved objs names:')
             for obj in objs:
-                if cname == "Activity":
+                # NOTE: test this object's own class -- "cname" from the loop
+                # above holds the class name of the *last* object in "objs",
+                # so for a mixed batch ending in an Activity this branch was
+                # taken for every object, and obj.sub_activity_sequence then
+                # raised AttributeError out here, outside the try below,
+                # preventing the vger.save() call entirely
+                if obj.__class__.__name__ == "Activity":
                     n = obj.sub_activity_sequence
                     orb.log.debug(f'    + "{obj.name}" (subact_seq: {n})')
                 else:
@@ -3803,42 +3846,16 @@ class Main(QMainWindow):
         if msg:
             orb.log.info(f'* vger: {msg}.')
 
-    def on_des_set(self, des=None):
-        """
-        Handle local dispatcher signal "des set".
-
-        Keyword Args:
-            des (dict): dict mapping oids to dicts of the form
-                {oid: {deid: value}}
-        """
-        orb.log.debug('* on_des_set()')
-        if des and state.get('connected'):
-            try:
-                rpc = self.mbus.session.call('vger.set_data_elements', des=des)
-                rpc.addCallback(self.on_vger_set_des_result)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                orb.log.debug('     trying to reconnect ...')
-                self.set_bus_state()
-
-    def on_des_set_qtsignal(self, des):
-        """
-        Handle local pyqtSignal signal "des set".
-
-        Keyword Args:
-            des (dict): dict mapping oids to dicts of the form
-                {deid : value}
-        """
-        if des and state.get('connected'):
-            try:
-                rpc = self.mbus.session.call('vger.set_data_elements', des=des)
-                rpc.addCallback(self.on_vger_set_des_result)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                orb.log.debug('     trying to reconnect ...')
-                self.set_bus_state()
+    # NOTE: "on_des_set" and "on_des_set_qtsignal" were removed here -- both
+    # were dead: nothing sent the 'des set' dispatcher signal (verified over
+    # every project in the clones directory), and no pyqtSignal was ever
+    # connected to the qtsignal variant. They were redundant in any case:
+    # serialize() carries data elements with the object
+    # (serializers.py: d['data_elements'] = serialize_des(obj.oid)), and the
+    # code that edits data elements stamps mod_datetime and saves the object,
+    # so the changes already travel to the repository via vger.save().
+    # "on_vger_set_des_result" below is still live -- it is the callback for
+    # the vger.set_data_elements() call in on_vger_save_result().
 
     def on_vger_set_des_result(self, msg):
         if msg:
@@ -3854,22 +3871,39 @@ class Main(QMainWindow):
         """
         orb.log.debug('* vger pubsub: "properties set"')
         prop_mods, mod_dt_str = content
+        # NOTE: this message is published on "vger.channel.public", so it is
+        # received for objects in *any* project -- including the ones this
+        # client holds no objects for, which is the normal case.  Oids we do
+        # not have are skipped entirely: orb.set_prop_val() writes directly
+        # into the oid-keyed parameterz/data_elementz caches and reports
+        # 'succeeded' without checking that an object exists, so applying
+        # them would both crash on the obj.mod_datetime assignment below and
+        # accumulate entries keyed to foreign oids in caches that are
+        # persisted to parameters.json / data_elements.json.
         success_oids = set()
+        skipped_oids = set()
         for oid, prop_dict in prop_mods.items():
+            if orb.get(oid) is None:
+                skipped_oids.add(oid)
+                continue
             for prop_id, val in prop_dict.items():
                 status = orb.set_prop_val(oid, prop_id, val)
                 if status == 'succeeded':
                     success_oids.add(oid)
+        if skipped_oids:
+            n = len(skipped_oids)
+            orb.log.debug(f'  {n} oid(s) not known locally; ignored.')
         if success_oids:
             mod_dt = uncook_datetime(mod_dt_str)
             mod_act_oids = set()
             for oid in success_oids:
                 obj = orb.get(oid)
                 obj.mod_datetime = mod_dt
-                orb.db.commit()
                 # TODO: handle other classes ...
                 if isinstance(obj, orb.classes['Activity']):
                     mod_act_oids.add(oid)
+            # commit once, rather than once per object
+            orb.db.commit()
             if mod_act_oids:
                 mod_acts = orb.get(oids=mod_act_oids)
                 dispatcher.send(signal='remote new or mod acts',
