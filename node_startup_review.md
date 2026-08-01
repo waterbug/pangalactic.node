@@ -95,7 +95,22 @@ user home is platform-dependent): my first suggestion — "derive it from
 the property was written to avoid. Deriving from `orb.home` is a reasonable
 dodge; the problems are only that the name/docstring claim something
 stronger than what is computed, and that it breaks in the fallback layouts.
-See finding #4 — the right fix for both is one shared helper. 
+See finding #4 — the right fix for both is one shared helper.
+
+**STATUS: FIXED, via #4's helper.** The property now returns
+`p.core.get_user_home()`, keeping the old parent-of-`orb.home` derivation only
+as a fallback for the case where neither `HOME` nor `USERPROFILE` is set.
+**Verified by execution** with an `orb.home` that is *not* one level below the
+user's home — the case that broke it:
+
+| | `user_home` | resulting `key_path` |
+|---|---|---|
+| pre-fix | `/tmp/uh_5ftn67mi` | `/tmp/uh_5ftn67mi/gargleblaster.key` — does not exist |
+| post-fix | `/home/waterbug` | `/home/waterbug/gargleblaster.key` — exists |
+
+That is the whole impact of this finding made concrete: the private key was
+being looked for in a directory that merely happened to sit above the app
+home.
 
 ### 3. Three layers resolve "home", and `app_home` means two different things
 This is the full picture behind the `orb.start()` finding deferred from the
@@ -165,6 +180,36 @@ property. That fixes the `TypeError` once, makes the unreachable fallback
 in the sub-finding below reachable, and lets the `user_home` property mean
 what its docstring says without adding another platform branch.
 
+**STATUS: FIXED, exactly as suggested.** `p.core.get_user_home()` now holds
+the single platform branch and returns `''` when neither variable is set. All
+three sites call it — `uberorb.start()`'s [C] branch, `pangalaxian.run()`, and
+`gargleblaster/__main__.py` — as does the `user_home` property (#2).
+
+**Verified by execution** across platform/environment combinations:
+
+| platform | env | result |
+|---|---|---|
+| linux / darwin | `HOME` set | that path |
+| linux | `HOME` unset or empty | `''` |
+| win32 | `USERPROFILE` set | that path |
+| win32 | `USERPROFILE` unset or empty | `''` |
+
+and the bug it replaces, with the variable unset:
+
+| | result |
+|---|---|
+| pre-fix `os.path.join(os.environ.get('USERPROFILE'))` | `TypeError: expected str, bytes or os.PathLike object, not NoneType` |
+| post-fix `get_user_home()` | `''` — falsy, so the surrounding guard works |
+
+`orb.start(home=...)` was re-run afterwards to confirm the [C] branch change
+did not disturb the normal path.
+
+**One copy deliberately left:** `pangalactic.core/fastorb.py:293` still has
+its own inlined branch. That module is excluded from this review activity as
+a WIP that is not yet functional, so it was not touched — but it is now the
+*only* remaining copy, and should be pointed at the helper if fastorb is ever
+revived.
+
 #### 4a. Consequence today: the "if all else fails" fallback is unreachable
 `gargleblaster/__main__.py:117-142`
 ```python
@@ -187,6 +232,17 @@ then `if user_home:`, lines 7137-7139), so this particular unreachability is
 gargleblaster-specific — but the win32 half of the problem is shared by all
 three sites listed above. Low real-world likelihood; cheap to make robust,
 and cheapest as the single helper rather than three separate patches.
+
+**STATUS: FIXED, with #4.** gargleblaster now does
+`user_home = get_user_home()` followed by
+`if user_home and os.path.exists(user_home):`, so nothing is passed to
+`os.path.exists()` that could be `None`. **Verified by execution** with both
+variables unset:
+
+| | result |
+|---|---|
+| pre-fix | `TypeError: stat: path should be string, bytes, os.PathLike or integer, not NoneType` — the fallback is never reached |
+| post-fix | falls through to `<cwd>/gargleblaster_home`, as intended |
 
 ### 5. Home-version cleanup deletes every top-level `.json` — including the three authoritative caches
 `pangalactic/node/pangalaxian.py:296-328`, with

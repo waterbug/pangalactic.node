@@ -99,6 +99,7 @@ import pangalactic.core.set_uberorb
 from pangalactic.core                  import __version__
 from pangalactic.core                  import diagramz, orb
 from pangalactic.core                  import config, write_config
+from pangalactic.core                  import get_user_home
 from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
@@ -2942,11 +2943,21 @@ class Main(QMainWindow):
     def user_home(self):
         """
         Path to the user's home directory.
+
+        NOTE: this used to be derived as the *parent of orb.home*, which is
+        only correct when the app home sits exactly one level below the user's
+        home directory -- an assumption broken by the "if all else fails"
+        fallbacks that place the app home under the current working directory,
+        and by any explicitly-passed nested --home path.  Where it broke,
+        key_path() below looked for the user's private key in the wrong
+        directory.  It now asks p.core.get_user_home(), and keeps the old
+        derivation only as a fallback for the case where neither HOME nor
+        USERPROFILE is set.
         """
-        p = Path(orb.home)
-        absp = p.resolve()
-        home = absp.parent
-        return str(home)
+        home = get_user_home()
+        if home:
+            return home
+        return str(Path(orb.home).resolve().parent)
 
     @property
     def key_path(self):
@@ -7294,8 +7305,16 @@ class Main(QMainWindow):
             old_dlg.close()
             old_dlg.deleteLater()
         self.admin_dlg = AdminDialog(org=self.project, parent=self)
-        self.admin_dlg.ldap_search_button.clicked.connect(
-                                                self.open_person_dlg)
+        # NOTE: AdminDialog only creates "ldap_search_button" when an
+        # "ldap_schema" is configured, so it may not exist.  Connecting to it
+        # unconditionally raised AttributeError and prevented the admin tool
+        # from opening *at all* on any deployment not using LDAP.  This is
+        # masked when the wrapper app sets an ldap_schema (gargleblaster
+        # does), which is why it went unnoticed.
+        ldap_search_button = getattr(self.admin_dlg, 'ldap_search_button',
+                                     None)
+        if ldap_search_button:
+            ldap_search_button.clicked.connect(self.open_person_dlg)
         self.admin_dlg.new_object.connect(self.on_new_object_qtsignal)
         self.admin_dlg.deleted_object.connect(self.del_object)
         self.refresh_admin_tool.connect(self.admin_dlg.refresh_roles)
@@ -7554,16 +7573,11 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
         release_suffix = '_' + release_mode
     if not app_home:
         app_home = app_base_name.lower() + '_home' + release_suffix
-    user_home = ''
-    if sys.platform == 'win32':
-        user_home = os.path.join(os.environ.get('USERPROFILE'))
-        if os.path.exists(user_home):
-            app_home_path = os.path.join(user_home, app_home)
-    else:
-        # Linux or OSX
-        user_home = os.environ.get('HOME')
-        if user_home:
-            app_home_path = os.path.join(user_home, app_home)
+    # NOTE: the platform branch that used to be inlined here now lives in
+    # p.core.get_user_home(), shared with orb.start() and gargleblaster
+    user_home = get_user_home()
+    if user_home:
+        app_home_path = os.path.join(user_home, app_home)
     # if all else fails, create app_home inside the current directory --
     # not desirable because app_home holds user data that needs to
     # persist when a new version of the client is installed, which may

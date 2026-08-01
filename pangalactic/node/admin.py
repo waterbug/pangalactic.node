@@ -30,6 +30,59 @@ def get_styled_text(text):
     return '<b><font color="purple">{}</font></b>'.format(text)
 
 
+# ---------------------------------------------------------------------------
+# The fields AddPersonDialog offers, as (Person attribute, label, required).
+#
+# NOTE: this is deliberately independent of "ldap_schema".  The dialog used to
+# build its form from that config item, which meant [1] it could only be used
+# where LDAP was configured (it raised TypeError when the schema was absent),
+# and [2] its fields were whatever the local LDAP directory happened to
+# define, even though what it is actually editing is a Person.
+#
+# "org_code" and "employer_name" are the names vger.add_person() expects: it
+# resolves each to an Organization by id / by name respectively, creating one
+# if it does not already exist.
+# ---------------------------------------------------------------------------
+PERSON_FIELDS = [
+    ('id',            'User ID',      True),
+    ('first_name',    'First Name',   True),
+    ('mi_or_name',    'MI or Name',   False),
+    ('last_name',     'Last Name',    True),
+    ('org_code',      'Organization', True),
+    ('employer_name', 'Employer',     False),
+    ('email',         'Email',        False),
+    ]
+
+# a cryptosign public key is 32 bytes rendered as 64 hex characters
+PUBLIC_KEY_LEN = 64
+HEX_DIGITS = '0123456789abcdefABCDEF'
+
+
+def valid_public_key(key):
+    """
+    Check that a string is a well-formed cryptosign public key.
+
+    This matters more than it looks:  the key is stored verbatim in the
+    crossbar authenticator's "principals.db" and matched there with an exact
+    comparison against the key presented in the WAMP handshake, which is a
+    bare 64-character hex string.  A key with a trailing newline -- which is
+    what any key file that has been through an editor or an email will have --
+    therefore produces a row that can never match, and the user is created
+    successfully but can never log in, with nothing to indicate why.
+
+    Args:
+        key (str):  the candidate public key
+
+    Returns:
+        bool:  True if the key is 64 hex characters
+    """
+    if not key or not isinstance(key, str):
+        return False
+    if len(key) != PUBLIC_KEY_LEN:
+        return False
+    return all(c in HEX_DIGITS for c in key)
+
+
 class RADropLabel(ColorLabel):
     """
     A Label that represents a Person or Role object that is linked to its
@@ -88,9 +141,22 @@ class RADropLabel(ColorLabel):
         """
         ra_oid = self.ra.oid
         orb.delete([self.ra])
+        # ------------------------------------------------------------------
+        # NOTE: BOTH notifications are required, and they do different things:
+        #   - the dispatcher "deleted object" signal drives the local gui
+        #     updates (pangalaxian.on_deleted_object_signal) and refreshes this
+        #     tool (refresh_roles);
+        #   - the "deleted_object" pyqtSignal reaches pangalaxian.del_object,
+        #     which is the *only* path that calls the "vger.delete" rpc.
+        # The emit was previously commented out, so a role assignment deleted
+        # here was removed locally and the repository was never told -- the
+        # assignment came back on the next sync, and a role "revoked" through
+        # this tool was still live in the repository.  Role assignments are
+        # permissions, so that mattered.
+        # ------------------------------------------------------------------
         dispatcher.send(signal='deleted object', oid=ra_oid,
                         cname='RoleAssignment')
-        # self.deleted_object.emit(ra_oid, 'RoleAssignment')
+        self.deleted_object.emit(ra_oid, 'RoleAssignment')
 
     def adjust_parent_size(self):
         self.parent().adjustSize()
@@ -179,9 +245,14 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
+                # NOTE: both notifications are required -- see delete_role().
+                # Without the emit, the *new* RoleAssignment above was pushed
+                # to the repository but the one it replaces was only deleted
+                # locally, so the repository ended up holding both and the
+                # person kept the role this drop was meant to take away.
                 dispatcher.send(signal='deleted object', oid=deleted_oid,
                                 cname='RoleAssignment')
-                # self.deleted_object.emit(deleted_oid, 'RoleAssignment')
+                self.deleted_object.emit(deleted_oid, 'RoleAssignment')
             elif self.mime == 'application/x-pgef-role':
                 data = extract_mime_data(event, 'application/x-pgef-role')
                 icon, r_oid, r_id, r_name, r_cname = data
@@ -221,9 +292,14 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(role.name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
+                # NOTE: both notifications are required -- see delete_role().
+                # Without the emit, the *new* RoleAssignment above was pushed
+                # to the repository but the one it replaces was only deleted
+                # locally, so the repository ended up holding both and the
+                # person kept the role this drop was meant to take away.
                 dispatcher.send(signal='deleted object', oid=deleted_oid,
                                 cname='RoleAssignment')
-                # self.deleted_object.emit(deleted_oid, 'RoleAssignment')
+                self.deleted_object.emit(deleted_oid, 'RoleAssignment')
             else:
                 event.ignore()
         else:
@@ -395,13 +471,22 @@ class AddPersonDialog(QDialog):
         Initialize.
 
         Keyword Args:
-            data (dict):  data related to the person
+            data (dict):  data related to the person, keyed by Person attribute
+                name (as produced by PersonSearchDialog.on_add_person()).  If
+                empty or not given, the form comes up blank -- which is how a
+                user is created where there is no LDAP directory to search.
             parent (QWidget):  parent widget
         """
         orb.log.info('* AddPersonDialog()')
         super().__init__(parent)
+        data = data or {}
         self.public_key = None
-        self.setWindowTitle("Create User")
+        # NOTE: carried through explicitly rather than via the form, so that a
+        # person selected from a search is updated rather than duplicated.  It
+        # used to survive only if the deployment's ldap_schema happened to map
+        # something to 'oid'.
+        self.person_oid = data.get('oid', '') or ''
+        self.setWindowTitle("Create User" if not data else "Add User")
         outer_vbox = QVBoxLayout()
         self.setLayout(outer_vbox)
         self.setSizePolicy(QSizePolicy.Expanding,
@@ -411,13 +496,16 @@ class AddPersonDialog(QDialog):
         self.data_panel.setLayout(form_layout)
         form_label = ColorLabel('User Data', element='h2', margin=10)
         form_layout.setWidget(0, QFormLayout.SpanningRole, form_label)
-        self.schema = config.get('ldap_schema')
         self.form_widgets = {}
-        for name in self.schema:
-            self.form_widgets[name] = StringFieldWidget(
-                                        value=data.get(self.schema[name], ''),
+        for attr, label, required in PERSON_FIELDS:
+            self.form_widgets[attr] = StringFieldWidget(
+                                        value=data.get(attr, '') or '',
                                         parent=self)
-            form_layout.addRow(NameLabel(name), self.form_widgets[name])
+            text = label + ' *' if required else label
+            form_layout.addRow(NameLabel(text), self.form_widgets[attr])
+        req_note = ColorLabel('* required', color='purple', margin=5)
+        form_layout.setWidget(len(PERSON_FIELDS) + 1,
+                              QFormLayout.SpanningRole, req_note)
         self.data_panel.setLayout(form_layout)
         outer_vbox.addWidget(self.data_panel)
         self.get_key_button = SizedButton('Load User Public Key from File')
@@ -454,10 +542,8 @@ class AddPersonDialog(QDialog):
                 popup.show()
                 return
             try:
-                f = open(fpath)
-                data = f.read()
-                f.close()
-                self.project_file_path = ''
+                with open(fpath) as f:
+                    data = f.read()
             except:
                 message = f'File at "{fpath}" could not be opened.'
                 orb.log.debug(' - ' + message)
@@ -475,18 +561,12 @@ class AddPersonDialog(QDialog):
                         QMessageBox.Ok, self)
             popup.show()
             return
-        if data:
-            self.public_key = data
-            orb.log.debug(' - public key: "{}"'.format(data))
-            message = "Public key has been captured."
-            popup = QMessageBox(QMessageBox.Warning,
-                        "Success", message,
-                        QMessageBox.Ok, self)
-            popup.show()
-            self.get_key_button.setVisible(False)
-            self.got_key_label.setVisible(True)
-            return
-        else:
+        # NOTE: strip() is essential -- see valid_public_key().  A key file
+        # ending in a newline used to be stored with the newline, producing a
+        # principals.db row the authenticator could never match, so the user
+        # was added successfully and could never log in.
+        data = (data or '').strip()
+        if not data:
             message = "Public key file was empty."
             orb.log.debug(' - ' + message)
             popup = QMessageBox(QMessageBox.Warning,
@@ -494,15 +574,79 @@ class AddPersonDialog(QDialog):
                         QMessageBox.Ok, self)
             popup.show()
             return
+        if not valid_public_key(data):
+            message = (f'The file at "{fpath}" does not contain a valid '
+                       f'public key.\n\nA public key is {PUBLIC_KEY_LEN} '
+                       'hexadecimal characters; this file contains '
+                       f'{len(data)} character(s).')
+            orb.log.debug(' - invalid public key ({} chars)'.format(len(data)))
+            popup = QMessageBox(QMessageBox.Warning,
+                        "Invalid public key", message,
+                        QMessageBox.Ok, self)
+            popup.show()
+            return
+        self.public_key = data
+        orb.log.debug(' - public key: "{}"'.format(data))
+        message = "Public key has been captured."
+        popup = QMessageBox(QMessageBox.Information,
+                    "Success", message,
+                    QMessageBox.Ok, self)
+        popup.show()
+        self.get_key_button.setVisible(False)
+        self.got_key_label.setVisible(True)
+        return
+
+    def _warn(self, title, message):
+        popup = QMessageBox(QMessageBox.Warning, title, message,
+                            QMessageBox.Ok, self)
+        popup.show()
 
     def on_save(self):
-        # translate from LDAP schema to Person attrs
-        data = {self.schema[name] : self.form_widgets[name].text()
-                for name in self.schema}
-        if self.public_key:
+        data = {attr: self.form_widgets[attr].text().strip()
+                for attr, label, required in PERSON_FIELDS}
+        # [1] required fields
+        missing = [label for attr, label, required in PERSON_FIELDS
+                   if required and not data[attr]]
+        if missing:
+            orb.log.debug(f'  [add person] missing fields: {missing}')
+            self._warn('Missing information',
+                       'These fields are required:\n\n  '
+                       + '\n  '.join(missing))
+            return
+        # [2] the user id becomes the "authid" that the repository and the
+        # crossbar authenticator identify this user by, so it has to be unique
+        existing = orb.select('Person', id=data['id'])
+        if existing and existing.oid != self.person_oid:
+            orb.log.debug(f'  [add person] user id "{data["id"]}" is taken')
+            self._warn('User ID already in use',
+                       f'The User ID "{data["id"]}" already belongs to '
+                       'another person.\n\nUser IDs must be unique.')
+            return
+        # [3] no public key is allowed, but must be a deliberate choice: the
+        # person is created and simply cannot log in until a key is added,
+        # which is otherwise a silent and very confusing outcome
+        if not self.public_key:
+            confirm = QMessageBox(QMessageBox.Warning,
+                        'No public key',
+                        f'No public key has been loaded for "{data["id"]}".'
+                        '\n\nThe user will be created, but will NOT be able '
+                        'to log in until a public key is added for them.'
+                        '\n\nCreate the user anyway?',
+                        QMessageBox.Yes | QMessageBox.No, self)
+            # NOTE: QMessageBox returns a StandardButton, so it must be
+            # compared to a specific button -- "if confirm.exec_():" would be
+            # true for both Yes and No (see pgxnobject_review.md #2a)
+            if confirm.exec_() != QMessageBox.Yes:
+                orb.log.debug('  [add person] cancelled at the no-key prompt.')
+                return
+        else:
             data['public_key'] = self.public_key
+        if self.person_oid:
+            data['oid'] = self.person_oid
+        orb.log.info(f'  [add person] sending "add person" for "{data["id"]}"')
         # send signal to call rpc "vger.add_person"
         dispatcher.send('add person', data=data)
+        self.close()
 
 
 class AdminDialog(QDialog):
@@ -551,6 +695,17 @@ class AdminDialog(QDialog):
         self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
         outer_vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
+        # ------------------------------------------------------------------
+        # NOTE: "New User" does not depend on LDAP.  Until this was added, the
+        # only route to AddPersonDialog was by clicking a row in a search
+        # result, so where there was no LDAP directory to search there was no
+        # way to create a user at all ("Known Users Only" returns people who
+        # are already in the repository).  An LDAP directory is now the
+        # exception rather than the rule.  See admin_tool_review.md #2.
+        # ------------------------------------------------------------------
+        self.new_user_button = SizedButton('New User')
+        self.new_user_button.clicked.connect(self.on_new_user)
+        self.right_vbox.addWidget(self.new_user_button)
         # if we have an ldap_schema, add an LDAP search button
         if config.get('ldap_schema'):
             self.ldap_search_button = SizedButton('Search for a Person')
@@ -570,6 +725,20 @@ class AdminDialog(QDialog):
         # DEPRECATED: on_got_people() now called directly in pgxn
         # dispatcher.connect(self.on_got_people, 'got people')
         # dispatcher.connect(self.refresh_roles, 'refresh admin tool')
+
+    def on_new_user(self):
+        """
+        Open AddPersonDialog with empty fields, so that a user can be created
+        without an LDAP directory to search.
+
+        NOTE: the dialog is kept as an attribute so it is not garbage
+        collected while it is open.  vger.add_person() re-checks that the
+        caller is a Global Administrator, so authorization does not depend on
+        this button's visibility.
+        """
+        orb.log.info('* admin: on_new_user()')
+        self.add_person_dlg = AddPersonDialog(parent=self)
+        self.add_person_dlg.show()
 
     def on_got_people(self):
         """
@@ -605,6 +774,31 @@ class AdminDialog(QDialog):
             popup.show()
         self.lib_widget.refresh(cname='Person')
 
+    def displayable_ras(self, ras):
+        """
+        Filter out RoleAssignments that cannot be rendered.
+
+        get_labels() dereferences both "assigned_role" and "assigned_to", so a
+        RoleAssignment missing either would raise there and take the whole
+        panel with it.  Skipping them (and saying so in the log) keeps one
+        corrupt record from hiding every other role assignment.
+
+        Args:
+            ras (iterable of RoleAssignment):  the role assignments
+
+        Returns:
+            list of RoleAssignment:  those that can be displayed
+        """
+        displayable = []
+        for ra in ras:
+            if ra.assigned_to is None or ra.assigned_role is None:
+                oid = getattr(ra, 'oid', '[no oid]')
+                orb.log.debug(f'  [admin] RoleAssignment "{oid}" has no '
+                              'assigned_to and/or assigned_role -- skipped.')
+                continue
+            displayable.append(ra)
+        return displayable
+
     def refresh_roles(self):
         """
         Build the users_widget, which contains the role assignments for the
@@ -635,19 +829,31 @@ class AdminDialog(QDialog):
             garas = orb.search_exact(cname='RoleAssignment',
                                      assigned_role=admin_role,
                                      role_assignment_context=None)
-            for gara in garas:
+            for gara in self.displayable_ras(garas):
                 r_label, p_label = self.get_labels(gara)
                 form_layout.addRow(p_label)
                 self.form_widgets.append(p_label)
         elif self.org:
-            ra_dict = {
-                (ra.assigned_role.name, ra.assigned_to.last_name or '') : ra
-                for ra in orb.search_exact(cname='RoleAssignment',
-                                           role_assignment_context=self.org)}
-            ra_tuples = list(ra_dict.keys())
-            ra_tuples.sort()
-            for ra_tuple in ra_tuples:
-                ra = ra_dict[ra_tuple]
+            ras = self.displayable_ras(
+                        orb.search_exact(cname='RoleAssignment',
+                                         role_assignment_context=self.org))
+            # ------------------------------------------------------------
+            # NOTE: sort a *list* rather than keying a dict by
+            # (role name, last name).  Keying by that tuple silently
+            # collapsed two different people with the same last name holding
+            # the same role into a single entry, so one of them disappeared
+            # from this display while their role assignment remained live in
+            # the repository -- i.e. the tool showed an incomplete picture of
+            # who holds what, with no indication anything was missing.
+            # The oid is included in the sort key so the order is stable even
+            # for two people with identical names.
+            # ------------------------------------------------------------
+            def sort_key(ra):
+                return (getattr(ra.assigned_role, 'name', '') or '',
+                        getattr(ra.assigned_to, 'last_name', '') or '',
+                        getattr(ra.assigned_to, 'first_name', '') or '',
+                        ra.oid or '')
+            for ra in sorted(ras, key=sort_key):
                 r_label, p_label = self.get_labels(ra)
                 form_layout.addRow(r_label, p_label)
                 self.form_widgets.append(r_label)
@@ -817,12 +1023,26 @@ class AdminDialog(QDialog):
             if role and not self.org.oid == 'pgefobjects:PGANA':
                 orb.log.info('[Admin] Role dropped: "{}"'.format(role.name))
                 tbd = orb.get('pgefobjects:Person.TBD')
-                # check whether we already have a TBD for that role ...
+                # check whether we already have a TBD for that role *in this
+                # organization* ...
+                # NOTE: "role_assignment_context" is essential here.  Without
+                # it the search matched a TBD placeholder for this role in ANY
+                # organization, so dropping the role onto project B was
+                # silently ignored whenever project A already had a TBD for
+                # it -- and the drop simply appeared to do nothing.
                 ra_tbd = orb.search_exact(cname='RoleAssignment',
                                           assigned_role=role,
-                                          assigned_to=tbd)
+                                          assigned_to=tbd,
+                                          role_assignment_context=self.org)
                 if ra_tbd:
                     orb.log.info('        already have TBD -- ignoring.')
+                    # the drop would otherwise appear to do nothing at all
+                    message = (f'"{self.org.id}" already has an unassigned '
+                               f'(TBD) "{role.name}" role.')
+                    popup = QMessageBox(QMessageBox.Information,
+                                        'Role already present', message,
+                                        QMessageBox.Ok, self)
+                    popup.show()
                 else:
                     orb.log.info('        adding as TBD ...')
                     local_user = orb.get(state.get('local_user_oid'))
