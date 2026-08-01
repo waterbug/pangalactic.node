@@ -11,12 +11,11 @@ deferred at the end of `pangalaxian_sync_review.md`:
 - a full sweep of `exec_()` call sites in the file;
 - `gen_keys()` and spot checks across the remaining UI actions.
 
-**Not yet covered** (still open for a later installment): the mode / tree /
-dashboard machinery (`refresh_tree_views`, `rebuild_dashboard`,
-`update_object_in_trees`, `_update_modal_views` and friends, ~5104-5600),
-`on_deleted_object_signal`'s ~340-line body (~4393-4735), the import/export
-and file up/download actions in detail, and `on_pubsub_msg`'s full dispatch
-table.
+**Covered in the next installment** (`pangalaxian_remaining_chunks_review.md`,
+same date): the mode / tree / dashboard machinery, `on_deleted_object_signal`
+and `del_object`, the admin-tool result handlers, and `on_pubsub_msg`'s full
+dispatch table. Together the two documents complete `pangalaxian.py`, with
+the coverage caveat noted at the top of that one.
 
 Every finding below was verified by execution against a real orb with the
 standard test fixtures, except where explicitly marked as latent.

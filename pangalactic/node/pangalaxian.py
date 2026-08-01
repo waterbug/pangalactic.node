@@ -2079,6 +2079,12 @@ class Main(QMainWindow):
             msg (tuple): the message, a tuple of (subject, content)
         """
         userid = state.get('userid', '')
+        # NOTE: this loop handles each subject in the message independently, so
+        # the "ignore, it was my own action" paths below use "continue" rather
+        # than "return" -- a "return" would abandon any remaining subjects in
+        # the same message. Every vger.publish() currently sends a single-key
+        # dict, so this has not been reachable, but the loop's contract should
+        # not depend on that.
         for item in msg.items():
             subject, content = item
             orb.log.info("* pubsub msg received ...")
@@ -2096,7 +2102,7 @@ class Main(QMainWindow):
                 if authid == userid:
                     # ignore -- result of my action
                     orb.log.info('  "decloaked" ignored -- was my action.')
-                    return
+                    continue
                 self.on_received_objects(sobjs)
             elif subject == 'new':
                 # NOTE: content of 'new' msg changed in version 4.3
@@ -2105,7 +2111,7 @@ class Main(QMainWindow):
                 if authid == userid:
                     # ignore -- result of my action
                     orb.log.info('  "new" ignored -- was my action.')
-                    return
+                    continue
                 n = len(sobjs)
                 orb.log.debug(f'received {n} "new" object(s)')
                 self.on_received_objects(sobjs)
@@ -2116,22 +2122,25 @@ class Main(QMainWindow):
                 if authid == userid:
                     # ignore -- result of my action
                     orb.log.info('  "modified" ignored -- was my action.')
-                    return
+                    continue
                 # n = len(sobjs)
                 # orb.log.debug(f'received {n} modified object(s)')
                 self.on_received_objects(sobjs)
             elif subject == 'new mode defs':
                 orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
-                md_dts, project_oid, md_data, userid = content
+                # NOTE: "md_userid" -- NOT "userid": the publisher's id must
+                # not clobber the local user's id unpacked above, which the
+                # "was my action" tests in the other branches depend on
+                md_dts, project_oid, md_data, md_userid = content
                 # orb.log.debug('    content:')
                 orb.log.debug('==============================================')
                 orb.log.debug('New project mode definitions:')
                 orb.log.debug(f'- datetime stamp: {md_dts}')
-                orb.log.debug(f'- userid:         {userid}')
+                orb.log.debug(f'- userid:         {md_userid}')
                 orb.log.debug('- <data>')
                 # orb.log.debug(f'  {md_data}')
                 orb.log.debug('==============================================')
-                if userid == state.get('userid'):
+                if md_userid == state.get('userid'):
                     # originated from me -- set dts to server's dts
                     state['mode_defz_dts'] = md_dts
                     orb.log.debug('    msg was from my action; ignoring.')
@@ -2149,8 +2158,10 @@ class Main(QMainWindow):
                         orb.log.debug('    same datetime stamp; ignored.')
             elif subject == 'comp mode datum updated':
                 orb.log.debug('  - vger msg: "comp mode datum updated" ...')
+                # NOTE: "md_userid" -- NOT "userid"; see the note in the
+                # "new mode defs" branch above
                 (project_oid, link_oid, comp_oid, mode, value, md_dts,
-                                                            userid) = content
+                                                        md_userid) = content
                 project = orb.get(project_oid)
                 link = orb.get(link_oid)
                 comp = orb.get(comp_oid)
@@ -2163,13 +2174,13 @@ class Main(QMainWindow):
                     orb.log.debug(f'- comp:           {comp.id}')
                     orb.log.debug(f'- mode:           {mode}')
                     orb.log.debug(f'- value:          {value}')
-                    orb.log.debug(f'- userid:         {userid}')
+                    orb.log.debug(f'- userid:         {md_userid}')
                     orb.log.debug(f'- datetime stamp: {md_dts}')
                     orb.log.debug('=========================================')
                 else:
                     orb.log.debug('    unknown project or link; ignoring.')
-                    return
-                if userid == state.get('userid'):
+                    continue
+                if md_userid == state.get('userid'):
                     # originated from me -- set dts to server's dts
                     state['mode_defz_dts'] = md_dts
                     orb.log.debug('    msg was from my action; ignoring.')
@@ -2354,8 +2365,12 @@ class Main(QMainWindow):
             for so in ser_objs:
                 if so.get('_cname') == 'Person':
                     userid = so.get('id') or ''
-            self.admin_dlg.on_person_added_success(userid=userid,
-                                                   pk_added=pk_added)
+            # NOTE: guarded the same way person_dlg is just below -- the admin
+            # tool may never have been opened in this session
+            admin_dlg = getattr(self, 'admin_dlg', None)
+            if admin_dlg:
+                admin_dlg.on_person_added_success(userid=userid,
+                                                  pk_added=pk_added)
             if (getattr(self, 'person_dlg', None) and
                 getattr(self.person_dlg, 'add_person_dlg', None)):
                 try:
@@ -2421,7 +2436,11 @@ class Main(QMainWindow):
             finally:
                 orb.log.debug('  - active users: {}'.format(
                               state['active_users']))
-                self.admin_dlg.on_got_people()
+                # NOTE: this runs even when the loop above raised, so it must
+                # not assume the admin tool exists
+                admin_dlg = getattr(self, 'admin_dlg', None)
+                if admin_dlg:
+                    admin_dlg.on_got_people()
         else:
             orb.log.debug('- rpc failed: no data received!')
 
@@ -7249,6 +7268,31 @@ class Main(QMainWindow):
 
     def do_admin_stuff(self):
         orb.log.debug('* admin dialog')
+        # --------------------------------------------------------------------
+        # NOTE: a new AdminDialog is built on each invocation, so the previous
+        # one's connections must be removed first. AdminDialog does not set
+        # WA_DeleteOnClose and is parented to the main window, so closing it
+        # only hides it -- without this teardown every open would leave another
+        # live dialog connected to "refresh_admin_tool" and to the "deleted
+        # object" dispatcher signal, so a single deletion would run
+        # refresh_roles() on every dialog ever opened this session (and each
+        # AdminDialog.__init__ also dispatches "get people", firing another
+        # rpc).
+        # --------------------------------------------------------------------
+        old_dlg = getattr(self, 'admin_dlg', None)
+        if old_dlg is not None:
+            try:
+                self.refresh_admin_tool.disconnect(old_dlg.refresh_roles)
+            except TypeError:
+                # not connected -- nothing to do
+                pass
+            try:
+                dispatcher.disconnect(old_dlg.refresh_roles, "deleted object")
+            except Exception:
+                # pydispatcher raises if the receiver was not connected
+                pass
+            old_dlg.close()
+            old_dlg.deleteLater()
         self.admin_dlg = AdminDialog(org=self.project, parent=self)
         self.admin_dlg.ldap_search_button.clicked.connect(
                                                 self.open_person_dlg)
