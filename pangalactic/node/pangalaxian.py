@@ -2109,18 +2109,47 @@ class Main(QMainWindow):
 
     def clear_queued_parm_deletion(self, msg, key=''):
         """
-        Drop a queued item once the repository has confirmed the deletion.
+        Settle a queued item once the repository has answered.
+
+        vger.del_parm() and vger.del_de() now authorize the caller and return
+        a message beginning with "failure:" if they refuse, so a reply is not
+        by itself a confirmation.  A refusal is still settled rather than
+        retried -- the user will not acquire the permission by trying again,
+        and an entry that can never succeed would be replayed on every sync
+        forever -- but it is reported, because the local deletion is about to
+        be undone by the next get_parmz() pulling the parameter back from the
+        server.  That undo is correct (the server is authoritative); what
+        would not be acceptable is its happening silently.
 
         Used as an rpc callback; `msg` is passed through so this can sit in a
         callback chain.
         """
         if msg:
             orb.log.info(f'* vger: {msg}.')
-        if key and key in parm_del_queue:
+        if not key:
+            return msg
+        if key in parm_del_queue:
             del parm_del_queue[key]
             write_parm_del_queue(os.path.join(orb.home, 'parm_del_queue'))
+        # the key encodes everything needed to describe the item, so this
+        # reports the same way whether the deletion was queued offline or sent
+        # live -- a refusal in the live path reverts the local cache just as
+        # silently, and matters just as much
+        kind, _, rest = key.partition('|')
+        oid, _, item_id = rest.partition('|')
+        what = 'data element' if kind == 'de' else 'parameter'
+        item = f'{what} "{item_id}" of object "{oid}"'
+        if isinstance(msg, str) and msg.startswith('failure:'):
+            if 'not authorized' in msg:
+                orb.log.info(f'  deletion of {item} was refused.')
+                self.add_to_sync_report('parameter deletions refused', item)
+            else:
+                # e.g. the object itself is gone from the repository, which
+                # makes the parameter deletion moot -- nothing to report
+                orb.log.info(f'  deletion of {item} is moot: {msg}')
+        else:
             n = len(parm_del_queue)
-            orb.log.info(f'  queued deletion "{key}" confirmed ({n} left).')
+            orb.log.info(f'  deletion of {item} confirmed ({n} queued).')
         return msg
 
     def replay_parm_del_queue(self, data=None):
@@ -4156,21 +4185,35 @@ class Main(QMainWindow):
     def on_parm_added(self, oid='', pid=''):
         """
         Handle local dispatcher signal "parm added".
+
+        NOTE: no queue is needed here.  Unlike a deletion, an addition is
+        carried in the object's serialization and reaches the repository
+        whenever the object is pushed -- which is why the editor stamps
+        mod_datetime when a parameter is dropped onto an object.  This rpc
+        only makes the addition visible to other users sooner.
         """
         if oid and pid and state.get('connected'):
             try:
                 rpc = self.mbus.session.call('vger.add_parm', oid=oid,
                                              pid=pid)
-                rpc.addCallback(self.on_vger_add_parm_result)
+                rpc.addCallback(self.on_vger_add_parm_result, oid=oid, pid=pid)
                 rpc.addErrback(self.on_failure)
             except:
                 orb.log.debug('  ** rpc failed (possible loss of transport)')
                 orb.log.debug('     trying to reconnect ...')
                 self.set_bus_state()
 
-    def on_vger_add_parm_result(self, msg):
+    def on_vger_add_parm_result(self, msg, oid='', pid=''):
         if msg:
             orb.log.info(f'* vger: {msg}.')
+        if isinstance(msg, str) and msg.startswith('failure:'):
+            # vger.add_parm() now authorizes the caller; a refusal means the
+            # local addition will be reverted by the next get_parmz(), so say
+            # so rather than let the parameter quietly disappear
+            if 'not authorized' in msg:
+                self.add_to_sync_report('parameter additions refused',
+                                        f'parameter "{pid}" of object "{oid}"')
+        return msg
 
     def on_parm_del(self, oid='', pid=''):
         """

@@ -320,12 +320,49 @@ Entries clear only on repository confirmation, so an interrupted sync retries
 rather than dropping the deletion; malformed entries are discarded rather
 than retried forever.
 
-**Open item found while doing this:** `vger.del_parm` and `vger.del_de`
-perform no authorization check at all — any user can delete any parameter
-from any object, and the handlers always return success. That predates this
-work and is not exercised by the queue (which only replays the user's own
-deletions), but it should be brought under the same claim checks as the rest
-of phase 2.
+### 3.8 Authorization on the single-item parm/de rpcs (2026-08-02)
+
+Found while doing §3.7, and wider than first reported: not just
+`vger.del_parm` and `vger.del_de` but also `vger.add_parm` and `vger.add_de`
+performed **no authorization check at all**. Any user could add or remove
+any parameter or data element on any object, and all four always reported
+success. Their batch equivalents `set_parameters()` and `set_data_elements()`
+had always checked `"modify"` perms — these four had simply been missed. The
+pre-fix logs show how little was validated: `add_parm(oid=None, pid=P)`
+published a "parm added" message with a null oid.
+
+All four now resolve the caller from `cb_details.caller_authid` and require
+`"modify"` in `get_perms(obj, user)` before mutating anything. Because phase 2
+put `is_writable_now()` inside `get_perms()`, this brings them under the
+check-out model at the same time: a claim held by another user now blocks
+parameter edits exactly as it blocks an attribute edit. That closes a real
+hole in the model rather than a merely theoretical one — parameters are the
+bulk of engineering content (§3.5), so a claim that did not cover them would
+not have been worth much.
+
+**Interaction with the §3.7 queue.** These handlers can now refuse, so a
+reply is no longer by itself a confirmation, and the queue had to learn the
+difference: a refusal is *settled* rather than retried (the user will not
+acquire the permission by trying again, and an entry that can never succeed
+would replay on every sync forever) but it is **reported**, because the local
+deletion is about to be undone by the next `get_parmz()` pulling the
+parameter back. That undo is correct — the server is authoritative — but it
+must not be silent, which is the same principle as §3.4.
+
+Refusals are reported on the live path too, not only the queued one. A
+connected user whose deletion is refused has already had it applied to the
+local cache, and would otherwise watch it silently revert at the next sync.
+
+Also fixed in passing: `add_de()`/`del_de()` never stamped `state['dez_dts']`,
+unlike their parameter counterparts and `set_data_elements()`. Note the dts
+values are currently written but never read on the client, so this was latent
+rather than active.
+
+Tests: `pangalactic.vger/pangalactic/vger/test/test_parm_auth.py`, 8 cases,
+asserting on the *caches* rather than the return message — a handler that
+refused in its reply while still mutating the cache would be the same bug
+wearing a disguise. 6 of the 8 fail against the pre-fix code; the 2 that pass
+are the authorized-path cases, which must pass both before and after.
 
 ---
 
