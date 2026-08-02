@@ -45,6 +45,25 @@ dependencies = [
     "websocket-client",
 ]
 
+# ---------------------------------------------------------------------------
+# Test-only dependencies -- not needed to run the application.
+#
+#     pip install -e ".[test]"        (or, preferred here: conda-forge)
+#
+# pytest-qt supplies the "qtbot" fixture used by the gui tests in
+# pangalactic/node/test:  it creates the QApplication, delivers real
+# mouse/keyboard events, and cleans widgets up afterwards.  The gui tests run
+# headless with QT_QPA_PLATFORM=offscreen.
+#
+# NOTE: as with the runtime dependencies above, "pyqt" is the *conda* name --
+# these are installed from conda-forge in this project rather than from PyPI.
+# ---------------------------------------------------------------------------
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-qt",
+]
+
 [project.urls]
 repository = "https://github.com/waterbug/pangalactic.node"
 
