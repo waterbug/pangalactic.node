@@ -792,7 +792,7 @@ def get_component_headers(component_type, n):
         return dict(label=f"Body {n}",
                     header=f"{s1}Body {n}{s2}")
     elif component_type == 'joint':
-        name="Joint"
+        name = "Joint"
         s1 = "============================== "
         s2 = " ================================"
         return dict(label=f"{name} {n}",

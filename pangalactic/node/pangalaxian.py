@@ -3098,7 +3098,7 @@ class Main(QMainWindow):
                                     icon="new_doc",
                                     tip="Define a New Functional Requirement",
                                     modes=['system'])
-        self.new_performance_rqt_action=self.create_action(
+        self.new_performance_rqt_action = self.create_action(
                                     "New Performance Requirement",
                                     slot=self.new_performance_rqt,
                                     icon="new_doc",
@@ -5721,7 +5721,7 @@ class Main(QMainWindow):
                     pgxn_panel_layout.removeWidget(self.pgxn_obj)
                     # NOTE:  WA_DeleteOnClose kills the "ghost pgxnobject" bug
                     self.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                    self.pgxn_obj.parent = None
+                    self.pgxn_obj.setParent(None)
                     self.pgxn_obj.close()
                     self.pgxn_obj = None
                 # if it has any other widgets, remove and close them
@@ -5734,7 +5734,7 @@ class Main(QMainWindow):
                             w.close()
                 # finally, close and destroy the panel
                 self.pgxn_obj_panel.setAttribute(Qt.WA_DeleteOnClose)
-                self.pgxn_obj_panel.parent = None
+                self.pgxn_obj_panel.setParent(None)
                 self.pgxn_obj_panel.close()
                 self.pgxn_obj_panel = None
             except:
@@ -5827,7 +5827,7 @@ class Main(QMainWindow):
                     dashboard_panel_layout.removeWidget(self.dashboard)
                     self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
                     self.dashboard.hide()
-                    self.dashboard.parent = None
+                    self.dashboard.setParent(None)
                     self.dashboard.close()
                     self.dashboard = None
                     self.dashboard_rebuilt = False
@@ -5838,7 +5838,7 @@ class Main(QMainWindow):
             # orb.log.debug('  + destroying existing self.sys_tree, if any ...')
             # NOTE:  WA_DeleteOnClose kills the "ghost tree" bug
             self.sys_tree.setAttribute(Qt.WA_DeleteOnClose)
-            self.sys_tree.parent = None
+            self.sys_tree.setParent(None)
             self.sys_tree.close()
             self.sys_tree = None
         except:
@@ -5852,7 +5852,7 @@ class Main(QMainWindow):
         ld_widget = self.left_dock.widget()
         if ld_widget:
             ld_widget.setAttribute(Qt.WA_DeleteOnClose)
-            ld_widget.parent = None
+            ld_widget.setParent(None)
             ld_widget.close()
         self.sys_tree = SystemTreeView(self.project)
         self.sys_tree.obj_modified.connect(self.on_mod_object_qtsignal)
@@ -6215,7 +6215,7 @@ class Main(QMainWindow):
         ld_widget = self.left_dock.widget()
         if ld_widget:
             ld_widget.setAttribute(Qt.WA_DeleteOnClose)
-            ld_widget.parent = None
+            ld_widget.setParent(None)
             ld_widget.close()
         self.update_pgxn_obj_panel()
         self.left_dock.setWidget(self.pgxn_obj_panel)
@@ -6295,7 +6295,7 @@ class Main(QMainWindow):
         ld_widget = self.left_dock.widget()
         if ld_widget:
             ld_widget.setAttribute(Qt.WA_DeleteOnClose)
-            ld_widget.parent = None
+            ld_widget.setParent(None)
             ld_widget.close()
         self.left_dock.setWidget(self.dataset_list)
         self.dataset_list.show()
@@ -6342,7 +6342,7 @@ class Main(QMainWindow):
         ld_widget = self.left_dock.widget()
         if ld_widget:
             ld_widget.setAttribute(Qt.WA_DeleteOnClose)
-            ld_widget.parent = None
+            ld_widget.setParent(None)
             ld_widget.close()
             # very important to set None: its C++ object is gone now ...
             self.cname_list = None
@@ -6437,7 +6437,7 @@ class Main(QMainWindow):
         # orb.log.debug('* resetting object table view to pref')
         if hasattr(self, 'object_tableview'):
             self.object_tableview.setAttribute(Qt.WA_DeleteOnClose)
-            self.object_tableview.parent = None
+            self.object_tableview.setParent(None)
             self.object_tableview.close()
             self.object_tableview = None
         self.set_object_table_for(cname)
@@ -7082,7 +7082,7 @@ class Main(QMainWindow):
                 self.product = product
                 if getattr(wizard, 'pgxn_obj', None):
                     wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                    wizard.pgxn_obj.parent = None
+                    wizard.pgxn_obj.setParent(None)
                     wizard.pgxn_obj.close()
                     wizard.pgxn_obj = None
                 # switch to 'component' mode (in case not already there) ...
@@ -7106,14 +7106,14 @@ class Main(QMainWindow):
             rqt = orb.get(rqt_oid)
             if rqt and getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                wizard.pgxn_obj.parent = None
+                wizard.pgxn_obj.setParent(None)
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
             # orb.log.debug('* rqt wizard cancelled.')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                wizard.pgxn_obj.parent = None
+                wizard.pgxn_obj.setParent(None)
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
 
@@ -7123,14 +7123,14 @@ class Main(QMainWindow):
             # orb.log.debug('* rqt wizard completed.')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                wizard.pgxn_obj.parent = None
+                wizard.pgxn_obj.setParent(None)
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
             # orb.log.debug('* rqt wizard cancelled...')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                wizard.pgxn_obj.parent = None
+                wizard.pgxn_obj.setParent(None)
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
 

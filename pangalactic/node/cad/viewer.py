@@ -109,7 +109,7 @@ class Model3DViewer(QMainWindow):
                 self.vbox.removeWidget(self.canvas)
             # close existing viewer
             self.canvas.setAttribute(Qt.WA_DeleteOnClose)
-            self.canvas.parent = None
+            self.canvas.setParent(None)
             self.canvas.close()
             self.canvas = None
         self.canvas = qtDisplay.qtViewer3d(self)

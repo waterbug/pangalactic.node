@@ -1309,7 +1309,7 @@ class TimelineModeler(QWidget):
         central_layout = self.layout()
         if getattr(self, 'activity_table', None):
             central_layout.removeWidget(self.activity_table)
-            self.activity_table.parent = None
+            self.activity_table.setParent(None)
             self.activity_table.close()
             self.activity_table = None
         self.activity_table = self.create_activity_table(

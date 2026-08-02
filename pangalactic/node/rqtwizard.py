@@ -733,7 +733,7 @@ class PerformanceDefineParmPage(QWizardPage):
             self.parm_layout.removeWidget(self.parm_pgxnobj)
             # NOTE:  WA_DeleteOnClose kills the "ghost pgxnobject" bug
             self.parm_pgxnobj.setAttribute(Qt.WA_DeleteOnClose)
-            self.parm_pgxnobj.parent = None
+            self.parm_pgxnobj.setParent(None)
             self.parm_pgxnobj.close()
             self.parm_pgxnobj = None
         if len(self.parm_list.selectedIndexes()) == 1:
@@ -846,106 +846,106 @@ class PerformRqtShallPage(QWizardPage):
             # # remove from first hbox
             self.subj_pred_label.hide()
             self.shall_hbox.removeWidget(self.subj_pred_label)
-            self.subj_pred_label.parent = None
+            self.subj_pred_label.setParent(None)
             # remove from middle hbox
             if getattr(self, 'target_value', None):
                 self.target_value.hide()
                 self.shall_hbox.removeWidget(self.target_value)
-                self.target_value.parent = None
+                self.target_value.setParent(None)
                 if getattr(self, 'lower_limit', None):
                     self.minus_label.hide()
                     self.shall_hbox.removeWidget(self.minus_label)
-                    self.minus_label.parent = None
+                    self.minus_label.setParent(None)
                     self.lower_limit.hide()
                     self.shall_hbox.removeWidget(self.lower_limit)
-                    self.lower_limit.parent = None
+                    self.lower_limit.setParent(None)
                     self.plus_label.hide()
                     self.shall_hbox.removeWidget(self.plus_label)
-                    self.plus_label.parent = None
+                    self.plus_label.setParent(None)
                     self.upper_limit.hide()
                     self.shall_hbox.removeWidget(self.upper_limit)
-                    self.upper_limit.parent = None
+                    self.upper_limit.setParent(None)
                     self.units.hide()
                     self.shall_hbox.removeWidget(self.units)
-                    self.units.parent = None
+                    self.units.setParent(None)
                 if getattr(self, 'plus_minus_label', None):
                     self.plus_minus_label.hide()
                     self.shall_hbox.removeWidget(self.plus_minus_label)
-                    self.plus_minus_label.parent = None
+                    self.plus_minus_label.setParent(None)
                     self.tol_val_field.hide()
                     self.shall_hbox.removeWidget(self.tol_val_field)
-                    self.tol_val_field.parent = None
+                    self.tol_val_field.setParent(None)
                     self.units.hide()
                     self.shall_hbox.removeWidget(self.units)
-                    self.units.parent = None
+                    self.units.setParent(None)
             if getattr(self, 'minimum_value', None):
                 self.minimum_value.hide()
                 self.shall_hbox.removeWidget(self.minimum_value)
-                self.minimum_value.parent = None
+                self.minimum_value.setParent(None)
                 self.units.hide()
                 self.shall_hbox.removeWidget(self.units)
-                self.units.parent = None
+                self.units.setParent(None)
             if getattr(self, 'maximum_value', None):
                 self.maximum_value.hide()
                 self.shall_hbox.removeWidget(self.maximum_value)
-                self.maximum_value.parent = None
+                self.maximum_value.setParent(None)
                 self.units.hide()
                 self.shall_hbox.removeWidget(self.units)
-                self.units.parent = None
+                self.units.setParent(None)
             if getattr(self, 'range_label', None):
                 self.range_label.hide()
                 self.shall_hbox.removeWidget(self.range_label)
-                self.range_label.parent = None
+                self.range_label.setParent(None)
                 self.maximum_value.hide()
                 self.shall_hbox.removeWidget(self.maximum_value)
-                self.maximum_value.parent = None
+                self.maximum_value.setParent(None)
                 self.minimum_value.hide()
                 self.shall_hbox.removeWidget(self.minimum_value)
-                self.minimum_value.parent = None
+                self.minimum_value.setParent(None)
                 self.units.hide()
                 self.shall_hbox.removeWidget(self.units)
-                self.units.parent = None
+                self.units.setParent(None)
             # remove from bottom hbox
 
             self.shall_vbox.removeItem(self.shall_hbox)
-            self.shall_hbox.parent = None
+            self.shall_hbox.setParent(None)
             layout.removeItem(self.instructions_form)
-            self.instructions_form.parent = None
+            self.instructions_form.setParent(None)
             self.line_top.hide()
             layout.removeWidget(self.line_top)
-            self.line_top.parent = None
+            self.line_top.setParent(None)
             layout.removeItem(self.shall_vbox)
-            self.shall_vbox.parent= None
+            self.shall_vbox.setParent(None)
             self.line_middle.hide()
             layout.removeWidget(self.line_middle)
-            self.line_middle.parent = None
+            self.line_middle.setParent(None)
             self.rationale_label.hide()
             self.rationale_layout.removeWidget(self.rationale_label)
-            self.rationale_label.parent = None
+            self.rationale_label.setParent(None)
             self.rationale_field.hide()
             self.rationale_layout.removeWidget(self.rationale_field)
-            self.rationale_field.parent = None
+            self.rationale_field.setParent(None)
             layout.removeItem(self.rationale_layout)
-            self.rationale_layout.parent = None
+            self.rationale_layout.setParent(None)
             self.line_bottom.hide()
             layout.removeWidget(self.line_bottom)
-            self.line_bottom.parent = None
+            self.line_bottom.setParent(None)
             self.justification_label.hide()
             self.justification_layout.removeWidget(self.justification_label)
-            self.justification_label.parent = None
+            self.justification_label.setParent(None)
             self.justification_field.hide()
             self.justification_layout.removeWidget(self.justification_field)
-            self.justification_field.parent = None
+            self.justification_field.setParent(None)
             layout.removeItem(self.justification_layout)
-            self.justification_layout.parent = None
+            self.justification_layout.setParent(None)
             self.preview_button.hide()
             self.preview_form.removeWidget(self.preview_button)
-            self.preview_button.parent = None
+            self.preview_button.setParent(None)
             self.save_button.hide()
             self.preview_form.removeWidget(self.save_button)
-            self.save_button.parent = None
+            self.save_button.setParent(None)
             layout.removeItem(self.preview_form)
-            self.preview_form.parent = None
+            self.preview_form.setParent(None)
 
         self.setTitle('Shall Statement, Rationale, and Justification')
         self.setSubTitle('Inspect the Shall Statement and provide the '
@@ -1118,7 +1118,7 @@ class PerformRqtShallPage(QWizardPage):
         self.justification_label = ColorLabel('Justification: ')
 
         # lines for spacers inside the widget.
-        self.line_top= QHLine()
+        self.line_top = QHLine()
         self.line_top.setFrameShadow(QFrame.Sunken)
         self.line_middle = QHLine()
         self.line_middle.setFrameShadow(QFrame.Sunken)

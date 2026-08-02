@@ -367,7 +367,7 @@ class ModelWindow(QMainWindow):
         if getattr(self, 'diagram_view', None):
             try:
                 self.diagram_view.setAttribute(Qt.DeleteOnClose)
-                self.diagram_view.parent = None
+                self.diagram_view.setParent(None)
                 self.diagram_view.close()
             except:
                 # hmm, my C++ object was already deleted

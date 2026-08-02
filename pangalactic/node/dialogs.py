@@ -834,9 +834,9 @@ class ModelsInfoTable(QTableWidget):
                     vault_fname = rep_file.oid + '_' + fname
                     vault_file_path = os.path.join(orb.vault, vault_fname)
                     if os.path.exists(vault_file_path):
-                        color='green'
+                        color = 'green'
                     else:
-                        color='purple'
+                        color = 'purple'
                     label = '  ' + fname + '  '
                     button = FileButtonLabel(label, file=rep_file, color=color)
                     button.clicked.connect(self.on_file_button)
@@ -852,9 +852,9 @@ class ModelsInfoTable(QTableWidget):
                         vault_fname = rep_file.oid + '_' + fname
                         vault_file_path = os.path.join(orb.vault, vault_fname)
                         if os.path.exists(vault_file_path):
-                            color='green'
+                            color = 'green'
                         else:
-                            color='purple'
+                            color = 'purple'
                         label = '  ' + fname + '  '
                         button = FileButtonLabel(label, file=rep_file,
                                                  color=color)
@@ -962,9 +962,9 @@ class DocsInfoTable(QTableWidget):
                     vault_fname = rep_file.oid + '_' + fname
                     vault_file_path = os.path.join(orb.vault, vault_fname)
                     if os.path.exists(vault_file_path):
-                        color='green'
+                        color = 'green'
                     else:
-                        color='purple'
+                        color = 'purple'
                     label = '  ' + fname + '  '
                     button = FileButtonLabel(label, file=rep_file, color=color)
                     button.clicked.connect(self.on_file_button)
@@ -983,9 +983,9 @@ class DocsInfoTable(QTableWidget):
                         vault_fname = rep_file.oid + '_' + fname
                         vault_file_path = os.path.join(orb.vault, vault_fname)
                         if os.path.exists(vault_file_path):
-                            color='green'
+                            color = 'green'
                         else:
-                            color='purple'
+                            color = 'purple'
                         label = '  ' + fname + '  '
                         button = FileButtonLabel(label, file=rep_file,
                                                  color=color)
@@ -1126,10 +1126,10 @@ class ModelsAndDocsInfoDialog(QDialog):
         if getattr(self, 'models_table', None):
             # remove and close current models_table and docs_table
             layout.removeWidget(self.models_table)
-            self.models_table.parent = None
+            self.models_table.setParent(None)
             self.models_table.close()
             layout.removeWidget(self.docs_table)
-            self.docs_table.parent = None
+            self.docs_table.setParent(None)
             self.docs_table.close()
         self.models_table = ModelsInfoTable(self.obj)
         self.models_table.setAttribute(Qt.WA_DeleteOnClose)
@@ -1642,7 +1642,7 @@ class MiniMelDialog(QDialog):
         if getattr(self, 'mini_mel_table', None):
             # remove and close current table
             layout.removeWidget(self.mini_mel_table)
-            self.mini_mel_table.parent = None
+            self.mini_mel_table.setParent(None)
             self.mini_mel_table.close()
         raw_data = get_mel_data(self.obj, schema=self.data_cols,
                                 summary=self.summary)

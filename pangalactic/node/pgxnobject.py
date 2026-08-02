@@ -1147,11 +1147,11 @@ class PgxnObject(QDialog):
         if hasattr(self, 'bbox'):
             self.bbox.hide()
             self.vbox.removeWidget(self.bbox)
-            self.bbox.parent = None
+            self.bbox.setParent(None)
             for tab_name in self.tab_names:
                 if hasattr(self, tab_name+'_tab'):
                     tab = getattr(self, tab_name+'_tab')
-                    tab.parent = None
+                    tab.setParent(None)
             # NOTE: TBD whether the whole tab widget needs to be removed -- for
             # now, just clear the pages
             self.tabs.clear()

@@ -272,7 +272,7 @@ class DataSheetPage(QWizardPage):
         if hasattr(self, 'tableview'):
             self.hbox.removeWidget(self.tableview)
             self.tableview.setAttribute(Qt.WA_DeleteOnClose)
-            self.tableview.parent = None
+            self.tableview.setParent(None)
             self.tableview.close()
         tablemodel = ListTableModel(self.datasets[dataset_name],
                                     parent=self)
@@ -675,13 +675,13 @@ class MappingPage(QWizardPage):
         # mapping_scrollarea
         if getattr(self, 'mapping_container', None):
             self.mapping_container.setAttribute(Qt.WA_DeleteOnClose)
-            self.mapping_container.parent = None
+            self.mapping_container.setParent(None)
             self.mapping_container.close()
             self.mapping_container = None
         if getattr(self, 'mapping_layout', None):
             self.vbox.removeWidget(self.mapping_scrollarea)
             self.mapping_scrollarea.setAttribute(Qt.WA_DeleteOnClose)
-            self.mapping_scrollarea.parent = None
+            self.mapping_scrollarea.setParent(None)
             self.mapping_scrollarea.close()
             self.mapping_scrollarea = None
         self.mapping_scrollarea = QScrollArea()
@@ -1099,7 +1099,7 @@ class ObjectCreationPage(QWizardPage):
         if getattr(self, 'fpanel', None):
             self.vbox.removeWidget(self.fpanel)
             self.fpanel.setAttribute(Qt.WA_DeleteOnClose)
-            self.fpanel.parent = None
+            self.fpanel.setParent(None)
             self.fpanel.close()
             self.fpanel = None
         self.fpanel = FilterPanel(self.objs, view=view, sized_cols=sized_cols,

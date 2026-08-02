@@ -757,7 +757,7 @@ class FilterPanel(QWidget):
         if getattr(self, 'proxy_view', None):
             self.proxy_layout.removeWidget(self.proxy_view)
             self.proxy_view.setAttribute(Qt.WA_DeleteOnClose)
-            self.proxy_view.parent = None
+            self.proxy_view.setParent(None)
             self.proxy_view.close()
             self.proxy_view = None
         if getattr(self, 'proxy_model', None):

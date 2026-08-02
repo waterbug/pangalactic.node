@@ -67,6 +67,58 @@ parent. Each site needs checking against whether `WA_DeleteOnClose` is set
 and whether `close()` follows. Worth doing, but as a deliberate pass with the
 app running, not a sed.
 
+**STATUS: APPLIED 2026-08-02 — 61 sites converted.** Corrections to the
+finding above, all established by execution rather than reading:
+
+- **The count was 62, not ~55, and one site had irregular spacing**
+  (`self.shall_vbox.parent= None`, rqtwizard 918) which a literal
+  `.parent = None` search misses. 61 converted; `systemtree.py`'s 2 correctly
+  excluded.
+- **Six of the sites are layouts, not widgets** (`shall_hbox`,
+  `shall_vbox`, `instructions_form`, `rationale_layout`,
+  `justification_layout`, `preview_form`), reached by `removeItem` rather than
+  `removeWidget`. `setParent(None)` is still right — orphaning a QObject — but
+  the surrounding idiom differs and they are worth knowing about.
+- **The impact claim above was too strong, and is corrected here.** In the
+  dominant teardown-and-rebuild pattern there is *no* leak: after
+  `removeWidget` PyQt hands ownership back to Python, so rebinding the
+  attribute drops the last reference and the widget is destroyed — whether or
+  not the "detach" did anything. Measured: 5 visits leave 1 live child under
+  *both* idioms. That is precisely why the broken idiom survived so long.
+
+  The divergence appears only when **something else still holds a reference**
+  — a signal connection, a container, another attribute. Then the old idiom
+  leaves every torn-down widget a child of the page (measured: 5 of 5, alive
+  and owned by the page) where `setParent(None)` leaves 1.
+
+  So the fix's value is: (a) the shadowing is removed, which is an
+  unconditional TypeError landmine for any later `widget.parent()` call, and
+  (b) the detach becomes deterministic instead of depending on Python
+  refcounting. It is *not* the recovery of an accumulating leak, and the
+  original entry should not have implied one.
+- **A site none of the searches had found**: `diagrams/shapes.py:2201`,
+  `BlockLabel(QGraphicsTextItem)` does `self.parent = parent` — same
+  shadowing of `QObject.parent()`, but assigning a value rather than `None`,
+  so every `.parent = None` search missed it. It is *not* a failed detach:
+  `super().__init__(parent=parent)` sets the real parent first and the
+  attribute is then used as data in four places, so it works, and nothing
+  calls `parent()` on a `BlockLabel` today. Fixing it means renaming the
+  attribute across those four uses in a diagram class with no automated
+  coverage — deliberately left as a separate change, and recorded in the
+  guard's allowlist so it is not forgotten.
+
+**Regression guard.** `test/test_widget_detach.py` fails if any assignment to
+`.parent` reappears outside an explicitly-reasoned allowlist. This matters
+more than the conversion itself: the idiom looks entirely reasonable, fails
+silently, and would otherwise come straight back.
+
+**Still needs a run of the real app.** The automated tests cover the
+semantics and guard the idiom, but they do not exercise these particular
+panels, wizard pages and dialogs. The sites to watch are the ones where a
+detached widget is now genuinely orphaned rather than nominally so: the
+left-dock panel swaps in `pangalaxian.py`, `rqtwizard`'s page rebuilds, and
+`pgxnobject`'s tab teardown.
+
 ### 2. Admin-tool signal connections accumulate on every open, and `self.admin_dlg` is dereferenced unguarded
 `pangalaxian.py:7250-7266` (`do_admin_stuff`), `2357`, `2424`
 
@@ -395,8 +447,8 @@ visible.
 
 **Open:**
 
-- **#1** the `.parent = None` idiom (~55 sites) — deliberately deferred; the
-  fix changes Qt ownership semantics and wants the app running.
+- *(#1 applied 2026-08-02 — see its STATUS block; still wants a run of the
+  real app to confirm the panels, wizard pages and dialogs behave.)*
 - **#4** the divergent component-mode branch — needs your judgement on which
   behaviour is correct.
 
