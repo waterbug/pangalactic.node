@@ -6160,10 +6160,24 @@ class Main(QMainWindow):
                         orb.log.debug('    {}'.format(log_msg))
                         # pass
             state["upd_obj_in_trees_needed"] = ("", "")
-        except:
-            # sys_tree's C++ object had been deleted
-            orb.log.debug('* update_object_in_tree(): sys_tree C++ object '
+        except RuntimeError:
+            # sys_tree's C++ object had been deleted -- this is the expected,
+            # benign case:  PyQt raises RuntimeError ("wrapped C/C++ object
+            # ... has been deleted") when the tree has gone away underneath us
+            orb.log.debug('* update_object_in_trees(): sys_tree C++ object '
                           'might have got deleted, cannot update.')
+            state["upd_obj_in_trees_needed"] = ("", "")
+        except Exception as e:
+            # NOTE: this was previously part of a bare "except:", so any bug
+            # in the ~60 lines above -- an AttributeError from a renamed
+            # attribute, a KeyError, a TypeError -- was reported as "the C++
+            # object might have been deleted" and otherwise ignored, which is
+            # a very effective way to hide a real defect.  Such failures are
+            # now named, at error level so they are not lost in debug output.
+            # Still swallowed rather than raised:  this runs inside rpc
+            # callbacks, where an exception would break the callback chain.
+            orb.log.error(f'* update_object_in_trees() failed: '
+                          f'{e.__class__.__name__}: {e}')
             state["upd_obj_in_trees_needed"] = ("", "")
 
     ### SET UP 'component' mode (product modeler interface)
