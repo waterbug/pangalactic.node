@@ -142,21 +142,20 @@ class RADropLabel(ColorLabel):
         ra_oid = self.ra.oid
         orb.delete([self.ra])
         # ------------------------------------------------------------------
-        # NOTE: BOTH notifications are required, and they do different things:
-        #   - the dispatcher "deleted object" signal drives the local gui
-        #     updates (pangalaxian.on_deleted_object_signal) and refreshes this
-        #     tool (refresh_roles);
-        #   - the "deleted_object" pyqtSignal reaches pangalaxian.del_object,
-        #     which is the *only* path that calls the "vger.delete" rpc.
-        # The emit was previously commented out, so a role assignment deleted
-        # here was removed locally and the repository was never told -- the
-        # assignment came back on the next sync, and a role "revoked" through
-        # this tool was still live in the repository.  Role assignments are
-        # permissions, so that mattered.
+        # NOTE: the dispatcher signal is sufficient and the "deleted_object"
+        # emit below must stay commented out.  DO NOT "fix" it:
+        # pangalaxian.on_deleted_object_signal() handles this signal and, for
+        # a local deletion while connected (remote defaults to False), calls
+        # the "vger.delete" rpc itself.  Emitting deleted_object as well would
+        # additionally reach pangalaxian.del_object(), which calls
+        # "vger.delete" a *second* time for the same oid.
+        # (This review pass initially mistook the commented-out emit for the
+        # reason deletions were not reaching the repository; they were --
+        # on_deleted_object_signal is simply longer than it looks.)
         # ------------------------------------------------------------------
         dispatcher.send(signal='deleted object', oid=ra_oid,
                         cname='RoleAssignment')
-        self.deleted_object.emit(ra_oid, 'RoleAssignment')
+        # self.deleted_object.emit(ra_oid, 'RoleAssignment')
 
     def adjust_parent_size(self):
         self.parent().adjustSize()
@@ -245,14 +244,13 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                # NOTE: both notifications are required -- see delete_role().
-                # Without the emit, the *new* RoleAssignment above was pushed
-                # to the repository but the one it replaces was only deleted
-                # locally, so the repository ended up holding both and the
-                # person kept the role this drop was meant to take away.
+                # NOTE: the emit stays commented out -- see delete_role().
+                # on_deleted_object_signal() already calls "vger.delete" for a
+                # local deletion while connected, so emitting as well would
+                # delete the same oid twice.
                 dispatcher.send(signal='deleted object', oid=deleted_oid,
                                 cname='RoleAssignment')
-                self.deleted_object.emit(deleted_oid, 'RoleAssignment')
+                # self.deleted_object.emit(deleted_oid, 'RoleAssignment')
             elif self.mime == 'application/x-pgef-role':
                 data = extract_mime_data(event, 'application/x-pgef-role')
                 icon, r_oid, r_id, r_name, r_cname = data
@@ -292,14 +290,13 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(role.name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                # NOTE: both notifications are required -- see delete_role().
-                # Without the emit, the *new* RoleAssignment above was pushed
-                # to the repository but the one it replaces was only deleted
-                # locally, so the repository ended up holding both and the
-                # person kept the role this drop was meant to take away.
+                # NOTE: the emit stays commented out -- see delete_role().
+                # on_deleted_object_signal() already calls "vger.delete" for a
+                # local deletion while connected, so emitting as well would
+                # delete the same oid twice.
                 dispatcher.send(signal='deleted object', oid=deleted_oid,
                                 cname='RoleAssignment')
-                self.deleted_object.emit(deleted_oid, 'RoleAssignment')
+                # self.deleted_object.emit(deleted_oid, 'RoleAssignment')
             else:
                 event.ignore()
         else:
@@ -514,9 +511,12 @@ class AddPersonDialog(QDialog):
         self.got_key_label = ButtonLabel('Public Key ready for upload')
         self.got_key_label.setVisible(False)
         outer_vbox.addWidget(self.got_key_label)
-        save_button = SizedButton('Save')
-        save_button.clicked.connect(self.on_save)
-        outer_vbox.addWidget(save_button)
+        # NOTE: kept as an attribute (like get_key_button above) rather than a
+        # local -- otherwise nothing can reference the button afterwards, to
+        # enable/disable it or to drive it from a test
+        self.save_button = SizedButton('Save')
+        self.save_button.clicked.connect(self.on_save)
+        outer_vbox.addWidget(self.save_button)
         # make sure we are deleted when closed
         self.setAttribute(Qt.WA_DeleteOnClose)
 

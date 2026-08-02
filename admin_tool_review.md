@@ -5,9 +5,12 @@ Sixth installment of the `pangalactic.node` review, and the first pass over
 `RADropLabel`, `PersonSearchDialog`, `AddPersonDialog` and `AdminDialog`.
 
 Prompted by the author's observation that "add user is broken unless LDAP is
-being used" — which is correct, and is finding #2 below. The pass turned up a
-more serious problem alongside it: **role assignment deletions never reach the
-repository** (#1).
+being used" — which is correct, and is finding #2 below.
+
+**Note before reading: finding #1 is retracted.** It claimed role-assignment
+deletions never reached the repository; they do. The entry is kept, clearly
+marked, because how a wrong finding survived a verification harness is worth
+recording. Findings #2-#7 stand and are fixed.
 
 Context taken as given (author): `gargleblaster` is a local-environment-
 specific wrapper, so its hardcoded `ldap_schema` is by design, not a defect.
@@ -20,7 +23,70 @@ Findings were verified by execution except where marked.
 
 ## Findings (most severe first)
 
-### 1. Deleting a RoleAssignment never reaches the repository
+### 1. ~~Deleting a RoleAssignment never reaches the repository~~ — RETRACTED, this was wrong
+
+> **RETRACTION (2026-08-01).** This finding was incorrect, and the change made
+> for it has been reverted. The analysis below is left in place because the
+> mistake is instructive, but **its conclusion is false**: deleting a
+> RoleAssignment *does* reach the repository.
+>
+> The error: I read the first ~180 lines of
+> `pangalaxian.on_deleted_object_signal()` and concluded it "does GUI updates
+> only". The function is ~240 lines long. Near its end, inside
+> `if not remote and state.get('connected'):`, it calls **`vger.delete`**
+> directly. `RADropLabel.delete_role()` sends the dispatcher signal without a
+> `remote=` kwarg, so `remote` defaults to `False` — and the deletion is
+> therefore pushed to the repository exactly as it should be.
+>
+> Verified afterwards by transcribing the function's control flow and
+> confirming there is **no early return** anywhere between its start and that
+> call:
+>
+> | | `vger.delete` called |
+> |---|---|
+> | local delete, connected | **yes** |
+> | local delete, offline | no — the known phase-3 queue gap, not this |
+> | remote delete, connected | no — correct; the server originated it |
+>
+> **The "fix" was worse than the bug.** Uncommenting the three
+> `deleted_object.emit(...)` lines made the deletion *also* reach
+> `del_object()`, which calls `vger.delete` a **second time for the same
+> oid**. All three are now commented out again, as they were, each with a note
+> saying why they must stay that way — this is a trap that reads like an
+> oversight and is not one.
+>
+> What I should have done, and what caught it in the end: trace the *receiver*
+> to its end rather than sampling it, and confirm the negative ("nothing calls
+> `vger.delete` on this path") by grepping for the call rather than by reading.
+> The same sampling error is what made the whole-file `except:` in
+> `update_object_in_trees` look benign for so long.
+>
+> The rest of this entry — the description of the two notification mechanisms
+> and their asymmetry — remains accurate and is worth keeping for the
+> `del_object` / `on_deleted_object_signal` duplication it documents.
+>
+> **The context that would have prevented this** (author, 2026-08-01):
+> **pydispatcher is the target for all signalling; every `pyqtSignal` in the
+> node code is a legacy detour on its way out.** pyqtSignal was adopted after
+> an elusive bug was mistakenly attributed to pydispatcher; by the time the
+> real cause was found, too many signals had been converted to revert cheaply,
+> and the leftovers unnecessarily complicate parts of the code.
+>
+> So a commented-out `.emit(...)` is **far more likely to be a half-finished
+> removal than an oversight** — which is exactly what these three were. The
+> rule that follows: never revive a dead pyqtSignal chain; when both
+> mechanisms exist for one operation, the pydispatcher path is the live one
+> and should be checked first.
+>
+> The author's objection to pyqtSignal is also the sharpest diagnostic for the
+> rest of this file: **the emitter must hold a direct reference to the
+> receiver** in order to connect, whereas pydispatcher requires no such
+> coupling. That forced coupling is the common root of finding #2's
+> accumulating admin-dialog connections, the dead `AdminDialog.deleted_object`
+> chain, and much of the "C++ object got deleted" defensive `except:` handling
+> throughout `pangalactic.node`.
+
+### 1a. Original (incorrect) finding, kept for the record
 `pangalactic/node/admin.py:85-93` (`RADropLabel.delete_role`), `130-231`
 (`RADropLabel.dropEvent`), with `pangalaxian.py:475` and `4770` (`del_object`)
 
@@ -89,10 +155,19 @@ right resolution is to converge the two notification mechanisms (see the
 smaller items below), which is part of the pydispatcher/pyqtSignal migration
 rather than something to settle here.
 
-*(Note on the verification: the harness above does not model the
-`do_admin_stuff` dispatcher connection, so its "admin refreshed: False" for
-the pre-fix case is an artifact of the harness — the tool did refresh before
-this change, via that route. What it did not do was tell the repository.)*
+**^^ ALL OF THE ABOVE IS WRONG — see the retraction at the top of #1.** The
+emits are commented out again. Two things about how the mistake survived
+verification, which are the useful part:
+
+- **The harness only modelled the mechanism I suspected.** It wired
+  `RADropLabel.deleted_object → AdminDialog → del_object` and correctly showed
+  that chain was dead — but it never modelled `on_deleted_object_signal`,
+  which was doing the work all along. A harness containing only your
+  hypothesis will always confirm it.
+- **I noticed a smell and explained it away.** The "`refresh_roles` now runs
+  twice" note above was the tell: a change that suddenly duplicates work is a
+  hint that the path already existed. I recorded it as an accepted cost
+  instead of asking why it was duplicated.
 
 ### 2. There is no way to create a user without LDAP
 `admin.py:233-387` (`PersonSearchDialog`), `389-505` (`AddPersonDialog`)
@@ -437,8 +512,19 @@ the case that used to raise `TypeError`.
   uses `self.new_object.emit(ra.oid)` in the Person branch (808, with the
   dispatcher call commented out just above it) and
   `dispatcher.send(signal='new object', obj=ra)` in the Role branch (842).
-  This is the pydispatcher/pyqtSignal migration the author has flagged as in
-  progress; worth converging here since #1 turns on exactly this distinction.
+  **The direction is settled: pydispatcher.** So the Role branch is already
+  right and the Person branch is the one to convert — replace the
+  `new_object.emit(ra.oid)` with the dispatcher send that sits commented out
+  directly above it, then drop the `new_object` pyqtSignal declaration and its
+  connection in `do_admin_stuff`. Cheap, and it removes one more emitter→
+  receiver coupling.
+
+- **Vestigial pyqtSignal wiring worth removing** while in here, now that the
+  direction is explicit: `RADropLabel.deleted_object` (declared, never
+  emitted), `AdminDialog.deleted_object` and `AdminDialog.on_deleted_object`
+  (reachable only from the former), and the two connections
+  `do_admin_stuff` makes to them. All of it is dead, and its presence is what
+  made #1 look like a bug.
 - **The module's own `__main__` block is broken** (852-857): `AdminDialog()`
   with no `org` reaches `ButtonLabel(self.org.id, w=120)` at 544 and raises
   `AttributeError`. `refresh_roles` uses `getattr(self.org, 'id', ...)`
@@ -452,8 +538,9 @@ the case that used to raise `TypeError`.
 
 **Fixed** (2026-08-01), each verified by execution and annotated inline:
 
-- **#1** role-assignment deletions now reach `vger.delete`, for both the
-  context-menu delete and the drag-drop re-assignment.
+- ~~**#1** role-assignment deletions~~ — **RETRACTED and reverted**; the
+  finding was wrong, deletions already reached the repository. See the
+  retraction at the top of #1.
 - **#4** the public key is stripped and validated before it is accepted.
 - **#3** the `ldap_search_button` connect is guarded, so the admin tool opens
   on deployments that do not configure LDAP.
@@ -475,9 +562,9 @@ would also remove the double `refresh_roles` noted under #1.
 
 ## Suggested fix order
 
-1. **#1 role-assignment deletions** — permissions silently not revoked, and
-   drag-drop re-assignment leaves the old assignment live in the repository.
-   Nothing else here comes close in consequence.
+1. ~~**#1 role-assignment deletions**~~ — retracted; see above.
+
+
 2. **#4 strip and validate the public key** — a few lines, removes a silent
    login failure that is easy to hit and very hard to diagnose.
 3. **#3 guard the `ldap_search_button` connect** — one line, and it is a
