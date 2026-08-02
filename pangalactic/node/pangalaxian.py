@@ -1473,8 +1473,18 @@ class Main(QMainWindow):
             else:
                 orb.log.debug('        none were found in local db.')
         if user_objs_sync:
+            # NOTE: state['synced_oids'] is no longer consulted for
+            # permissions -- access.py now uses state['locally_created_oids']
+            # (see add_locally_created()).  It is left maintained here because
+            # other code still reads it; retiring it is a separate change.
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
+            # NOTE: state['locally_created_oids'] is deliberately NOT cleared
+            # wholesale here.  It is pruned per-oid in on_vger_save_result(),
+            # from the oids the repository actually confirmed -- so an object
+            # whose save was *refused* (unauth, no owner) correctly stays
+            # "locally created" and therefore still editable offline, rather
+            # than being forgotten because a sync happened to run.
             state['user_objs_sync_completed'] = True
         # --------------------------------------------------------------------
         # The following is added to fix a bug involving the client attempting
@@ -1858,6 +1868,56 @@ class Main(QMainWindow):
     # per the ongoing migration back to pydispatcher.
     # See pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md.
     # =====================================================================
+
+    # ---------------------------------------------------------------------
+    # state['locally_created_oids'] lists objects created on this client that
+    # the repository has never seen.  access.is_writable_now() consults it as
+    # rule [4]:  offline, with no check-out claim, these are the only objects
+    # that may be edited.
+    #
+    # It replaces the old test "obj.oid not in state['synced_oids']", which
+    # was inverted:  synced_oids held only the *user's own* objects, so
+    # absence from it meant, in practice, "somebody else created this" --
+    # exactly the objects that should NOT have been editable offline.  See
+    # NOTES_ON_OFFLINE_AND_SYNC.md section 2 and NOTES_ON_CHECKOUT_MODEL.md
+    # section 5.
+    #
+    # NOTE: state is persisted, so this survives a restart -- which it must,
+    # since offline work can span sessions.  state['synced_oids'] is still
+    # maintained elsewhere but is no longer consulted for permissions; it can
+    # be retired separately.
+    # ---------------------------------------------------------------------
+
+    def add_locally_created(self, oid):
+        """
+        Record an object as created here and not yet known to the repository.
+
+        Args:
+            oid (str):  oid of the object
+        """
+        if not oid:
+            return
+        oids = state.get('locally_created_oids') or []
+        if oid not in oids:
+            oids.append(oid)
+            state['locally_created_oids'] = oids
+
+    def clear_locally_created(self, oids):
+        """
+        Forget objects the repository has now confirmed it has.
+
+        Args:
+            oids (iterable of str):  oids the repository accepted
+        """
+        current = state.get('locally_created_oids') or []
+        if not current:
+            return
+        remaining = [o for o in current if o not in set(oids or [])]
+        if len(remaining) != len(current):
+            n = len(current) - len(remaining)
+            orb.log.debug(f'  {n} object(s) confirmed by the repository; '
+                          'no longer "locally created".')
+            state['locally_created_oids'] = remaining
 
     def on_remote_checked_out(self, content):
         """
@@ -3546,6 +3606,12 @@ class Main(QMainWindow):
             orb.log.debug('  object oid: "{}"'.format(
                                         str(getattr(obj, 'oid', '[no oid]'))))
             orb.log.debug('  cname: "{}"'.format(str(cname)))
+            if new:
+                # this object was created here and the repository has not seen
+                # it yet, so it is editable offline without a check-out claim
+                # (access.is_writable_now(), rule [4]).  Removed again in
+                # on_vger_save_result() once the repository confirms it.
+                self.add_locally_created(getattr(obj, 'oid', ''))
             if (self.mode == 'system'
                 and isinstance(obj, (orb.classes['HardwareProduct'],
                                      orb.classes['Acu'],
@@ -4139,6 +4205,11 @@ class Main(QMainWindow):
             # nothing at all came back, so accumulating preserves that meaning.
             msg_parts = []
             new_acts = []
+            # anything the repository accepted is no longer "locally created"
+            # -- it now exists there, so offline editability must come from a
+            # check-out claim rather than from rule [4]
+            self.clear_locally_created(list(stuff.get('new_obj_dts') or {})
+                                       + list(stuff.get('mod_obj_dts') or {}))
             if stuff.get('new_obj_dts'):
                 msg_parts.append('{} new'.format(len(stuff['new_obj_dts'])))
                 new_obj_oids = list(stuff['new_obj_dts'])
