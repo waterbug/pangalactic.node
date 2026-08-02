@@ -4,7 +4,7 @@ from collections import namedtuple
 
 from pydispatch import dispatcher
 
-from PyQt5.QtCore import pyqtSignal, Qt, QModelIndex, QSize
+from PyQt5.QtCore import Qt, QModelIndex, QSize
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
                              QLayout, QMainWindow, QPushButton, QSizePolicy,
                              QVBoxLayout, QWidget)
@@ -47,7 +47,11 @@ class ModelWindow(QMainWindow):
         history (list):  list of previous ModelerState instances
     """
 
-    deleted_object = pyqtSignal(str, str)  # args: oid, cname
+    # NOTE: the "deleted_object" pyqtSignal that used to be declared here was
+    # removed -- nothing emitted it (deletions are announced with the
+    # dispatcher "deleted object" signal, which pangalaxian handles), so it and
+    # the three connections pangalaxian made to it were pure vestige of the
+    # pyqtSignal -> pydispatcher migration.
 
     def __init__(self, obj=None, scene=None, logo=None, idx=None,
                  external=False, preferred_size=None, parent=None):
@@ -353,7 +357,6 @@ class ModelWindow(QMainWindow):
 
     def set_new_diagram_view(self):
         new_diagram_view = DiagramView(self.obj, embedded=True, parent=self)
-        # new_diagram_view.scene().deleted_object.connect(self.on_deleted_object)
         new_diagram_view.setSizePolicy(QSizePolicy.Preferred,
                                        QSizePolicy.Preferred)
         layout = QVBoxLayout()
@@ -596,7 +599,6 @@ class ModelWindow(QMainWindow):
         """
         if state.get('mode') in ['system', 'component']:
             self.refresh_block_diagram()
-            # self.deleted_object.emit(oid, cname)
         return
 
     def on_signal_to_refresh(self):

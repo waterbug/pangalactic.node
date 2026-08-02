@@ -5706,8 +5706,6 @@ class Main(QMainWindow):
                 state['product'] = system.oid
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
-            self.system_model_window.deleted_object.connect(
-                                        self.del_object)
             self.setCentralWidget(self.system_model_window)
         elif (state.get('mode') == 'system' and
               orb.get((state.get('system') or {}).get(
@@ -5715,8 +5713,6 @@ class Main(QMainWindow):
             system = orb.get(state['system'][state.get('project')])
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
-            self.system_model_window.deleted_object.connect(
-                                        self.del_object)
             self.setCentralWidget(self.system_model_window)
         elif self.project:
             psize = (600, 400)
@@ -5727,8 +5723,6 @@ class Main(QMainWindow):
             self.system_model_window = ModelWindow(obj=self.project,
                                                    logo=self.logo,
                                                    preferred_size=psize)
-            self.system_model_window.deleted_object.connect(
-                                        self.del_object)
             self.setCentralWidget(self.system_model_window)
         else:
             self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,

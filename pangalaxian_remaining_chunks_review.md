@@ -169,6 +169,92 @@ db table's own deletion path goes through `ObjectTableModel.del_object`
 practice. The branch is nonetheless wrong as written, and the cheap fix is to
 mirror what `on_deleted_object_signal` does rather than set a flag.
 
+> **Context for #3 and #4 both** (author, 2026-08-01): **pydispatcher is the
+> target for all signalling, and every `pyqtSignal` in this package is a
+> legacy detour being removed.** It was adopted after an elusive bug was
+> mistakenly attributed to pydispatcher; by the time the real cause was found,
+> too many signals had been converted for reverting to be worth prioritising.
+>
+> That resolves what the two functions below are *for*: `del_object` is
+> reached almost entirely through **pyqtSignal** connections, while
+> `on_deleted_object_signal` handles the **dispatcher** signal. They are not
+> two designs — they are the two sides of a stalled migration, which is why
+> they duplicate a dispatch block and have drifted. The durable fix for #4 is
+> therefore not "extract a shared helper" but "finish the migration and delete
+> `del_object`", folding anything it does that the dispatcher path does not
+> into `on_deleted_object_signal`.
+>
+> Also worth reading with this in mind: a commented-out `.emit(...)` in this
+> package is more likely a half-finished removal than an oversight — mistaking
+> one for the other produced a wrong finding in `admin_tool_review.md` #1,
+> since retracted.
+
+## Appendix: how far the pydispatcher migration has actually got
+
+Measured 2026-08-01, and smaller than it looks from the inside. Counting raw
+`.connect(` calls badly overstates it, because most are ordinary widget wiring
+(`button.clicked.connect(...)`) where the emitter *is* the receiver's owner —
+that is a fine use of Qt signals and not what the migration is about.
+
+**Totals:** 140 `dispatcher.connect` calls against **33** custom `pyqtSignal`
+declarations and **43** live `.emit(...)` calls.
+
+Of those 43 emits, roughly half are **not migration debt at all** and should
+stay:
+
+| category | examples | why it stays |
+|---|---|---|
+| Qt model/view protocol | `dataChanged.emit`, `completeChanged.emit`, `editingFinished.emit` | required by `QAbstractItemModel` / `QWizardPage`; not application signalling |
+| worker threads | all of `threads.py`, plus `progress_signal.emit` | cross-thread delivery is exactly what Qt signals are for; pydispatcher is not a thread-safe substitute |
+
+That leaves **~21 live emits of custom domain signals**, across eight modules
+— `admin.py`, `dashboards.py`, `dialogs.py`, `filters.py`, `libraries.py`,
+`pangalaxian.py`, `pgxnobject.py`, `systemtree.py`. Recurring names:
+`obj_modified` (5 sites), `delete_obj` (2), `units_set` (3),
+`deleted_object` / `new_object` (3), plus `hw_fields_edited`,
+`rqt_parm_mod`, `toggle_library_size`, `activity_edited`, `remote_frozen`,
+`remote_thawed`, `refresh_admin_tool`.
+
+**Three modules were already fully migrated** — `blockmodeler.py`,
+`diagrams/shapes.py` and `diagrams/view.py` have **zero** live emits; every
+`.emit(...)` in them was commented out. This is also the clearest evidence for
+reading a commented-out emit as a completed removal rather than a bug: in the
+diagram code, that is exactly what they were.
+
+**DONE (2026-08-01): the diagram subsystem is now pyqtSignal-free.** Removed:
+
+- the two vestigial declarations, `ModelWindow.deleted_object`
+  (`blockmodeler.py`) and the diagram scene's `deleted_object`
+  (`diagrams/view.py`), each replaced by a short note saying what was there
+  and why it went;
+- the **three live `self.system_model_window.deleted_object.connect(
+  self.del_object)` calls in `pangalaxian.py`** — these had to go with the
+  declaration or the removal would have failed at runtime rather than at
+  import, since nothing ever emitted the signal they connected to;
+- six stale commented-out emits/connects referring to the removed signals
+  (five in `diagrams/shapes.py`, one each in `view.py` and `blockmodeler.py`)
+  — once the signal is gone, a comment referencing it is actively misleading;
+- the now-unused `pyqtSignal` import in both modules.
+
+Custom declarations across the package: **31 → 29**. (The "33" quoted above
+was a loose count that included two commented-out declarations.) Verified by
+importing `ModelWindow` and `DiagramScene` and confirming neither still has a
+`deleted_object` attribute.
+
+Nothing else changes behaviourally: deletions from the diagram were already
+announced with `dispatcher.send('deleted object', ...)`, which
+`on_deleted_object_signal` handles — including calling `vger.delete`.
+
+**On `Main` itself the surface is three signals** — `deleted_object`,
+`new_object`, `mod_object` — and the connection block that sets them up
+(451-455) is explicitly separated from the ~50 dispatcher connections that
+follow it. Two of the three already delegate straight through thin adapters
+(`on_new_object_qtsignal` / `on_mod_object_qtsignal` both just resolve the oid
+and call `on_mod_object_signal`), so converting their emitters to
+`dispatcher.send` and deleting the adapters is mechanical. `deleted_object` →
+`del_object` is the one with real behaviour behind it, and is the subject of
+#4 above.
+
 ### 4. `del_object` and `on_deleted_object_signal` duplicate the same dispatch block and disagree in one branch
 `pangalaxian.py:4818-4842` vs `4468-4504`
 

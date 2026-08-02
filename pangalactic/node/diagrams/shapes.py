@@ -573,7 +573,6 @@ class ObjectBlock(Block):
         oid = self.usage.oid
         orb.delete([self.usage])
         dispatcher.send(signal='deleted object', oid=oid, cname='Acu')
-        # self.scene().deleted_object.emit(oid, 'Acu')
 
     def del_system(self):
         """
@@ -586,7 +585,6 @@ class ObjectBlock(Block):
         orb.delete([self.usage])
         dispatcher.send(signal='deleted object', oid=oid,
                         cname='ProjectSystemUsage')
-        # self.scene().deleted_object.emit(oid, 'ProjectSystemUsage')
 
     def del_component(self):
         """
@@ -1534,9 +1532,6 @@ class PortBlock(QGraphicsItem):
                                 cname='Port', remote=remote)
                 # if local action, dispatch 'modified object' signal
                 if not remote:
-                    # self.parent_block.scene().deleted_object.emit(port_oid,
-                                                                  # 'Port')
-                    # set modifier / mod_datetime on port's object
                     user = orb.get(state.get('local_user_oid'))
                     obj.modifier = user
                     obj.mod_datetime = dtstamp()
@@ -1572,8 +1567,6 @@ class PortBlock(QGraphicsItem):
                     dispatcher.send('deleted object', oid=flow_oid,
                                     cname='Flow', remote=remote)
                     # if not remote:
-                        # self.parent_block.scene().deleted_object.emit(flow_oid,
-                                                                      # 'Flow')
                     shape.prepareGeometryChange()
                     self.scene().removeItem(shape)
             # regenerate the diagram
@@ -1947,9 +1940,6 @@ class RoutedConnector(QGraphicsItem):
                 if not remote:
                     dispatcher.send('deleted object', oid=flow_oid,
                                     cname='Flow')
-                    # self.start_item.parent_block.scene().deleted_object.emit(
-                                                                    # flow_oid,
-                                                                    # 'Flow')
             self.start_item.remove_connector(self)
             self.end_item.remove_connector(self)
             self.prepareGeometryChange()

@@ -6,7 +6,7 @@ import random
 from PyQt5.QtGui     import QFont
 from PyQt5.QtWidgets import (QGraphicsLineItem, QGraphicsScene, QGraphicsView,
                              QMessageBox, QSizePolicy)
-from PyQt5.QtCore    import pyqtSignal, Qt, QLineF, QPoint, QPointF, QRectF
+from PyQt5.QtCore    import Qt, QLineF, QPoint, QPointF, QRectF
 
 from pydispatch import dispatcher
 
@@ -45,7 +45,11 @@ class DiagramScene(QGraphicsScene):
     default_line_color = Qt.black
     default_font = QFont()
 
-    deleted_object = pyqtSignal(str, str)  # args: oid, cname
+    # NOTE: the "deleted_object" pyqtSignal that used to be declared here was
+    # removed -- nothing emitted it and nothing connected to it (the only
+    # connection, in blockmodeler, was already commented out).  Deletions from
+    # the diagram are announced with the dispatcher "deleted object" signal,
+    # which pangalaxian handles.
 
     def __init__(self, subject, parent=None):
         """
@@ -700,7 +704,6 @@ class DiagramScene(QGraphicsScene):
                 assembly = flow.flow_context
                 orb.delete([flow])
                 dispatcher.send('deleted object', oid=flow_oid)
-                # self.deleted_object.emit(oid, 'Flow')
                 assembly.mod_datetime = dtstamp()
                 assembly.modifier = orb.get(state.get('local_user_oid'))
                 orb.save([assembly])
