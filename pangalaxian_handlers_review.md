@@ -365,8 +365,15 @@ whenever either side is unparseable. **Verified by execution:**
 With `min_version = ''` the guard `this_v and min_v` is `False`, so the
 comparison is skipped and no `InvalidVersion` is raised.
 
-### 6. `gen_keys()` writes the private key unsafely
-`pangalaxian.py:7348-7351`
+### 6. `gen_keys()` — private key handling (consolidated)
+`pangalaxian.py:7959-8010`
+
+**This is the single record for `gen_keys()`.** It previously appeared here
+and, from the other direction, in `admin_tool_review.md` #4; that entry now
+cross-references this one. See also `pangalactic.vger/NOTES_ON_TESTING.md`
+§8.2, which generates vger's own key pair and follows the same shape.
+
+#### What was wrong
 
 ```python
 f = open(self.key_path, 'wb')
@@ -375,78 +382,81 @@ f.close()
 os.chmod(self.key_path, 0o400)
 ```
 
-Three problems, in a function whose whole job is handling a private key:
+- **The private key was created at the process umask and only `chmod`ed to
+  `0o400` afterwards**, so there was a window in which it sat on disk
+  world-readable. Not theoretical — **measured at `0o664`.**
+- **If `write()` raised, the `chmod` never ran at all**, leaving a partial
+  private key permanently at default permissions.
+- **No `with`** — on an exception the handle leaked and a truncated key file
+  was left behind. The same unguarded open/write/close was repeated for
+  `public.key`.
 
-- **No `with` and no `try/finally`** — the same pattern the `pangalactic.core`
-  review flagged and which was fixed in `p.core/__init__.py`. If `write()`
-  raises, the handle leaks and a truncated key file is left behind.
-- **The file is created with default (umask) permissions and only
-  `chmod`ed to `0o400` afterwards**, so there is a window in which the
-  private key is on disk world-readable. `os.open(path,
-  os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)` would create it restricted
-  from the start.
-- **If `write()` raises, the `chmod` never runs at all**, leaving a partial
-  key file permanently at default permissions.
+Two smaller things in the same function: `PrivateKey.generate()` ran *before*
+the "key already exists" check, so a key pair was generated and discarded on
+every aborted call; and `if response == QMessageBox.Ok: return` was
+effectively unconditional, since `Ok` is the dialog's only button and Qt
+returns it for Esc and window-close too — it read as a choice that was never
+offered.
 
-The same unguarded open/write/close is repeated for `public.key` at
-7354-7356 (less sensitive, same robustness issue).
+*On the `with` point (author, 2026-08-02): this code predates the `with`
+statement, which arrived in Python 2.5. The bare open/write/close is vintage,
+not oversight — worth knowing before reading it as carelessness. The retrofit
+is still the right move.*
 
-Minor, in the same function: `PrivateKey.generate()` runs at 7329 *before*
-the "key already exists" check, so a key pair is generated and discarded on
-every aborted call; and the `if response == QMessageBox.Ok: return` at
-7345 is effectively unconditional, since `Ok` is the dialog's only button
-(and Qt returns `Ok` for Esc and window-close too, per the rule established
-in `pgxnobject_review.md`). The latter matches intent — the message tells the
-user to delete the existing key first — but reads as a choice that isn't one.
+#### What was applied (2026-08-02)
 
-**STATUS: NOT FIXED — suggested fix below.** Not applied because it touches
-key generation, which is worth your eyes before it changes. Suggested shape:
+**STATUS: FIXED.** The existence check moved above `PrivateKey.generate()`;
+the unconditional `if response ==` wrapper is gone; both writes use `with`;
+and the private key is created already-restricted:
 
 ```python
-    def gen_keys(self):
-        self.statusbar.showMessage('Generating public/private key pair ...')
-        orb.log.debug('* gen_keys')
-        if os.path.exists(self.key_path):
-            # if private key already exists, warn user and stop -- the user
-            # must delete the existing key deliberately before a new pair can
-            # be generated (NOTE: generate the key only after this check, so
-            # an aborted call does no work)
-            orb.log.debug('  - private key already exists, warning user.')
-            message = ...
-            QMessageBox(QMessageBox.Warning, "Private Key Exists ...",
-                        message, QMessageBox.Ok, self).exec_()
-            return
-        privkey = PrivateKey.generate()
-        # create the file with restrictive permissions from the start, rather
-        # than chmod-ing after the write: otherwise the private key exists on
-        # disk at the process umask (typically world-readable) in between,
-        # and stays that way permanently if the write raises
-        fd = os.open(self.key_path,
-                     os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o400)
-        with os.fdopen(fd, 'wb') as f:
-            f.write(privkey.encode())
-        sk = cryptosign.CryptosignKey.from_file(self.key_path)
-        public_key_path = os.path.join(orb.home, 'public.key')
-        with open(public_key_path, 'w') as f:
-            f.write(sk.public_key())
-        ...
+fd = os.open(self.key_path,
+             os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+with os.fdopen(fd, 'wb') as f:
+    f.write(privkey.encode())
+os.chmod(self.key_path, 0o400)
 ```
 
-Four changes: the existence check moves above `PrivateKey.generate()`; the
-`if response == QMessageBox.Ok:` wrapper is dropped since it was
-unconditional either way; `os.open(..., O_CREAT | O_EXCL, 0o400)` creates the
-file already-restricted and refuses to clobber an existing one; and both
-writes use `with`, so a failure cannot leak the handle.
+`O_EXCL` makes the create fail rather than overwrite if a key appeared between
+the check and the open — belt and braces, since the check above already
+returns in that case.
 
-`O_EXCL` makes the create fail rather than overwrite if the file appeared
-between the check and the open — belt and braces, since the check above
-already returns in that case.
+**Deviation from the originally proposed fix, and why.** The proposal created
+the file `0o400` directly. As applied it creates `0o600` and `chmod`s to
+`0o400` after the write. Both close the exposure window identically — that is
+the entire security property at stake — but `0o600` does not depend on being
+able to write to a file created read-only, which is the part that differs on
+Windows, and this app ships a Windows build. The original entry named this as
+the fallback; it is preferable as the default precisely because the platform
+question then never has to be answered.
 
-One thing to confirm before applying: `0o400` (read-only for the owner) is
-what the current code chmods to, but the file must be *written* first. On
-Linux the owner can write to a `0o400` file they own via an already-open
-descriptor, so this works; if that ever proves awkward on Windows, create
-with `0o600` and `os.chmod(..., 0o400)` after the `with` block closes.
+**Verified by execution**, with the real `nacl`/`cryptosign` calls rather than
+a model of them:
+
+| | old | new |
+|---|---|---|
+| private key perms *during* write | `0o664` — **world-readable** | `0o600` |
+| private key perms after | `0o400` | `0o400` |
+| perms left by a failed write | umask default | `0o600` |
+| `O_EXCL` refuses to clobber an existing key | n/a | yes |
+
+#### The coupling with `admin_tool_review.md` #4 — do not break this
+
+`gen_keys()` writes `public.key` with **no trailing newline**, and that must
+stay true. vger stores the string verbatim in `principals.db` and the
+authenticator matches it against the bare hex key from the WAMP handshake, so
+a newline here would silently prevent login for every app-generated key — the
+person is added, the administrator is told it succeeded, and login simply
+never works.
+
+The two findings are the same failure arriving by different routes: #4 covers
+a key that acquired a newline *in transit* (editor, email, copy-paste) and is
+fixed by `strip()` + validation on the receiving side; this one covers not
+introducing one at the source. Confirmed still 64 hex characters with no
+trailing newline after the rewrite.
+
+Marked at the site in the source, because it is the kind of thing a later
+tidy-up ("shouldn't a text file end in a newline?") would quietly reintroduce.
 
 ---
 
@@ -549,8 +559,7 @@ explicit and logged, so the failure modes are known before the shape changes.
 
 **Open, awaiting your decision:**
 
-- **#6** `gen_keys()` — suggested rewrite inline; not applied because it
-  touches key generation.
+- *(none — #6 was applied 2026-08-02)*
 
 ## Original suggested fix order (all now triaged)
 
@@ -565,5 +574,7 @@ explicit and logged, so the failure modes are known before the shape changes.
    question rather than a patch: it needs the conflict-policy and
    reconciliation decisions from `NOTES_ON_OFFLINE_AND_SYNC.md` §3.3/§3.4,
    and is a natural fit for check-out phase 2/3.
-5. **#6 `gen_keys()`** — small hardening of private-key handling.
+5. **#6 `gen_keys()`** — small hardening of private-key handling. **DONE
+   (2026-08-02);** this section is now the consolidated record for
+   `gen_keys()`, including the coupling with `admin_tool_review.md` #4.
 6. **#3 dead `des set` handlers** — decide remove-vs-rewire.

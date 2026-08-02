@@ -7964,7 +7964,9 @@ class Main(QMainWindow):
         """
         self.statusbar.showMessage('Generating public/private key pair ...')
         orb.log.debug('* gen_keys')
-        privkey = PrivateKey.generate()
+        # NOTE: the existence check comes *before* PrivateKey.generate(), so an
+        # aborted call does no work.  It used to generate a key pair and then
+        # discard it every time the user hit this with a key already in place.
         if os.path.exists(self.key_path):
             # if private key already exists, warn user
             orb.log.debug('  - private key already exists, warning user.')
@@ -7976,22 +7978,40 @@ class Main(QMainWindow):
             message += ' <font color="green"><b>public.key</b></font> file'
             message += ' to an administrator and request that it be used to'
             message += ' replace your current public key.'
-            conf_dlg = QMessageBox(QMessageBox.Warning,
-                         "Private Key Exists ...", message,
-                         QMessageBox.Ok)
-            response = conf_dlg.exec_()
-            if response == QMessageBox.Ok:
-                conf_dlg.close()
-                return
-        f = open(self.key_path, 'wb')
-        f.write(privkey.encode())
-        f.close()
+            # NOTE: the result is deliberately not inspected.  "Ok" is the only
+            # button, and Qt also returns it for Esc and for closing the
+            # window, so the old "if response == QMessageBox.Ok: return" was
+            # unconditional -- it read as a choice that was never offered.
+            QMessageBox(QMessageBox.Warning, "Private Key Exists ...",
+                        message, QMessageBox.Ok, self).exec_()
+            return
+        privkey = PrivateKey.generate()
+        # NOTE: create the file already-restricted rather than chmod-ing after
+        # the write.  The previous "open(path, 'wb') ... chmod(0o400)" left the
+        # private key on disk at the process umask in between -- measured at
+        # 0o664, i.e. world-readable -- and left it that way permanently if the
+        # write raised, because the chmod never ran.  O_EXCL additionally
+        # refuses to clobber a key that appeared since the check above.
+        #
+        # 0o600-then-chmod rather than creating 0o400 directly: both close the
+        # exposure window identically, but this does not depend on being able
+        # to write to a file created read-only, which is the part that differs
+        # on Windows -- and this app ships a Windows build.
+        fd = os.open(self.key_path,
+                     os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'wb') as f:
+            f.write(privkey.encode())
         os.chmod(self.key_path, 0o400)
         sk = cryptosign.CryptosignKey.from_file(self.key_path)
         public_key_path = os.path.join(orb.home, 'public.key')
-        f = open(public_key_path, 'w')
-        f.write(sk.public_key())
-        f.close()
+        # NOTE: no trailing newline, and this must stay that way.  vger stores
+        # this string verbatim in principals.db and the authenticator matches
+        # it against the bare hex key from the WAMP handshake, so a newline
+        # here would silently prevent login for every app-generated key.  See
+        # admin_tool_review.md #4, which is the same failure arriving by the
+        # other route (a key that picked up a newline in transit).
+        with open(public_key_path, 'w') as f:
+            f.write(sk.public_key())
         orb.log.debug('  - keys generated; "public.key" is in cattens_home.')
         msg = '<html>The <font color="green"><b>public key</b></font> file'
         msg += f' is here: <br><b>{public_key_path}</b><br>'

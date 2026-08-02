@@ -326,7 +326,15 @@ against a real sqlite db:
 
 `gen_keys()` writes `public.key` without a newline, so an app-generated file
 is clean; a key that has been through an editor, an email, or a copy-paste
-almost certainly is not. The failure is completely silent — the person is
+almost certainly is not.
+
+> **The two halves of this are documented together.** `gen_keys()` itself is
+> covered in `pangalaxian_handlers_review.md` #6, which is the consolidated
+> record for it — including the requirement that it must keep writing
+> `public.key` *without* a trailing newline. That finding and this one are the
+> same failure arriving by different routes: this entry fixes a key that
+> acquired a newline **in transit**, on the receiving side; #6 covers not
+> introducing one **at the source**. Neither fix makes the other redundant. The failure is completely silent — the person is
 added, the administrator is told it succeeded, and login simply never works.
 
 Fix: `data.strip()`, and validate it as 64 hex characters before accepting it,
