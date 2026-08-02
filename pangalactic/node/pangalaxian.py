@@ -1624,6 +1624,13 @@ class Main(QMainWindow):
         data_elementz.update(de_data)
         orb.log.debug(f'    data elements updated for {n_obj_des} objects.')
         # update mode_defz if md_dts is later than mode_defz_dts ...
+        # NOTE: this conditional treatment is specific to mode_defz.  The
+        # parameterz and data_elementz updates just above are deliberately
+        # unconditional even though state['parmz_dts'] / state['dez_dts']
+        # exist:  those two are diagnostic only, and gating the parameter
+        # caches on them would defeat the convergence that unconditional
+        # replacement provides.  See the note after the state key list in
+        # p.core/NOTES_FOR_DEVELOPERS.md before copying this pattern.
         local_md_dts = state.get('mode_defz_dts')
         if (local_md_dts is None) or (md_dts > local_md_dts):
             orb.log.debug('  - updating mode_defz ...')
@@ -4180,6 +4187,12 @@ class Main(QMainWindow):
             orb.log.info(f'* vger: {msg}.')
             if not msg.startswith('failure'):
                 # if successful, msg is stringified datetime stamp
+                # NOTE: state['parmz_dts'] is deliberately written and never
+                # read -- a diagnostic record of when the cache last changed.
+                # It is specifically NOT a conditional-fetch stamp; see the
+                # note after the state key list in
+                # p.core/NOTES_FOR_DEVELOPERS.md for why giving it the
+                # mode_defz_dts treatment would break convergence.
                 state['parmz_dts'] = msg
 
     def on_parm_added(self, oid='', pid=''):
@@ -4370,6 +4383,8 @@ class Main(QMainWindow):
                         data_elementz[oid].update(modified[oid])
                     else:
                         data_elementz[oid] = modified[oid].copy()
+                # diagnostic only, deliberately never read (see the note on
+                # state['parmz_dts'] in on_vger_set_parameters_result)
                 state['dez_dts'] = dez_dts
                 orb.log.debug('  success: data_elementz updated.')
         except:
