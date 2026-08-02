@@ -815,6 +815,13 @@ class ParameterForm(PgxnForm):
                 event.setDropAction(Qt.CopyAction)
                 event.accept()
                 add_parameter(self.obj.oid, pd_id)
+                # NOTE: stamping mod_datetime is what makes the addition
+                # survive an offline session: parameters ride along with the
+                # object when it is pushed at the next sync (the "parm added"
+                # signal below only reaches vger if we are connected).
+                self.obj.modifier = orb.get(state.get('local_user_oid'))
+                self.obj.mod_datetime = dtstamp()
+                orb.save([self.obj])
                 dispatcher.send(signal='parm added',
                                 oid=self.obj.oid, pid=pd_id)
                 self.pgxo.build_from_object()
@@ -832,6 +839,11 @@ class ParameterForm(PgxnForm):
                 event.setDropAction(Qt.CopyAction)
                 event.accept()
                 add_parameter(self.obj.oid, pid)
+                # NOTE: see comment on the parameter-definition drop above --
+                # the stamp is what carries the addition across a sync.
+                self.obj.modifier = orb.get(state.get('local_user_oid'))
+                self.obj.mod_datetime = dtstamp()
+                orb.save([self.obj])
                 dispatcher.send(signal='parm added',
                                 oid=self.obj.oid, pid=pid)
                 self.pgxo.build_from_object()

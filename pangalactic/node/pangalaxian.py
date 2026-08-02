@@ -105,6 +105,8 @@ from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core                  import (deletion_queue,
                                                write_deletion_queue)
+from pangalactic.core                  import (parm_del_queue,
+                                               write_parm_del_queue)
 from pangalactic.core.access           import get_perms, is_global_admin
 from pangalactic.core.clone            import clone
 from pangalactic.core.datastructures   import chunkify
@@ -2060,6 +2062,124 @@ class Main(QMainWindow):
             orb.log.debug('     queued deletions retained for the next sync.')
             self.set_bus_state()
         return data
+
+    # ---------------------------------------------------------------------
+    # OFFLINE PARAMETER / DATA ELEMENT DELETION QUEUE
+    # ---------------------------------------------------------------------
+    # Parameter and data element *additions and modifications* need no queue:
+    # they are carried in the object's serialization, so they reach the
+    # repository whenever the object itself is pushed -- which is why the
+    # editor stamps mod_datetime on every parameter change, including adds
+    # (see pgxnobject's drop handlers).
+    #
+    # Deletions cannot travel that way.  deserialize_parms() *merges*: it
+    # assigns each pid present in the incoming dict and never removes one that
+    # is absent, so "this pid is gone" and "this pid was not mentioned" are
+    # indistinguishable to the server.  A parameter deleted offline therefore
+    # survives on the server and is handed straight back by the next
+    # get_parmz(), silently undoing the deletion -- exactly the failure the
+    # object deletion queue exists to prevent, one level down.
+    #
+    # Ordering is load-bearing for the same reason: the replay must complete
+    # before get_parmz(), which wholesale-replaces the local caches with the
+    # server's copy.  Push before pull.
+    # ---------------------------------------------------------------------
+
+    def queue_parm_deletion(self, oid, item_id, kind='parm'):
+        """
+        Record a parameter or data element deletion that could not be sent.
+
+        Args:
+            oid (str):  oid of the object that owned the item
+            item_id (str):  `id` of the parameter or data element
+
+        Keyword Args:
+            kind (str):  'parm' or 'de'
+        """
+        if not (oid and item_id):
+            return
+        key = f'{kind}|{oid}|{item_id}'
+        parm_del_queue[key] = {'kind': kind, 'oid': oid, 'id': item_id,
+                               'datetime': str(dtstamp())}
+        # written immediately, not at shutdown (see queue_deletion)
+        write_parm_del_queue(os.path.join(orb.home, 'parm_del_queue'))
+        n = len(parm_del_queue)
+        orb.log.info(f'  deletion of {kind} "{item_id}" from "{oid}" queued '
+                     f'for sync ({n} queued).')
+
+    def clear_queued_parm_deletion(self, msg, key=''):
+        """
+        Drop a queued item once the repository has confirmed the deletion.
+
+        Used as an rpc callback; `msg` is passed through so this can sit in a
+        callback chain.
+        """
+        if msg:
+            orb.log.info(f'* vger: {msg}.')
+        if key and key in parm_del_queue:
+            del parm_del_queue[key]
+            write_parm_del_queue(os.path.join(orb.home, 'parm_del_queue'))
+            n = len(parm_del_queue)
+            orb.log.info(f'  queued deletion "{key}" confirmed ({n} left).')
+        return msg
+
+    def replay_parm_del_queue(self, data=None):
+        """
+        Replay queued offline parameter / data element deletions.
+
+        Chained ahead of the rpc inside get_parmz() rather than merely placed
+        early in the sync chain:  get_parmz() replaces the local caches
+        wholesale with the server's copy (see the note above), and is also
+        reached directly from the "parameters set" pubsub handler, which can
+        arrive at any moment after reconnecting.  Guarding it at the one place
+        the hazard actually is makes the ordering a guarantee rather than an
+        accident of chain order.
+
+        Entries are cleared only when the repository confirms them, so an
+        interrupted sync retries rather than dropping the deletion.
+
+        Keyword Args:
+            data:  passed through for callback chaining (ignored)
+
+        Returns:
+            a DeferredList that fires once every queued deletion has been
+            answered, or the 'data' argument if there was nothing to do.
+            Callers that must not pull until the push has landed -- get_parmz()
+            in particular -- should chain on the return value rather than
+            assume this ran to completion.
+        """
+        if not parm_del_queue:
+            return data
+        if not state.get('connected'):
+            return data
+        n = len(parm_del_queue)
+        orb.log.info(f'* replaying {n} queued offline parm/de deletion(s) ...')
+        rpcs = []
+        for key, entry in list(parm_del_queue.items()):
+            oid = entry.get('oid') or ''
+            item_id = entry.get('id') or ''
+            if not (oid and item_id):
+                # malformed entry: drop it rather than retry forever
+                del parm_del_queue[key]
+                write_parm_del_queue(os.path.join(orb.home, 'parm_del_queue'))
+                continue
+            if entry.get('kind') == 'de':
+                rpc_name, kw = 'vger.del_de', {'oid': oid, 'deid': item_id}
+            else:
+                rpc_name, kw = 'vger.del_parm', {'oid': oid, 'pid': item_id}
+            try:
+                rpc = self.mbus.session.call(rpc_name, **kw)
+                rpc.addCallback(self.clear_queued_parm_deletion, key=key)
+                rpc.addErrback(self.on_failure)
+                rpcs.append(rpc)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     queued deletions retained for next sync.')
+                self.set_bus_state()
+                break
+        if not rpcs:
+            return data
+        return DeferredList(rpcs, consumeErrors=True)
 
     def add_locally_created(self, oid):
         """
@@ -4055,21 +4175,27 @@ class Main(QMainWindow):
     def on_parm_del(self, oid='', pid=''):
         """
         Handle local dispatcher signal "parm del".
-        """
-        if oid and pid and state.get('connected'):
-            try:
-                rpc = self.mbus.session.call('vger.del_parm', oid=oid,
-                                             pid=pid)
-                rpc.addCallback(self.on_vger_del_parm_result)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                orb.log.debug('     trying to reconnect ...')
-                self.set_bus_state()
 
-    def on_vger_del_parm_result(self, msg):
-        if msg:
-            orb.log.info(f'* vger: {msg}.')
+        If the repository cannot be reached the deletion is queued rather than
+        dropped:  unlike an addition it cannot ride along with the object at
+        the next sync, because deserialize_parms() merges.  See the note on
+        queue_parm_deletion().
+        """
+        if not (oid and pid):
+            return
+        if not state.get('connected'):
+            self.queue_parm_deletion(oid, pid, kind='parm')
+            return
+        key = f'parm|{oid}|{pid}'
+        try:
+            rpc = self.mbus.session.call('vger.del_parm', oid=oid, pid=pid)
+            rpc.addCallback(self.clear_queued_parm_deletion, key=key)
+            rpc.addErrback(self.on_failure)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.queue_parm_deletion(oid, pid, kind='parm')
+            self.set_bus_state()
 
     def on_remote_parm_added(self, content):
         """
@@ -4100,20 +4226,24 @@ class Main(QMainWindow):
     def on_de_del(self, oid='', deid=''):
         """
         Handle local dispatcher signal "de del".
-        """
-        if oid and deid and state.get('connected'):
-            try:
-                rpc = self.mbus.session.call('vger.del_de', oid=oid, deid=deid)
-                rpc.addCallback(self.on_vger_del_de_result)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                orb.log.debug('     trying to reconnect ...')
-                self.set_bus_state()
 
-    def on_vger_del_de_result(self, msg):
-        if msg:
-            orb.log.info(f'* vger: {msg}.')
+        Queued when offline, for the same reason as on_parm_del().
+        """
+        if not (oid and deid):
+            return
+        if not state.get('connected'):
+            self.queue_parm_deletion(oid, deid, kind='de')
+            return
+        key = f'de|{oid}|{deid}'
+        try:
+            rpc = self.mbus.session.call('vger.del_de', oid=oid, deid=deid)
+            rpc.addCallback(self.clear_queued_parm_deletion, key=key)
+            rpc.addErrback(self.on_failure)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.queue_parm_deletion(oid, deid, kind='de')
+            self.set_bus_state()
 
     # NOTE: "on_des_set" and "on_des_set_qtsignal" were removed here -- both
     # were dead: nothing sent the 'des set' dispatcher signal (verified over
@@ -4236,17 +4366,40 @@ class Main(QMainWindow):
     def get_parmz(self, oids=None):
         """
         Handle local dispatcher signal "get parmz".
+
+        NOTE: this replaces the local parameter caches wholesale with the
+        server's copy, so any queued offline deletion that has not yet been
+        replayed would be undone here.  The queue is therefore drained here,
+        chained ahead of the rpc, rather than at some earlier point in the
+        sync chain:  this is also reached directly from the "parameters set"
+        pubsub handler, which can arrive at any moment after reconnecting, so
+        earlier placement would only have made the ordering look right.  Push
+        before pull.  replay_parm_del_queue() is a no-op when the queue is
+        empty, which is the usual case.
         """
         # orb.log.debug('* get_parmz')
-        if state.get('connected'):
-            try:
-                rpc = self.mbus.session.call('vger.get_parmz')
-                rpc.addCallback(self.on_vger_get_parmz_result)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                orb.log.debug('     trying to reconnect ...')
-                self.set_bus_state()
+        if not state.get('connected'):
+            return
+        if parm_del_queue:
+            d = self.replay_parm_del_queue()
+            if isinstance(d, DeferredList):
+                d.addCallback(lambda _: self._call_get_parmz())
+                return
+        self._call_get_parmz()
+
+    def _call_get_parmz(self, data=None):
+        """
+        Issue the vger.get_parmz() rpc.  Split out of get_parmz() so the
+        offline deletion queue can be drained first (see get_parmz).
+        """
+        try:
+            rpc = self.mbus.session.call('vger.get_parmz')
+            rpc.addCallback(self.on_vger_get_parmz_result)
+            rpc.addErrback(self.on_failure)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def on_vger_get_parmz_result(self, data):
         """

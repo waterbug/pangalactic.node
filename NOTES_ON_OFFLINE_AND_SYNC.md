@@ -273,6 +273,60 @@ repository-wide facts and should not be made unilaterally offline. Worth
 confirming that intent explicitly, since an offline-first paradigm will
 otherwise invite pressure to relax it.
 
+### 3.7 Parameter / data element deletion queue — as built (2026-08-02)
+
+The parameter-level counterpart of §3.2, and the fix for the loss recorded
+in §3.5. The two halves turned out to need different treatments, which is
+worth stating plainly because the asymmetry is not obvious:
+
+**Additions and modifications need no queue.** They are carried in the
+object's own serialization (`parameters` / `data_elements`), so they reach
+the repository whenever the object is pushed. What was actually missing was
+the push: the parameter drop handlers in `pgxnobject` did not stamp
+`mod_datetime`, so the object was never considered modified and never went
+up. The data-element drop handler alongside them *did* stamp — the two paths
+had simply drifted apart. Both parameter drop sites now stamp and save, the
+same treatment already applied to parameter *edits*.
+
+**Deletions cannot travel that way, and do need a queue.**
+`deserialize_parms` **merges**: it assigns each pid present in the incoming
+dict and never removes one that is absent. "This pid is gone" and "this pid
+was not mentioned" are therefore indistinguishable to the server, so a
+parameter deleted offline survives there and is handed straight back by the
+next `get_parmz()`. Note this is not a defect to be fixed in
+`deserialize_parms` — merge-on-deserialize is what lets a partial push be
+safe. The deletion simply needs its own explicit signal.
+
+So `p.core.parm_del_queue` records deletions that could not be sent:
+
+    {'kind|oid|id': {'kind': 'parm'|'de', 'oid': str, 'id': str,
+                     'datetime': str}}
+
+keyed so it is self-deduplicating, written to its own file the moment an item
+is queued (a queued deletion lost in a crash comes back silently — the exact
+failure the queue exists to prevent), and read back in `orb.start()` so it
+survives restarts, since offline work spans sessions.
+
+**Ordering.** The replay is chained *ahead of* `get_parmz()` inside
+`get_parmz()` itself, not merely placed early in the sync chain. `get_parmz`
+is also reached directly from the "parameters set" pubsub handler, which can
+arrive at any moment after reconnecting — early placement in the chain would
+have made the ordering incidental rather than guaranteed. `replay_parm_del_queue()`
+returns a `DeferredList` so the pull can genuinely wait on the push, and is a
+no-op when the queue is empty, which is the usual case. Push before pull,
+per §3.5.
+
+Entries clear only on repository confirmation, so an interrupted sync retries
+rather than dropping the deletion; malformed entries are discarded rather
+than retried forever.
+
+**Open item found while doing this:** `vger.del_parm` and `vger.del_de`
+perform no authorization check at all — any user can delete any parameter
+from any object, and the handlers always return success. That predates this
+work and is not exercised by the queue (which only replays the user's own
+deletions), but it should be brought under the same claim checks as the rest
+of phase 2.
+
 ---
 
 ## 4. Suggested sequencing
