@@ -103,6 +103,8 @@ from pangalactic.core                  import get_user_home
 from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
+from pangalactic.core                  import (deletion_queue,
+                                               write_deletion_queue)
 from pangalactic.core.access           import get_perms, is_global_admin
 from pangalactic.core.clone            import clone
 from pangalactic.core.datastructures   import chunkify
@@ -1072,6 +1074,19 @@ class Main(QMainWindow):
         self.channels.append('vger.channel.public')
         rpc = self.subscribe_to_mbus_channels(self.channels)
         rpc.addErrback(self.on_failure)
+        # the reconciliation report describes *this* sync, so start it empty
+        rpc.addCallback(self.clear_sync_report)
+        # ------------------------------------------------------------------
+        # NOTE: the offline deletion queue is replayed FIRST, before any of
+        # the syncs below.  Ordering here is load-bearing:  sync_project() and
+        # sync_library_objects() both treat "the client did not report this
+        # oid" as "the client needs it", so running them first would restore
+        # the very objects that are about to be deleted -- the object would
+        # reappear in the tree and then vanish again.  Same "push before pull"
+        # rule that governs the parameter caches.
+        # ------------------------------------------------------------------
+        rpc.addCallback(self.replay_deletion_queue)
+        rpc.addErrback(self.on_failure)
         rpc.addCallback(self.sync_user_created_objs_to_repo)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.on_user_objs_sync_result)
@@ -1887,6 +1902,164 @@ class Main(QMainWindow):
     # maintained elsewhere but is no longer consulted for permissions; it can
     # be retired separately.
     # ---------------------------------------------------------------------
+
+    # ---------------------------------------------------------------------
+    # RECONCILIATION REPORT
+    # ---------------------------------------------------------------------
+    # state['last_sync_report'] accumulates everything a sync could not do,
+    # as {category: [item descriptions]}.  It is written to from several
+    # places -- objects withheld because the user lacks 'modify'
+    # (on_sync_result), saves the repository refused (on_vger_save_result),
+    # and deletions it refused (on_rpc_vger_delete_result) -- and presented
+    # once, at the end of the sync, by show_sync_report().
+    #
+    # This exists because the failure mode throughout this area has been
+    # silence:  work was dropped, reverted or restored with nothing said, so
+    # the user's only clue was noticing later that their edit had gone.  See
+    # NOTES_ON_OFFLINE_AND_SYNC.md section 3.4.
+    # ---------------------------------------------------------------------
+
+    def add_to_sync_report(self, category, item):
+        """
+        Record something a sync could not do, for the end-of-sync summary.
+
+        Args:
+            category (str):  short description of the outcome, used as the
+                heading in the summary (e.g. 'deletions refused')
+            item (str):  identifier of the object concerned
+        """
+        report = state.get('last_sync_report') or {}
+        items = report.get(category) or []
+        if item not in items:
+            items.append(item)
+        report[category] = items
+        state['last_sync_report'] = report
+
+    def clear_sync_report(self, data=None):
+        """
+        Start a sync with an empty report.
+
+        Placed at the head of the sync chain so the summary describes *this*
+        sync rather than accumulating across sessions.
+
+        Keyword Args:
+            data:  passed through for callback chaining (ignored)
+        """
+        state['last_sync_report'] = {}
+        return data
+
+    def show_sync_report(self, data=None):
+        """
+        Present what this sync could not do, if anything.
+
+        Silent when there is nothing to report -- the point is to surface
+        losses, not to add a dialog to every successful sync.
+
+        Keyword Args:
+            data:  passed through for callback chaining (ignored)
+        """
+        report = state.get('last_sync_report') or {}
+        report = {k: v for k, v in report.items() if v}
+        if not report:
+            orb.log.info('* sync completed with nothing to report.')
+            return data
+        total = sum(len(v) for v in report.values())
+        orb.log.info(f'* sync report: {total} item(s) need attention:')
+        html = ['<p>The repository could not accept everything from this '
+                'session:</p>']
+        for category, items in sorted(report.items()):
+            orb.log.info(f'   {category}: {len(items)}')
+            html.append(f'<p><b>{category}</b> ({len(items)}):</p><ul>')
+            for item in sorted(items):
+                orb.log.info(f'     - {item}')
+                html.append(f'<li>{item}</li>')
+            html.append('</ul>')
+        html.append('<p>These are listed in the log in full.</p>')
+        # cleared once presented, so the same losses are not reported again on
+        # the next rpc that happens to end in this callback
+        state['last_sync_report'] = {}
+        # NOTE: deferred via singleShot, and shown rather than exec_'d --
+        # painting from inside an rpc callback while further rpcs are pending
+        # raises "QBackingStore::endPaint() called ...".  Same reason as the
+        # status-bar message in on_vger_save_result().
+        def _show():
+            dlg = NotificationDialog(''.join(html), parent=self)
+            dlg.show()
+            self.statusbar.showMessage(
+                f'sync completed -- {total} item(s) need attention')
+        QTimer.singleShot(0, _show)
+        return data
+
+    # ---------------------------------------------------------------------
+    # OFFLINE DELETION QUEUE
+    # ---------------------------------------------------------------------
+    # Deletions made while offline are recorded in p.core.deletion_queue and
+    # replayed at the next sync.  Without this the repository is never told
+    # about them, and *both* sync paths treat "the client did not report this
+    # oid" as "the client needs it" -- so the object is sent back and the
+    # deletion is silently undone.  This applies to authorized deletions of
+    # the user's own work just as much as to unauthorized ones.
+    # See NOTES_ON_OFFLINE_AND_SYNC.md section 3.2.
+    #
+    # Ordering is load-bearing:  the replay must happen BEFORE
+    # sync_project()/sync_library_objects(), or those will restore the very
+    # objects about to be deleted, producing visible churn.  This is the same
+    # "push before pull" rule that governs the parameter caches.
+    # ---------------------------------------------------------------------
+
+    def queue_deletion(self, oid, cname=''):
+        """
+        Record a deletion that could not be sent to the repository.
+
+        Args:
+            oid (str):  oid of the deleted object
+
+        Keyword Args:
+            cname (str):  class name of the deleted object.  Kept because the
+                object is already gone from the local db by the time the
+                queue is replayed, so it is the only thing left to report the
+                deletion with.
+        """
+        if not oid:
+            return
+        deletion_queue[oid] = {'cname': cname or '',
+                               'datetime': str(dtstamp())}
+        # written immediately, not at shutdown:  a deletion lost in a crash
+        # reappears at the next sync, silently
+        write_deletion_queue(os.path.join(orb.home, 'deletion_queue'))
+        n = len(deletion_queue)
+        orb.log.info(f'  deletion of "{oid}" queued for sync ({n} queued).')
+
+    def replay_deletion_queue(self, data=None):
+        """
+        Replay queued offline deletions to the repository.
+
+        Placed early in the sync chain, before the project and library syncs
+        (see the note above).  Entries are cleared only when the repository
+        confirms them, in on_rpc_vger_delete_result(), so an interrupted sync
+        retries rather than dropping the deletion.
+
+        Keyword Args:
+            data:  passed through for callback chaining (ignored)
+
+        Returns:
+            the 'data' argument, so this can sit in an addCallback chain
+        """
+        if not deletion_queue:
+            return data
+        if not state.get('connected'):
+            return data
+        oids = list(deletion_queue)
+        orb.log.info(f'* replaying {len(oids)} queued offline deletion(s) ...')
+        try:
+            rpc = self.mbus.session.call('vger.delete', oids)
+            rpc.addCallback(self.on_rpc_vger_delete_result)
+            rpc.addErrback(self.on_failure)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     queued deletions retained for the next sync.')
+            self.set_bus_state()
+        return data
 
     def add_locally_created(self, oid):
         """
@@ -4179,6 +4352,12 @@ class Main(QMainWindow):
             self.library_widget.refresh()
             state['lib updates needed'] = []
         self.statusbar.showMessage('synced.')
+        # NOTE: this is the end of the rpc chain (see this method's docstring),
+        # so it is where the reconciliation report is presented.  It is silent
+        # unless something was refused, and clears itself once shown, so a
+        # standalone save that had work rejected reports it here too rather
+        # than only a full sync.
+        self.show_sync_report()
 
     def on_vger_save_result(self, stuff):
         """
@@ -4326,12 +4505,56 @@ class Main(QMainWindow):
         Handle callback to the vger.delete rpc.
         """
         orb.log.debug('* on_rpc_vger_delete_result')
-        oids_not_found, oids_deleted = res
+        # NOTE: vger.delete now returns a dict that distinguishes a *refused*
+        # deletion from one the repository never saw.  The old 2-tuple shape
+        # is still accepted so the client and repository can be upgraded
+        # independently -- against an older repository "unauth" is simply
+        # empty, and refusals remain indistinguishable from lost rpcs, which
+        # is the pre-existing behaviour.
+        if isinstance(res, dict):
+            oids_not_found = res.get('not_found') or []
+            oids_deleted = res.get('deleted') or []
+            oids_unauth = res.get('unauth') or []
+        else:
+            oids_not_found, oids_deleted = res
+            oids_unauth = []
         orb.log.debug(f'  oids_not_found: {oids_not_found}')
         orb.log.debug(f'  oids_deleted: {oids_deleted}')
+        if oids_unauth:
+            orb.log.info(f'  REFUSED by the repository: {oids_unauth}')
         for oid in (oids_not_found + oids_deleted):
             if oid in state.get('synced_oids', []):
                 state['synced_oids'].remove(oid)
+        # ------------------------------------------------------------------
+        # Clear queued offline deletions the repository has now accounted for.
+        # "not found" counts as settled:  the object is not in the repository,
+        # which is the outcome the deletion was asking for -- most often
+        # because it was created and deleted entirely offline and the
+        # repository never saw it.
+        #
+        # A **refused** deletion is dropped from the queue and reported:
+        # retrying it every sync would never succeed, and would keep restoring
+        # the object locally with no explanation.  A deletion that is merely
+        # *absent* from the result -- an rpc lost to a dropped connection --
+        # stays queued and is retried, which is the distinction section 3.2
+        # asks for and the old 2-tuple return could not express.
+        # ------------------------------------------------------------------
+        settled = [oid for oid in (oids_not_found + oids_deleted)
+                   if oid in deletion_queue]
+        if settled:
+            for oid in settled:
+                del deletion_queue[oid]
+        refused = [oid for oid in oids_unauth if oid in deletion_queue]
+        if refused:
+            for oid in refused:
+                entry = deletion_queue.pop(oid)
+                self.add_to_sync_report('deletions refused',
+                                        entry.get('cname') or oid)
+        if settled or refused:
+            write_deletion_queue(os.path.join(orb.home, 'deletion_queue'))
+            orb.log.info(f'  {len(settled)} queued deletion(s) confirmed, '
+                         f'{len(refused)} refused; '
+                         f'{len(deletion_queue)} still queued (will retry).')
 
     def on_freeze_result(self, stuff):
         """
@@ -4766,7 +4989,16 @@ class Main(QMainWindow):
             except:
                 orb.log.debug('  ** rpc failed (possible loss of transport)')
                 orb.log.debug('     trying to reconnect ...')
+                # the rpc never went out, so this is in the same position as
+                # a deletion made offline -- queue it rather than lose it
+                self.queue_deletion(oid, cname)
                 self.set_bus_state()
+        elif not remote:
+            # deleted locally while offline:  queue for replay at the next
+            # sync.  Without this the repository is never told, and both sync
+            # paths treat "the client did not report this oid" as "the client
+            # needs it" -- so the object simply comes back.
+            self.queue_deletion(oid, cname)
 
     # ------------------------------------------------------------------------
     # NOTE: self.remote_deleted_object is DEPRECATED in favor of dispatcher
@@ -4951,7 +5183,12 @@ class Main(QMainWindow):
             except:
                 orb.log.debug('  ** rpc failed (possible loss of transport)')
                 orb.log.debug('     trying to reconnect ...')
+                self.queue_deletion(oid, cname)
                 self.set_bus_state()
+        else:
+            # offline -- queue for replay at the next sync (see
+            # queue_deletion() and on_deleted_object_signal())
+            self.queue_deletion(oid, cname)
 
     def resync_current_project(self, msg=''):
         """
