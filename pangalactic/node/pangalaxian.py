@@ -5367,7 +5367,21 @@ class Main(QMainWindow):
                 # block in the current diagram
                 self.system_model_window.on_signal_to_refresh()
         elif self.mode == 'db':
-            state['update db table'] = True
+            # NOTE: this used to be "state['update db table'] = True", which
+            # nothing on this path could consume:  the only reader of that
+            # flag sits inside the "updates_needed_for_remote_obj_deletion"
+            # branch of on_vger_get_parmz_result(), and that key is set only
+            # for a *remote* deletion.  So offline, get_parmz() is never
+            # called at all; online, it is called but the local-delete case
+            # takes the else branch and never reaches the reader.  Either way
+            # the flag stayed set and the deleted object remained visible in
+            # the table.  This mirrors on_deleted_object_signal(), which
+            # handles the same case directly -- the two are the dispatcher
+            # and pyqtSignal sides of the same stalled migration.
+            filter_panel = getattr(self, 'object_tableview', None)
+            if filter_panel:
+                # if the oid is not in the table, it will be ignored
+                filter_panel.remove_object(oid)
         elif (self.mode == 'component' and
             cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                       'Port', 'Flow']):

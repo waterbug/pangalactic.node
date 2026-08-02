@@ -397,10 +397,25 @@ visible.
 
 - **#1** the `.parent = None` idiom (~55 sites) — deliberately deferred; the
   fix changes Qt ownership semantics and wants the app running.
-- **#3** `update db table` flag with no reachable consumer.
 - **#4** the divergent component-mode branch — needs your judgement on which
   behaviour is correct.
-- **#6** the over-broad `except:` in `update_object_in_trees`.
+
+**Fixed since (2026-08-02):**
+
+- **#3** `update db table` — **FIXED.** `del_object`'s "db" branch now calls
+  `filter_panel.remove_object(oid)` directly, mirroring
+  `on_deleted_object_signal`, instead of setting a flag nothing on that path
+  could read. Note this is the cheap fix, not the durable one: per the context
+  note above, the durable fix is finishing the pydispatcher migration and
+  deleting `del_object` altogether, at which point this branch goes with it.
+  Not covered by an automated test — it needs a live `object_tableview` in
+  "db" mode; the change is a direct mirror of the adjacent handler, and the
+  review's own reachability caveat still applies.
+- **#6** the over-broad `except:` in `update_object_in_trees` — **FIXED.**
+  `RuntimeError` (the genuine deleted-C++-object case) keeps the original
+  benign debug message; anything else is now named at *error* level instead of
+  being reported as a deleted C++ object. Both are still swallowed, because
+  this runs inside rpc callbacks where raising would break the chain.
 
 ## Original suggested fix order
 
