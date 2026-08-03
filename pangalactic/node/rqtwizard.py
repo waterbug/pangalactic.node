@@ -69,8 +69,10 @@ class RqtWizard(QWizard):
                             QWizard.FinishButton,
                             QWizard.CancelButton]
         self.setButtonLayout(included_buttons)
-        self.button(QWizard.CancelButton).clicked.connect(
-                self.on_cancel)
+        # NOTE: no explicit Cancel connection -- QWizard already wires its
+        # Cancel button to reject(), which is where the discard now lives.
+        # Connecting a second handler here would run the confirmation twice
+        # for a cancel, and not at all for the window's close button.
         self.setOptions(QWizard.NoBackButtonOnStartPage)
         self.setSubTitleFormat(Qt.RichText)
         # clear the rqt_wizard_state
@@ -150,7 +152,46 @@ class RqtWizard(QWizard):
             self.setGeometry(50, 50, 850, 750);
         self.setSizeGripEnabled(True)
 
-    def on_cancel(self):
+    def reject(self):
+        """
+        Discard a requirement that was being created, however the wizard was
+        dismissed -- Cancel, the window's close button, or Esc.
+
+        This used to live in an on_cancel() handler wired to the Cancel
+        *button*, so it ran for Cancel and nothing else.  Closing the window
+        with the title-bar X, or pressing Esc, goes straight to reject() and
+        so left a half-built requirement behind: the placeholder object,
+        saved, with none of the attributes the wizard collects, because those
+        are applied only by RqtSummaryPage.finish().  Overriding reject()
+        catches all three exits -- verified by execution.
+
+        The user is asked first, but only once they have something to lose:
+        `name` is the required field on the first page and what isComplete()
+        gates on, so an untouched requirement is discarded without a prompt
+        rather than nagging about nothing.  Declining leaves the wizard open
+        (returning without calling super().reject() cancels the close --
+        also verified).
+
+        See rqtwizard_review.md #4.
+        """
+        rqt = orb.get(rqt_wizard_state.get('rqt_oid'))
+        if self.new_req and rqt and getattr(rqt, 'name', ''):
+            message = '<html>Closing now will <b>discard</b> the requirement '
+            message += f'you are creating (<b>{rqt.name}</b>) -- the wizard '
+            message += 'only saves it when you click <b>Finish</b>.<br><br>'
+            message += 'Discard it?'
+            # NOTE: compared against Yes explicitly rather than tested for
+            # truth: Qt returns the default button for Esc and for closing
+            # this dialog, so a truth test would read those as "discard".
+            response = QMessageBox.question(
+                            self, 'Discard this requirement?', message,
+                            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if response != QMessageBox.Yes:
+                return          # leave the wizard open
+        self.discard_new_rqt()
+        super().reject()
+
+    def discard_new_rqt(self):
         if self.new_req:
             # if a new Requirement was being created, delete it and all
             # associated objects ...
@@ -184,7 +225,6 @@ class RqtWizard(QWizard):
             # (e.g. pangalaxian's new_functional_rqt).
             # See rqtwizard_review.md #3.
             rqt_wizard_state['rqt_oid'] = ''
-        self.reject()
 
 ###########################
 # General Requirement Pages
@@ -627,6 +667,12 @@ class RqtSummaryPage(QWizardPage):
             dispatcher.send(signal='new rqt', obj=self.rqt)
         else:
             dispatcher.send(signal='modified object', obj=self.rqt)
+        # the requirement is committed now, so it is no longer something for
+        # RqtWizard.reject() to discard.  "new_req" means "there is an
+        # uncommitted new requirement that should be thrown away if the wizard
+        # is dismissed" -- without this, a reject() arriving after a
+        # successful finish would delete the requirement just created.
+        self.wizard().new_req = False
 
 
 ###############################

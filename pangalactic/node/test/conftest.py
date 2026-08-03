@@ -40,6 +40,13 @@ def test_orb():
     home = os.path.join(root, 'home')
     os.makedirs(home)
     orb.start(home=home, debug=False, console=False)
+    # NOTE: orb.icon_dir is set by pangalactic.node.startup, not by
+    # orb.start(), so gui code that loads icons (RqtWizard's logo, for one)
+    # raises AttributeError without it.  Set here rather than in individual
+    # tests: any node gui test that builds a real widget will want it.  The
+    # directory need not exist -- a missing file yields a null QPixmap rather
+    # than an error.
+    orb.icon_dir = os.path.join(orb.home, 'icons')
     deserialize(orb, create_test_users())
     deserialize(orb, create_test_project())
     yield orb

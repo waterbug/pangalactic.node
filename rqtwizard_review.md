@@ -187,6 +187,59 @@ between — `pangalaxian.new_functional_rqt` does `orb.get(rqt_oid)` right after
 
 ---
 
+### 4. Only the Cancel *button* discarded an unfinished requirement; closing the window did not
+
+Found by the author while testing #1's fix (2026-08-02). Finishing worked,
+Cancel worked, but closing the wizard at the last page without pressing
+**Finish** left the requirement behind — saved, with its generated id, and
+with none of the attributes the wizard collects, since those are applied only
+in `RqtSummaryPage.finish()`.
+
+The discard lived in `on_cancel`, wired to the Cancel button alone:
+
+```python
+        self.button(QWizard.CancelButton).clicked.connect(self.on_cancel)
+```
+
+The title-bar close button and Esc do not go near it — `QDialog` routes both
+straight to `reject()`. **Verified by execution**: with `reject()` overridden
+on a bare `QWizard`, close, Esc and Cancel each reach it exactly once.
+
+**STATUS: FIXED (2026-08-02).** The discard moved into an overridden
+`RqtWizard.reject()`, so all three exits get it, and the explicit Cancel
+connection is gone — `QWizard` already wires Cancel to `reject()`, so keeping
+it would have run the confirmation twice for a cancel and not at all for the
+window's close button.
+
+**The user is now asked before anything is discarded** (author's call). Only
+once there is something to lose, though: `name` is the required field on the
+first page and what `isComplete()` gates on, so an untouched requirement is
+discarded without a prompt rather than nagging about nothing. Declining
+leaves the wizard open — returning from `reject()` without calling
+`super().reject()` cancels the close, also verified by execution.
+
+`finish()` now clears `new_req` on success, so that a `reject()` arriving
+after a completed wizard cannot delete the requirement that was just created.
+`new_req` thereby means exactly "there is an uncommitted new requirement that
+should be thrown away if the wizard is dismissed".
+
+What this does **not** cover is a crash or a kill, where nothing can run —
+that is the local debris the author accepted in #1.
+
+Tests: `test/test_rqtwizard_discard.py`, 5 cases against a real, shown
+wizard. Three fail against the pre-fix code, all of them the window-close
+cases; the Cancel case passes both ways, as it should, and so does the
+"committed requirement is not discarded" case.
+
+*Test-setup note worth keeping:* the wizard's first page builds a real
+`PgxnObject` in edit mode, so the fixture must set `state['local_user_oid']`
+and `state['connected']` — without a user with `modify`, `get_perms` withholds
+it, `save_button` is never created, and the page raises the same
+`AttributeError` the `UNEDITABLES` change caused. `orb.icon_dir` is also
+needed and is set by `pangalactic.node.startup`, not `orb.start()`; it is now
+set in the shared `test_orb` fixture.
+
+
 ## Verified correct / no findings
 
 - **`dispatcher.connect(self.saved, 'modified object')` at 221 runs on every
