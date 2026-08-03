@@ -231,6 +231,11 @@ wizard. Three fail against the pre-fix code, all of them the window-close
 cases; the Cancel case passes both ways, as it should, and so does the
 "committed requirement is not discarded" case.
 
+**Validated against the running app (author, 2026-08-02).** All three exits
+behave: Finish creates the requirement with its attributes and syncs it;
+Cancel leaves nothing; closing the window prompts, and discards on
+confirmation. Findings #1, #3 and #4 are settled.
+
 *Test-setup note worth keeping:* the wizard's first page builds a real
 `PgxnObject` in edit mode, so the fixture must set `state['local_user_oid']`
 and `state['connected']` — without a user with `modify`, `get_perms` withholds
