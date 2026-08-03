@@ -248,6 +248,23 @@ adapter is gone, and two behavioural tests for the rewired `FilterPanel`.
 Three of the four fail against the pre-migration code, including the
 `FilterPanel` one — the piece that could have broken silently.
 
+**Validated against the running app (author, 2026-08-03).** All four risk
+areas exercised:
+
+| exercised | result |
+|---|---|
+| filterable tables update in place on edit (the rewired non-pure relay) | ok |
+| dropping a data element onto an object in the editor | ok |
+| editing from the system tree ("View or edit this object", a *modal* dialog) and from library panels | ok |
+| one `on_mod_object_signal()` and one `vger.save()` per edit | ok |
+
+The modal case is the strictest: under the old wiring the edit reached `Main`
+through the tree's relay, and it now has to arrive on the dispatcher signal
+while a modal dialog is up. It does.
+
+*(Interaction note for future test instructions: an object is edited from the
+tree by right-click -> "View or edit this object", not by double-clicking.)*
+
 **Still to do:** steps 2, 3 and 5 of §6 — the leaf signals, the one-to-few
 signals, and `new_object`/`delete_obj`/`deleted_object` (which unlocks review
 #4). `activity_edited` (dead, no receiver) is still to be removed.
