@@ -962,7 +962,6 @@ class PgxnObject(QDialog):
             orb.classes['Qacu'],
             orb.classes['Relation'],
             orb.classes['RepresentationFile'],
-            orb.classes['Requirement'],
             orb.classes['RequirementAncestry'],
             orb.classes['RoleAssignment'])
         if ((new or ('modify' in perms)) and edit_mode
