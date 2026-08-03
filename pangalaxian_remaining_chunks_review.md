@@ -112,12 +112,26 @@ finding above, all established by execution rather than reading:
 more than the conversion itself: the idiom looks entirely reasonable, fails
 silently, and would otherwise come straight back.
 
-**Still needs a run of the real app.** The automated tests cover the
-semantics and guard the idiom, but they do not exercise these particular
-panels, wizard pages and dialogs. The sites to watch are the ones where a
-detached widget is now genuinely orphaned rather than nominally so: the
-left-dock panel swaps in `pangalaxian.py`, `rqtwizard`'s page rebuilds, and
-`pgxnobject`'s tab teardown.
+**Validated against the running app (author, 2026-08-02).** The automated
+tests cover the semantics and guard the idiom but cannot exercise the real
+panels, so the three places where a widget is now genuinely orphaned rather
+than nominally so were driven by hand:
+
+| exercised | result |
+|---|---|
+| `rqtwizard` backward/forward page rendering | no anomalies |
+| `pangalaxian` system / component / db mode switching | no anomalies |
+| `pgxnobject` tab switches, and parameter-dimension panel switches | no anomalies |
+
+No rendering glitches, no stray top-level windows, no missing widgets. The
+conversion is considered settled.
+
+*(An unrelated crash surfaced during this testing — `Requirement` had been
+added to `PgxnObject`'s `UNEDITABLES`, which broke the requirement wizard.
+Not caused by this change: the commit touched exactly two lines in
+`pgxnobject.py`, both in the `build_from_object` teardown block. Fixed by the
+author; the incident and what it exposed are written up in
+`rqtwizard_review.md`.)*
 
 ### 2. Admin-tool signal connections accumulate on every open, and `self.admin_dlg` is dereferenced unguarded
 `pangalaxian.py:7250-7266` (`do_admin_stuff`), `2357`, `2424`
@@ -447,8 +461,8 @@ visible.
 
 **Open:**
 
-- *(#1 applied 2026-08-02 — see its STATUS block; still wants a run of the
-  real app to confirm the panels, wizard pages and dialogs behave.)*
+- *(#1 applied and validated against the running app, 2026-08-02 — see its
+  STATUS block.)*
 - **#4** the divergent component-mode branch — needs your judgement on which
   behaviour is correct.
 
