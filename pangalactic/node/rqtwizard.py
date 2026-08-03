@@ -177,6 +177,13 @@ class RqtWizard(QWizard):
                 orb.delete([rqt])
                 dispatcher.send(signal='deleted object', oid=rqt_oid,
                                 cname='Requirement')
+            # the oid now names a deleted object; leaving it in place made
+            # the next wizard's reuse guard depend on orb.get() returning None
+            # for a dangling oid rather than on the state being accurate, and
+            # left a deleted object visible to anything else that reads it
+            # (e.g. pangalaxian's new_functional_rqt).
+            # See rqtwizard_review.md #3.
+            rqt_wizard_state['rqt_oid'] = ''
         self.reject()
 
 ###########################
@@ -214,9 +221,24 @@ class RequirementIDPage(QWizardPage):
             rqt_id = self.project.id + '-TBD'
             self.rqt = clone("Requirement", id=rqt_id, owner=self.project,
                              level=0, public=True)
+            # NOTE: this order (generate, then save) used to be load-bearing
+            # and undocumented -- with the placeholder id above
+            # ("<project>-TBD") in the count, get_next_rqt_seq() returned 1
+            # and the first requirement in a project came out as "-0.1".
+            # get_next_rqt_seq() now ignores ids with no numeric sequence, so
+            # either order gives the same answer.  See rqtwizard_review.md #2.
             self.rqt.id = orb.gen_rqt_id(self.rqt)
             orb.save([self.rqt])
-            dispatcher.send(signal='new rqt', obj=self.rqt)
+            # NOTE: "new rqt" is deliberately NOT sent here.  It reaches
+            # on_mod_object_signal(new=True), which pushes the object to the
+            # repository -- and merely opening this page would then create a
+            # requirement on the server before the user had entered anything.
+            # Any exit other than the Cancel button (a crash, closing the
+            # window, the app being killed) left that orphan behind, locally
+            # *and* on the server.  It is sent from RqtSummaryPage.finish()
+            # instead, so the push happens when the user commits.  The local
+            # save stays: the embedded editor needs a real object, and local
+            # debris can be cleaned up.  See rqtwizard_review.md #1.
             new = True
         dispatcher.connect(self.saved, 'modified object')
         rqt_wizard_state['rqt_oid'] = self.rqt.oid
@@ -594,7 +616,17 @@ class RqtSummaryPage(QWizardPage):
         self.rqt.mod_datetime = dtstamp()
         self.rqt.modifier = orb.get(state.get('local_user_oid'))
         orb.save([self.rqt])
-        dispatcher.send(signal='modified object', obj=self.rqt)
+        # NOTE: this is where a requirement created by this wizard first
+        # reaches the repository.  "new rqt" used to be sent from
+        # RequirementIDPage.initializePage(), i.e. on merely opening the first
+        # page, which pushed a requirement the user had not yet filled in --
+        # see rqtwizard_review.md #1.  "new rqt" rather than "modified object"
+        # for a new one, because the receiver passes new=True on to
+        # on_mod_object_signal(), which is what records it as locally created.
+        if getattr(self.wizard(), 'new_req', False):
+            dispatcher.send(signal='new rqt', obj=self.rqt)
+        else:
+            dispatcher.send(signal='modified object', obj=self.rqt)
 
 
 ###############################

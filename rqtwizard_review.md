@@ -68,12 +68,26 @@ The incident produced exactly this: three `Requirement` objects, all id
 crash aborted the process, `rqt_wizard_state` (in-memory) was lost on restart,
 so the reuse guard at 207 found nothing and cloned again.
 
-**Suggested direction, not applied.** The cheap mitigation is to stop pushing
-until the user commits: keep the local save (the editor needs a real object)
-but withhold `'new rqt'` until the wizard finishes, so an abandoned wizard
-leaves at most local debris. The thorough fix is to build the requirement in
-memory and save on finish, which is a larger change to how `PgxnObject` is
-embedded here. Worth the author's judgement on which.
+**STATUS: FIXED (2026-08-02), by the cheaper of the two options** — author's
+choice, on the grounds that local debris can be cleaned up. The local
+`orb.save` stays, because the embedded editor needs a real object; the
+`'new rqt'` send moves out of `initializePage` and into
+`RqtSummaryPage.finish()`, which is the single finish point for both the
+functional and performance flows. So nothing reaches the repository until the
+user commits.
+
+`'new rqt'` rather than `'modified object'` for a newly-created requirement,
+gated on the wizard's existing `new_req` flag: the receiver passes `new=True`
+through to `on_mod_object_signal`, which is what records the object as
+locally created.
+
+The thorough fix — build the requirement in memory and save on finish — was
+not taken; it is a larger change to how `PgxnObject` is embedded here.
+
+Note the object can still reach the repository mid-wizard if the user
+explicitly presses **Save** in the embedded editor on page 1. That is a
+deliberate user action rather than a side effect of opening a page, and
+cancelling afterwards deletes it and propagates the deletion.
 
 ### 2. `get_next_rqt_seq` skips sequence 0 whenever any requirement has an unparseable id
 `pangalactic.core/pangalactic/core/uberorb.py:1909-1941`
@@ -117,8 +131,9 @@ one line *before* the `orb.save` on 218 — the opposite of what the docstring
 describes. The ordering is load-bearing and undocumented, and the docstring
 actively misdescribes it.
 
-Suggested fix: build the integer list first and branch on that, so the
-placeholder cannot influence the result either way —
+**STATUS: FIXED (2026-08-02).** The integer list is built first and the
+branch taken on that, so the placeholder cannot influence the result either
+way —
 
 ```python
     prev_seqs = []
@@ -130,9 +145,17 @@ placeholder cannot influence the result either way —
     seq = max(prev_seqs) + 1 if prev_seqs else 0
 ```
 
-which also makes the intent (`max + 1`) legible; the current `while 1:` loop
-computes the same thing by increment. Then correct the docstring, or make the
-call order match it — but not both independently.
+which also makes the intent (`max + 1`) legible, where the previous `while 1:`
+loop computed the same thing by increment.
+
+`gen_rqt_id`'s docstring is corrected too. With the fix the call order no
+longer matters, so it now says so rather than asserting an order that was
+never the one used.
+
+Tests: `test_orb.py` test_35 gains CASE 5 (a level containing only the
+placeholder returns 0) and CASE 6 (a real id alongside the placeholder still
+counts only the real one). Against the pre-fix code, running the whole file,
+test_35 is the only failure — `0 != 1`, which is exactly CASE 5.
 
 ### 3. `on_cancel` deletes the requirement but leaves its oid in `rqt_wizard_state`
 `rqtwizard.py:176-179`
@@ -152,7 +175,15 @@ anyway: the guard's correctness currently depends on `orb.get` returning
 `None` for a deleted oid rather than on the state being accurate, and anything
 else that reads `rqt_oid` (`pangalaxian.py:7105`) sees a deleted object.
 
-One line, next to the delete: `rqt_wizard_state['rqt_oid'] = ''`.
+**STATUS: FIXED (2026-08-02)** — `rqt_wizard_state['rqt_oid'] = ''` next to
+the delete.
+
+Smaller in practice than it first appears, which is worth recording:
+`RqtWizard.__init__` clears every key in `rqt_wizard_state` on construction,
+so the stale oid never survived into the *next* wizard anyway. What it did
+survive into is the window between cancelling and whatever reads the state in
+between — `pangalaxian.new_functional_rqt` does `orb.get(rqt_oid)` right after
+`exec_()` returns.
 
 ---
 
