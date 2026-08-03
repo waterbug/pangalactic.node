@@ -83,8 +83,6 @@ class PgxnForm(QWidget):
             avoid
     """
 
-    obj_modified = pyqtSignal(str)     # arg: oid
-
     def __init__(self, obj, form_type, pgxo=None, edit_mode=False, view=None,
                  requireds=None, main_view=None, mask=None, unmask=None,
                  noctgcy=None, seq=None, idvs=None, placeholders=None,
@@ -624,7 +622,6 @@ class PgxnForm(QWidget):
                 self.obj.mod_datetime = dtstamp()
                 orb.save([self.obj])
                 dispatcher.send(signal='modified object', obj=self.obj)
-                self.obj_modified.emit(self.obj.oid)
                 self.pgxo.build_from_object()
             else:
                 event.ignore()
@@ -885,7 +882,6 @@ class PgxnObject(QDialog):
     """
 
     activity_edited = pyqtSignal(str)  # arg: oid
-    obj_modified = pyqtSignal(str)     # arg: oid
 
     def __init__(self, obj, component=False, embedded=False,
                  edit_mode=False, enable_delete=True, view=None,
@@ -1182,7 +1178,6 @@ class PgxnObject(QDialog):
                 parm_form = ParameterForm(self.obj, pgxo=self, view=self.view,
                                           mask=self.mask, noctgcy=self.noctgcy,
                                           seq=n, parent=self)
-                parm_form.obj_modified.connect(self.on_object_mod)
                 setattr(self, tab_name+'_tab', parm_form)
             elif tab_name.startswith('data'):
                 sufs = ('1', '2', '3', '4', '5', '6', '7', '8', '9')
@@ -1195,7 +1190,6 @@ class PgxnObject(QDialog):
                                      noctgcy=self.noctgcy,
                                      data_panel_contents=data_panel_contents,
                                      parent=self)
-                pgxn_form.obj_modified.connect(self.on_object_mod)
                 setattr(self, tab_name+'_tab', pgxn_form)
             else:
                 pgxn_form = PgxnForm(self.obj, tab_name, pgxo=self,
@@ -1203,7 +1197,6 @@ class PgxnObject(QDialog):
                                      mask=self.mask, noctgcy=self.noctgcy,
                                      idvs=self.all_idvs,
                                      requireds=self.required, parent=self)
-                pgxn_form.obj_modified.connect(self.on_object_mod)
                 setattr(self, tab_name+'_tab', pgxn_form)
             this_tab = getattr(self, tab_name+'_tab')
             self.editable_widgets.update(this_tab.editable_widgets)
@@ -1312,10 +1305,6 @@ class PgxnObject(QDialog):
             self.main_panel = QWidget()
         self.vbox.addWidget(self.main_panel)
         self.update()
-
-    def on_object_mod(self, oid):
-        self.obj_modified.emit(oid)
-        dispatcher.send(signal='modified object', obj=self.obj)
 
     def init_toolbar(self):
         self.toolbar = QToolBar('Tools')
@@ -2639,7 +2628,6 @@ class PgxnObject(QDialog):
             orb.log.debug('  [pgxo] sending "modified object" signal ...')
             dispatcher.send(signal="modified object", obj=self.obj,
                             cname=cname)
-            self.obj_modified.emit(self.obj.oid)
             if orb.is_a(self.obj, 'Activity'):
                 # NOTE: this includes 'Mission' subclass of Activity
                 self.activity_edited.emit(self.obj.oid)

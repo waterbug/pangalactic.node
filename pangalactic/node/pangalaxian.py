@@ -235,7 +235,6 @@ class Main(QMainWindow):
     # signals
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
     new_object = pyqtSignal(str)                  # args: oid
-    mod_object = pyqtSignal(str)                  # args: oid
     # remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
     remote_frozen = pyqtSignal(list)              # args: list of oids
     remote_thawed = pyqtSignal(list)              # args: list of oids
@@ -455,7 +454,6 @@ class Main(QMainWindow):
         # connect pyqtSignals ...
         self.deleted_object.connect(self.del_object)
         self.new_object.connect(self.on_new_object_qtsignal)
-        self.mod_object.connect(self.on_mod_object_qtsignal)
         # self.remote_deleted_object.connect(self.on_remote_deleted_object)
         # connect dispatcher signals ...
         dispatcher.connect(self.on_log_info_msg, 'log info msg')
@@ -3592,7 +3590,6 @@ class Main(QMainWindow):
         widget = CompoundLibraryWidget(cnames=cnames,
                                        include_subtypes=include_subtypes,
                                        parent=self)
-        widget.obj_modified.connect(self.on_mod_object_qtsignal)
         widget.delete_obj.connect(self.del_object)
         widget.toggle_library_size.connect(self.on_toggle_library_size)
         widget.setContextMenuPolicy(Qt.PreventContextMenu)
@@ -3900,12 +3897,6 @@ class Main(QMainWindow):
         if obj:
             cname = obj.__class__.__name__
             self.on_mod_object_signal(obj=obj, cname=cname, new=True)
-
-    def on_mod_object_qtsignal(self, oid):
-        obj = orb.get(oid)
-        if obj:
-            cname = obj.__class__.__name__
-            self.on_mod_object_signal(obj=obj, cname=cname)
 
     def on_new_rqt_signal(self, obj=None, cname=''):
         """
@@ -5753,7 +5744,6 @@ class Main(QMainWindow):
             if self.product:
                 self.pgxn_obj = PgxnObject(self.product, component=True,
                                            embedded=True)
-                self.pgxn_obj.obj_modified.connect(self.on_mod_object_qtsignal)
                 self.remote_frozen.connect(self.pgxn_obj.on_remote_frozen)
                 self.remote_thawed.connect(self.pgxn_obj.on_remote_thawed)
                 pgxn_panel_layout.addWidget(self.pgxn_obj)
@@ -5855,7 +5845,6 @@ class Main(QMainWindow):
             ld_widget.setParent(None)
             ld_widget.close()
         self.sys_tree = SystemTreeView(self.project)
-        self.sys_tree.obj_modified.connect(self.on_mod_object_qtsignal)
         # orb.log.debug('  + new self.sys_tree created ...')
         # sys_id = getattr(sys, 'id', '[none]') or '[none]'
         # orb.log.debug(f'    with selected system: {sys_id}')
@@ -6525,7 +6514,6 @@ class Main(QMainWindow):
         if proj:
             pxo = PgxnObject(proj, edit_mode=True, new=True, view=view,
                              panels=panels, modal_mode=True)
-            pxo.obj_modified.connect(self.on_mod_object_qtsignal)
             pxo.show()
 
     def delete_project(self):
@@ -6617,7 +6605,6 @@ class Main(QMainWindow):
     def on_display_object_signal(self, obj=None):
         if obj:
             pxo = PgxnObject(obj)
-            pxo.obj_modified.connect(self.on_mod_object_qtsignal)
             self.remote_frozen.connect(pxo.on_remote_frozen)
             self.remote_thawed.connect(pxo.on_remote_thawed)
             pxo.show()
@@ -7146,7 +7133,6 @@ class Main(QMainWindow):
                             height=self.geometry().height(),
                             width=(2 * self.geometry().width() // 3),
                             parent=self)
-        dlg.obj_modified.connect(self.on_mod_object_qtsignal)
         dlg.show()
 
     def product_library(self):
@@ -7157,7 +7143,6 @@ class Main(QMainWindow):
                             height=self.geometry().height(),
                             width=self.geometry().width(),
                             parent=self)
-        dlg.obj_modified.connect(self.on_mod_object_qtsignal)
         dlg.show()
 
     def template_library(self):
@@ -7165,7 +7150,6 @@ class Main(QMainWindow):
         dlg = LibraryDialog('Template', view=view,
                             width=(2 * self.geometry().width() // 3),
                             height=self.geometry().height(), parent=self)
-        dlg.obj_modified.connect(self.on_mod_object_qtsignal)
         dlg.show()
 
     def port_type_library(self):
@@ -7180,7 +7164,6 @@ class Main(QMainWindow):
         dlg = LibraryDialog('PortTemplate', view=view,
                            width=self.geometry().width()//2,
                            height=self.geometry().height(), parent=self)
-        dlg.obj_modified.connect(self.on_mod_object_qtsignal)
         dlg.show()
 
     def display_rqts_manager(self):

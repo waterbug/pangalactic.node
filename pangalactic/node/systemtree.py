@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 
 # PyQt
 from PyQt5.QtGui  import QBrush, QCursor
-from PyQt5.QtCore import (pyqtSignal, Qt, QAbstractItemModel,
+from PyQt5.QtCore import (Qt, QAbstractItemModel,
                           QItemSelectionModel, QModelIndex,
                           QSortFilterProxyModel, QVariant)
 from PyQt5.QtWidgets import QAction, QMenu, QSizePolicy, QTreeView
@@ -934,7 +934,6 @@ class SystemTreeModel(QAbstractItemModel):
 
 class SystemTreeView(QTreeView):
 
-    obj_modified = pyqtSignal(str)     # arg: oid
 
     # MODIFIED 5/12/22:  drag/drop is disabled in the system tree -- was both
     # buggy and unnecessary, now that block diagram drag/drop works
@@ -1281,11 +1280,8 @@ class SystemTreeView(QTreeView):
             mapped_i = self.proxy_model.mapToSource(i)
             obj = self.source_model.get_node(mapped_i).obj
             dlg = PgxnObject(obj, modal_mode=True, parent=self)
-            dlg.obj_modified.connect(self.on_obj_modified)
             dlg.show()
 
-    def on_obj_modified(self, oid):
-        self.obj_modified.emit(oid)
 
     def link_indexes_in_tree(self, link):
         """

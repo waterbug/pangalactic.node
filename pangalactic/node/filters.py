@@ -564,7 +564,6 @@ class FilterPanel(QWidget):
     A widget containing a filterable table of objects.
     """
 
-    obj_modified = pyqtSignal(str)      # arg: oid
     delete_obj = pyqtSignal(str, str)   # args: oid, cname
 
     def __init__(self, objs, cname=None, view=None, sized_cols=None, label='',
@@ -718,6 +717,7 @@ class FilterPanel(QWidget):
         main_layout.addLayout(title_layout)
         main_layout.addWidget(proxy_group_box)
         self.setLayout(main_layout)
+        dispatcher.connect(self.on_mod_object_signal, 'modified object')
         self.setWindowTitle("Custom Sort/Filter Model")
         width = width or 500
         height = height or 500
@@ -1066,7 +1066,6 @@ class FilterPanel(QWidget):
                 obj = orb.get(oid)
                 if obj:
                     dlg = PgxnObject(obj, parent=self)
-                    dlg.obj_modified.connect(self.on_pgxo_mod_object_signal)
                     dlg.show()
                 else:
                     orb.log.debug('  PgxnObject got a None, ignoring.')
@@ -1133,12 +1132,29 @@ class FilterPanel(QWidget):
             # orb.log.debug('               ... on obj: {}'.format(obj.id))
             self.add_object(obj)
 
-    def on_pgxo_mod_object_signal(self, oid):
-        # orb.log.info('* [filters] received obj_modified signal from pgxo')
-        # orb.log.debug(f'            on oid: {oid}')
-        source_model = self.proxy_model.sourceModel()
-        source_model.mod_object(oid)
-        self.obj_modified.emit(oid)
+    def on_mod_object_signal(self, obj=None, cname=''):
+        """
+        Handle the "modified object" dispatcher signal.
+
+        NOTE: this used to be on_pgxo_mod_object_signal, connected per-dialog
+        to a PgxnObject's "obj_modified" pyqtSignal, and it ended by
+        re-emitting the same signal so it could reach Main -- one link in a
+        relay chain.  Only the middle line was ever real work.  Note that
+        ObjectTableView has its own "modified object" receiver doing the
+        equivalent, but it is a different class from this panel's ProxyView,
+        so this is not redundant with it.
+        """
+        oid = getattr(obj, 'oid', '')
+        if not oid:
+            return
+        proxy_model = getattr(self, 'proxy_model', None)
+        if proxy_model is None:
+            return
+        try:
+            proxy_model.sourceModel().mod_object(oid)
+        except:
+            # the model's C++ object may have gone away with a rebuilt table
+            orb.log.debug('* [filters] model gone, cannot update.')
 
     def on_delete_obj_signal(self, oid, cname):
         """

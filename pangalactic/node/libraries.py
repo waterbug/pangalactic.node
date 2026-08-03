@@ -330,7 +330,6 @@ class CompoundLibraryWidget(QWidget):
             index of the library view in the QStackedLayout
     """
 
-    obj_modified = pyqtSignal(str)          # arg: oid
     delete_obj = pyqtSignal(str, str)       # args: oid, cname
     toggle_library_size = pyqtSignal(bool)  # args: expand
 
@@ -412,7 +411,6 @@ class CompoundLibraryWidget(QWidget):
                                     external_filters=True,
                                     min_width=min_width,
                                     parent=self)
-            lib_table.obj_modified.connect(self.on_obj_modified)
             lib_table.delete_obj.connect(self.on_delete_obj)
             if hasattr(lib_table, 'ext_filters'):
                 lib_table.ext_filters.clicked.connect(self.show_ext_filters)
@@ -442,7 +440,6 @@ class CompoundLibraryWidget(QWidget):
                                     min_width=min_width,
                                     excluded_oids=excluded_oids,
                                     parent=self)
-            lib_table.obj_modified.connect(self.on_obj_modified)
         elif cname == 'Person':
             select_label = 'People'
             # exclude "me", "TBD", and "admin"
@@ -458,7 +455,6 @@ class CompoundLibraryWidget(QWidget):
                                     label=select_label,
                                     excluded_oids=excluded_oids,
                                     parent=self)
-            lib_table.obj_modified.connect(self.on_obj_modified)
         else:
             lib_table = LibraryListView(cname,
                                         include_subtypes=include_subtypes,
@@ -469,8 +465,6 @@ class CompoundLibraryWidget(QWidget):
         self.stack.addWidget(lib_table)
         self.library_select.addItem(select_label, QVariant())
 
-    def on_obj_modified(self, oid):
-        self.obj_modified.emit(oid)
 
     def on_delete_obj(self, oid, cname):
         self.delete_obj.emit(oid, cname)
@@ -580,7 +574,6 @@ class LibraryDialog(QDialog):
     Dialog containing a table or list of library items.
     """
 
-    obj_modified = pyqtSignal(str)  # arg: oid
 
     def __init__(self, cname, objs=None, include_subtypes=False,
                  icon_size=None, tabular=True, prefilter=None, view=None,
@@ -622,7 +615,6 @@ class LibraryDialog(QDialog):
                                                 self.clear_product_filters)
                 lib_view.only_mine_checkbox.clicked.connect(
                                                 self.on_only_mine_toggled)
-                lib_view.obj_modified.connect(self.on_obj_modified)
             else:
                 if self.cname == 'Template':
                     label = 'System and Component Templates'
@@ -655,8 +647,6 @@ class LibraryDialog(QDialog):
         # with state
         self.on_only_mine_toggled()
 
-    def on_obj_modified(self, oid):
-        self.obj_modified.emit(oid)
 
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)
