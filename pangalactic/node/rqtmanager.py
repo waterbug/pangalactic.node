@@ -117,6 +117,7 @@ class RequirementManager(QDialog):
         dispatcher.connect(self.on_new_or_mod_rqts, 'remote new or mod rqts')
         dispatcher.connect(self.on_modified_object, 'modified object')
         dispatcher.connect(self.on_deleted_object, 'deleted object')
+        dispatcher.connect(self.on_rqt_parm_mod, 'rqt parm mod')
         dispatcher.connect(self.on_sys_node_clicked, 'sys node clicked')
         # "parameters recomputed" is the ultimate signal resulting from a
         # "received objects" pubsub msg after a "modified object" signal
@@ -446,7 +447,6 @@ class RequirementManager(QDialog):
                     parm = 'rqt_target_value'
                 if parm:
                     dlg = RqtParmDialog(rqt, parm, parent=self)
-                    dlg.rqt_parm_mod.connect(self.on_rqt_parm_mod)
                     if dlg.exec_() == QDialog.Accepted:
                         orb.log.info('* rqt parm edited.')
                         dispatcher.send('modified object', obj=rqt)
@@ -470,7 +470,7 @@ class RequirementManager(QDialog):
                                 message, QMessageBox.Ok, self)
             popup.show()
 
-    def on_rqt_parm_mod(self, oid):
+    def on_rqt_parm_mod(self, oid=None):
         if not state.get('connected'):
             self.fpanel.mod_object(oid)
 

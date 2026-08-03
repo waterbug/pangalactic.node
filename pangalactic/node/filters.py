@@ -718,6 +718,7 @@ class FilterPanel(QWidget):
         main_layout.addWidget(proxy_group_box)
         self.setLayout(main_layout)
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
+        dispatcher.connect(self.on_hw_fields_edited, 'hw fields edited')
         self.setWindowTitle("Custom Sort/Filter Model")
         width = width or 500
         height = height or 500
@@ -1043,7 +1044,6 @@ class FilterPanel(QWidget):
                 hw = orb.get(oid)
         if hw:
             dlg = HWFieldsDialog(hw, parent=self)
-            dlg.hw_fields_edited.connect(self.on_hw_fields_edited)
             if dlg.exec_() == QDialog.Accepted:
                 # orb.log.info('* hw item fields edited.')
                 dlg.close()
@@ -1051,7 +1051,7 @@ class FilterPanel(QWidget):
                 # orb.log.info('* hw item fields editing cancelled.')
                 dlg.close()
 
-    def on_hw_fields_edited(self, oid):
+    def on_hw_fields_edited(self, oid=None):
         # orb.log.debug('* on_hw_fields_edited()')
         self.mod_object(oid)
 
@@ -1147,11 +1147,8 @@ class FilterPanel(QWidget):
         oid = getattr(obj, 'oid', '')
         if not oid:
             return
-        proxy_model = getattr(self, 'proxy_model', None)
-        if proxy_model is None:
-            return
         try:
-            proxy_model.sourceModel().mod_object(oid)
+            self.mod_object(oid)
         except:
             # the model's C++ object may have gone away with a rebuilt table
             orb.log.debug('* [filters] model gone, cannot update.')

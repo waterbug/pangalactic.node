@@ -456,6 +456,8 @@ class Main(QMainWindow):
         self.new_object.connect(self.on_new_object_qtsignal)
         # self.remote_deleted_object.connect(self.on_remote_deleted_object)
         # connect dispatcher signals ...
+        dispatcher.connect(self.on_toggle_library_size,
+                                                    'toggle library size')
         dispatcher.connect(self.on_log_info_msg, 'log info msg')
         dispatcher.connect(self.on_log_debug_msg, 'log debug msg')
         dispatcher.connect(self.on_system_selected_signal, 'system selected')
@@ -3591,7 +3593,6 @@ class Main(QMainWindow):
                                        include_subtypes=include_subtypes,
                                        parent=self)
         widget.delete_obj.connect(self.del_object)
-        widget.toggle_library_size.connect(self.on_toggle_library_size)
         widget.setContextMenuPolicy(Qt.PreventContextMenu)
         return widget
 

@@ -38,17 +38,31 @@ def _python_files():
                 yield os.path.join(dirpath, fn)
 
 
-def test_01_obj_modified_is_gone():
-    """CASE: the relayed pyqtSignal is not reintroduced
+# pyqtSignals migrated to pydispatcher, with the signal name that replaced
+# each.  Extend as the migration proceeds; see pydispatcher_migration.md.
+MIGRATED = {
+    'obj_modified': "'modified object'",
+    'mod_object': 'nothing -- it was never emitted',
+    'activity_edited': 'nothing -- it had no receiver',
+    'toggle_library_size': "'toggle library size'",
+    'hw_fields_edited': "'hw fields edited'",
+    'rqt_parm_mod': "'rqt parm mod'",
+    }
 
-    Guard rather than assertion about the past: the relay pattern is easy to
-    add back one connection at a time, and each addition looks locally
+
+@pytest.mark.parametrize('name', sorted(MIGRATED))
+def test_01_migrated_signals_are_not_reintroduced(name):
+    """CASE: a migrated pyqtSignal is not declared, emitted or connected
+
+    Guard rather than an assertion about the past: the relay pattern is easy
+    to add back one connection at a time, and each addition looks locally
     reasonable.
+
+    Matches *use*, not mention -- prose in a docstring explaining why a signal
+    is gone is not a reintroduction.
     """
-    # matches use, not mention: a declaration, an emit, or a connect.  Prose
-    # in a docstring explaining why the signal is gone is not a reintroduction.
-    USE = re.compile(r'\bobj_modified\s*=\s*pyqtSignal|'
-                     r'\bobj_modified\.(emit|connect)\s*\(')
+    use = re.compile(r'\b' + name + r'\s*=\s*pyqtSignal|'
+                     r'\b' + name + r'\.(emit|connect)\s*\(')
     offenders = []
     for path in _python_files():
         if os.path.basename(path) == os.path.basename(__file__):
@@ -56,12 +70,12 @@ def test_01_obj_modified_is_gone():
         with open(path, encoding='utf-8') as f:
             for n, line in enumerate(f, 1):
                 code = line.split('#')[0]
-                if USE.search(code):
+                if use.search(code):
                     offenders.append(
                         f'{os.path.relpath(path, PKG)}:{n}: {line.strip()}')
     assert not offenders, (
-        'obj_modified reappeared -- send the "modified object" dispatcher '
-        'signal instead:\n  ' + '\n  '.join(offenders))
+        f'{name} reappeared -- use {MIGRATED[name]} instead:\n  '
+        + '\n  '.join(offenders))
 
 
 def test_02_no_qtsignal_adapters_remain_for_modified_objects(qtbot):
@@ -123,3 +137,27 @@ def test_04_filter_panel_ignores_a_signal_with_no_object(qtbot, test_orb):
 
     dispatcher.send(signal='modified object')          # no obj at all
     dispatcher.send(signal='modified object', obj=None)
+
+
+def test_05_filter_panel_responds_to_hw_fields_edited(qtbot, test_orb,
+                                                      monkeypatch):
+    """CASE: the migrated "hw fields edited" signal reaches FilterPanel
+
+    HWFieldsDialog used to be wired to the panel that opened it.  It now
+    sends a dispatcher signal, so the panel must pick it up without the
+    per-dialog connection.
+    """
+    from pydispatch import dispatcher
+
+    objs = orb.get_by_type('HardwareProduct')
+    if not objs:
+        pytest.skip('test data has no HardwareProduct instances')
+    panel = FilterPanel(objs[:3], cname='HardwareProduct')
+    qtbot.addWidget(panel)
+
+    called = []
+    monkeypatch.setattr(panel, 'mod_object', lambda oid: called.append(oid))
+
+    dispatcher.send(signal='hw fields edited', oid=objs[0].oid)
+
+    assert called == [objs[0].oid]

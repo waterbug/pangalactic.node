@@ -268,3 +268,55 @@ tree by right-click -> "View or edit this object", not by double-clicking.)*
 **Still to do:** steps 2, 3 and 5 of §6 — the leaf signals, the one-to-few
 signals, and `new_object`/`delete_obj`/`deleted_object` (which unlocks review
 #4). `activity_edited` (dead, no receiver) is still to be removed.
+
+---
+
+## 9. Step 2 as built: the leaf signals (2026-08-03)
+
+`toggle_library_size`, `hw_fields_edited`, `rqt_parm_mod`, plus the dead
+`activity_edited`. Unlike step 1 these have no dispatcher twin already in
+place, so each needed a signal name chosen and a receiver connected — real
+conversions rather than deletions.
+
+| signal | now | receiver connects in |
+|---|---|---|
+| `toggle_library_size` | `'toggle library size'` | `Main.__init__` |
+| `hw_fields_edited` | `'hw fields edited'` | `FilterPanel.__init__` |
+| `rqt_parm_mod` | `'rqt parm mod'` | `RqtManager.__init__` |
+| `activity_edited` | deleted — emitted, no receiver anywhere | — |
+
+Live `pyqtSignal` declarations: **22 → 18**, of which 4 are `threads.py`'s
+cross-thread signals that stay. `pgxnobject.py`'s `pyqtSignal` import went
+with its last declaration.
+
+Receivers gained keyword defaults (`oid=None`) because pydispatcher passes
+arguments as keywords where a pyqtSignal passed them positionally.
+
+**Deliberately mechanical.** Each conversion preserves current behaviour
+exactly; nothing was "improved" on the way past. Two things noticed that are
+*not* changed here, because they are behaviour questions rather than
+migration steps — see §10.
+
+### A duplication removed in passing
+
+`FilterPanel.on_mod_object_signal`, added in step 1, had inlined the body of
+the existing `FilterPanel.mod_object`. It now calls it.
+
+## 10. Behaviour questions surfaced by step 2 (not acted on)
+
+1. **`HWFieldsDialog` edits never reach the repository.** `on_save` calls
+   `orb.save([self.hw_item])` and signals the table to refresh, but no
+   `'modified object'` is sent, so `Main.on_mod_object_signal` never runs and
+   `vger.save` is never called. The dispatcher send is present in the source
+   but **commented out**, directly beneath the emit. Sending it would fix the
+   sync but is a behaviour change, and the commented-out line suggests it was
+   disabled deliberately at some point — so it is left exactly as it was, with
+   the reason marked at the site. There is one caller
+   (`filters.py:1045`), so the blast radius is small either way.
+
+2. **`rqt_parm_mod` may now be redundant.** Its receiver only acts when
+   offline (`if not state.get('connected')`), and its caller already sends
+   `'modified object'` on `Accepted` — which, since step 1, `FilterPanel`
+   receives and acts on regardless of connection state. If that reasoning
+   holds at runtime, the signal and its handler can simply be deleted. Not
+   done on reasoning alone.

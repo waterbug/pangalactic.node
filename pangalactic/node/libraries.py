@@ -331,7 +331,6 @@ class CompoundLibraryWidget(QWidget):
     """
 
     delete_obj = pyqtSignal(str, str)       # args: oid, cname
-    toggle_library_size = pyqtSignal(bool)  # args: expand
 
     def __init__(self, cnames=None, include_subtypes=True, icon_size=None,
                  title=None, min_width=None, parent=None):
@@ -487,7 +486,7 @@ class CompoundLibraryWidget(QWidget):
         else:
             self.expand_button.setText('Collapse')
             expand = True
-        self.toggle_library_size.emit(expand)
+        dispatcher.send(signal='toggle library size', expand=expand)
 
     def refresh(self, cname=None, **kw):
         orb.log.debug(f"* CompoundLibraryWidget.refresh(cname={cname})")

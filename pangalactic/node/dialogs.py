@@ -373,7 +373,6 @@ class HWFieldsDialog(QDialog):
     A dialog to edit selected fields of a HardwareProduct.
     """
 
-    hw_fields_edited = pyqtSignal(str)  # arg: oid
 
     def __init__(self, hw_item, parent=None):
         super().__init__(parent)
@@ -453,9 +452,11 @@ class HWFieldsDialog(QDialog):
         self.hw_item.mod_datetime = NOW
         self.hw_item.modifier = user
         orb.save([self.hw_item])
-        self.hw_fields_edited.emit(self.hw_item.oid)
-        # dispatcher.send(signal='modified object', obj=self.hw_item,
-                        # cname='HardwareProduct')
+        dispatcher.send(signal='hw fields edited', oid=self.hw_item.oid)
+        # NOTE: "modified object" is deliberately NOT sent here -- see
+        # pydispatcher_migration.md section 9.  Sending it would push the edit
+        # to the repository, which this dialog has never done; that is a
+        # behaviour question, kept separate from the mechanical migration.
         self.accept()
 
 
@@ -1380,7 +1381,6 @@ class RqtParmDialog(QDialog):
     A dialog to edit the value of performance requirement parameters.
     """
 
-    rqt_parm_mod = pyqtSignal(str)  # arg: oid
 
     def __init__(self, rqt, parm, parent=None):
         super().__init__(parent)
@@ -1421,7 +1421,7 @@ class RqtParmDialog(QDialog):
         self.rqt.mod_datetime = NOW
         self.rqt.modifier = user
         orb.save([self.rqt])
-        self.rqt_parm_mod.emit(self.rqt.oid)
+        dispatcher.send(signal='rqt parm mod', oid=self.rqt.oid)
         self.accept()
 
 
