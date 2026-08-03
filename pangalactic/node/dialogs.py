@@ -15,7 +15,7 @@ import os, shutil, sys
 from pathlib  import Path
 from textwrap import wrap
 
-from PyQt5.QtCore import (pyqtSignal, Qt, QPoint, QRectF, QSize, QTimer,
+from PyQt5.QtCore import (Qt, QPoint, QRectF, QSize, QTimer,
                           QVariant)
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
@@ -1775,7 +1775,6 @@ class UnitPrefsDialog(QDialog):
         {dimensions (str) : preferred units (str)}
     """
 
-    units_set = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1811,8 +1810,7 @@ class UnitPrefsDialog(QDialog):
             val = widget.get_value()
             prefs['units'][dims] = val
             orb.log.debug(f'  - {dims}: {val}')
-        # dispatcher.send('units set')
-        self.units_set.emit()
+        dispatcher.send(signal='units set')
 
 
 class TimeUnitsDialog(QDialog):
@@ -1859,7 +1857,6 @@ class TimeUnitsDialog(QDialog):
 
 class PrefsDialog(QDialog):
 
-    units_set = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1943,11 +1940,8 @@ class PrefsDialog(QDialog):
 
     def set_preferred_units(self):
         dlg = UnitPrefsDialog(self)
-        dlg.units_set.connect(self.on_units_set)
         dlg.show()
 
-    def on_units_set(self):
-        self.units_set.emit()
 
     def set_disconnect_resync_interval(self, index):
         """

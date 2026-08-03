@@ -320,3 +320,47 @@ the existing `FilterPanel.mod_object`. It now calls it.
    receives and acts on regardless of connection state. If that reasoning
    holds at runtime, the signal and its handler can simply be deleted. Not
    done on reasoning alone.
+
+---
+
+## 11. Step 3 as built: the one-to-few signals (2026-08-03)
+
+| signal | now | receiver connects in |
+|---|---|---|
+| `units_set` | `'units set'` | `Main.__init__` |
+| `remote_frozen` | `'remote frozen'` | `PgxnObject.__init__` |
+| `remote_thawed` | `'remote thawed'` | `PgxnObject.__init__` |
+| `refresh_admin_tool` | `'refresh admin tool'` | `do_admin_stuff`, per dialog |
+
+Live `pyqtSignal` declarations: **18 → 11**. Of those 11, four are
+`threads.py`'s cross-thread signals that stay, and the remaining seven are
+step 5's (`deleted_object` x3, `new_object` x2, `delete_obj` x2).
+`dashboards.py` and `dialogs.py` lost their now-unused `pyqtSignal` imports.
+
+**`units_set` was a third relay chain**, and again the target name was already
+chosen and sitting commented out above the emit:
+
+```python
+        # dispatcher.send('units set')
+        self.units_set.emit()
+```
+
+`UnitPrefsDialog` is the only origin. `Dashboard` and `PrefsDialog` each
+carried a `set_units`/`set_preferred_units` method that opened it, wired
+itself to the result, and re-emitted an identically-named signal of its own,
+purely so it could reach `Main`. Both relays are gone; the dialog sends
+`'units set'` and `Main` hears it.
+
+**`remote_frozen`/`remote_thawed` inverted a dependency.** `Main` was wiring
+these into each `PgxnObject` it created, at two separate construction sites,
+so it had to remember to do so every time. Each `PgxnObject` now connects its
+own receivers and ignores oids that are not its object's. Note the two
+receivers take differently-named arguments (`frozen_oids=` and `oids=`), so
+the sends match each one rather than sharing a convention.
+
+**`refresh_admin_tool` was the one with a teardown.** It is the signal from
+remaining-chunks review #2, where every re-open left another live dialog
+connected. The explicit `disconnect` added by that fix is preserved and is now
+symmetric — both it and the `'deleted object'` disconnect next to it go
+through pydispatcher, which does not disconnect on destruction either.
+Converting a signal that has a teardown means converting the teardown.

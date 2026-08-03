@@ -9,7 +9,7 @@ updates.
 import os
 from pydispatch import dispatcher
 
-from PyQt5.QtCore    import (pyqtSignal, Qt, QItemSelectionModel, QModelIndex,
+from PyQt5.QtCore    import (Qt, QItemSelectionModel, QModelIndex,
                              QVariant)
 from PyQt5.QtWidgets import (QAction, QComboBox, QDialog, QFileDialog,
                              QHBoxLayout, QHeaderView, QLabel, QMessageBox,
@@ -38,7 +38,6 @@ from pangalactic.node.systemtree      import (SystemTreeModel,
 
 class SystemDashboard(QTreeView):
 
-    units_set = pyqtSignal()
 
     def __init__(self, view_model, row_colors=True, grid_lines=False,
                  parent=None):
@@ -326,11 +325,8 @@ class SystemDashboard(QTreeView):
 
     def set_units(self):
         dlg = UnitPrefsDialog(self)
-        dlg.units_set.connect(self.on_units_set)
         dlg.show()
 
-    def on_units_set(self):
-        self.units_set.emit()
 
     def show_grid(self):
         self.grid_lines = True

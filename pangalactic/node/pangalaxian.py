@@ -236,10 +236,6 @@ class Main(QMainWindow):
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
     new_object = pyqtSignal(str)                  # args: oid
     # remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
-    remote_frozen = pyqtSignal(list)              # args: list of oids
-    remote_thawed = pyqtSignal(list)              # args: list of oids
-    refresh_admin_tool = pyqtSignal()
-    units_set = pyqtSignal()
 
     def __init__(self, app_base_name='Pangalaxian', app_version='',
                  release_mode='', home='', host=None, port=None,
@@ -456,6 +452,7 @@ class Main(QMainWindow):
         self.new_object.connect(self.on_new_object_qtsignal)
         # self.remote_deleted_object.connect(self.on_remote_deleted_object)
         # connect dispatcher signals ...
+        dispatcher.connect(self.on_units_set, 'units set')
         dispatcher.connect(self.on_toggle_library_size,
                                                     'toggle library size')
         dispatcher.connect(self.on_log_info_msg, 'log info msg')
@@ -1867,10 +1864,10 @@ class Main(QMainWindow):
                                                  obj.__class__.__name__)
             if action == 'freeze':
                 # dispatcher.send('remote: frozen', frozen_oids=frozen_oids)
-                self.remote_frozen.emit(frozen_oids)
+                dispatcher.send(signal='remote frozen', frozen_oids=frozen_oids)
             else:
                 # dispatcher.send('remote: thawed', oids=thawed_oids)
-                self.remote_thawed.emit(thawed_oids)
+                dispatcher.send(signal='remote thawed', oids=thawed_oids)
             # except:
                 # orb.log.debug(f'  failed: could not parse content "{attrs}".')
         if self.mode == "system" and (frozen_oids or thawed_oids):
@@ -2934,7 +2931,7 @@ class Main(QMainWindow):
                 # whether ra applies to this user or not, send signal to
                 # refresh the admin tool
                 # TODO: move this signal to after get_parmz() ...
-                self.refresh_admin_tool.emit()
+                dispatcher.send(signal='refresh admin tool')
                 self.update_project_role_labels()
             elif cname == 'Requirement':
                 if state.get('new_or_modified_rqts'):
@@ -4478,7 +4475,7 @@ class Main(QMainWindow):
                     self.update_project_role_labels()
                     # whether ra applies to this user or not, send signal to
                     # refresh the admin tool
-                    self.refresh_admin_tool.emit()
+                    dispatcher.send(signal='refresh admin tool')
                 elif cname == 'Activity':
                     # conops will handle the deletion -- DO NOT delete here
                     # because the activity oid is used to get the local
@@ -4815,7 +4812,7 @@ class Main(QMainWindow):
             orb.log.debug(f'  thaw refused by repository for {n} object(s);')
             orb.log.debug('  local "frozen" state reverted to match it.')
             # prompt any open editor to re-read the object and fix its toolbar
-            self.remote_frozen.emit(reverted)
+            dispatcher.send(signal='remote frozen', frozen_oids=reverted)
         msg = f'vger: {len(thawed)} thawed, {len(failed)} not thawed.'
         self.statusbar.showMessage(msg)
 
@@ -5745,8 +5742,6 @@ class Main(QMainWindow):
             if self.product:
                 self.pgxn_obj = PgxnObject(self.product, component=True,
                                            embedded=True)
-                self.remote_frozen.connect(self.pgxn_obj.on_remote_frozen)
-                self.remote_thawed.connect(self.pgxn_obj.on_remote_thawed)
                 pgxn_panel_layout.addWidget(self.pgxn_obj)
                 pgxn_panel_layout.setAlignment(self.pgxn_obj,
                                              Qt.AlignLeft|Qt.AlignTop)
@@ -6034,8 +6029,6 @@ class Main(QMainWindow):
                                              # parent=self)
             self.multidashboard = MultiDashboard(self.project, parent=self)
             self.dashboard.setFrameStyle(QFrame.Panel | QFrame.Raised)
-            if hasattr(self.dashboard, 'units_set'):
-                self.dashboard.units_set.connect(self.on_units_set)
         else:
             orb.log.debug('         + no sys_tree; using placeholder '
                           'for dashboard...')
@@ -6606,8 +6599,6 @@ class Main(QMainWindow):
     def on_display_object_signal(self, obj=None):
         if obj:
             pxo = PgxnObject(obj)
-            self.remote_frozen.connect(pxo.on_remote_frozen)
-            self.remote_thawed.connect(pxo.on_remote_thawed)
             pxo.show()
 
     def new_product(self):
@@ -7793,7 +7784,6 @@ class Main(QMainWindow):
     def edit_prefs(self):
         orb.log.debug('* edit_prefs()')
         dlg = PrefsDialog(parent=self)
-        dlg.units_set.connect(self.on_units_set)
         if dlg.exec_():
             orb.log.debug('  - prefs dialog completed.')
 
@@ -7818,9 +7808,10 @@ class Main(QMainWindow):
         old_dlg = getattr(self, 'admin_dlg', None)
         if old_dlg is not None:
             try:
-                self.refresh_admin_tool.disconnect(old_dlg.refresh_roles)
-            except TypeError:
-                # not connected -- nothing to do
+                dispatcher.disconnect(old_dlg.refresh_roles,
+                                      'refresh admin tool')
+            except Exception:
+                # pydispatcher raises if the receiver was not connected
                 pass
             try:
                 dispatcher.disconnect(old_dlg.refresh_roles, "deleted object")
@@ -7842,7 +7833,8 @@ class Main(QMainWindow):
             ldap_search_button.clicked.connect(self.open_person_dlg)
         self.admin_dlg.new_object.connect(self.on_new_object_qtsignal)
         self.admin_dlg.deleted_object.connect(self.del_object)
-        self.refresh_admin_tool.connect(self.admin_dlg.refresh_roles)
+        dispatcher.connect(self.admin_dlg.refresh_roles,
+                           'refresh admin tool')
         # ---------------------------------------------------------------------
         # NOTE: self.deleted_object and self.remote_deleted_object are
         # DEPRECATED in favor of dispatcher signal "deleted object"

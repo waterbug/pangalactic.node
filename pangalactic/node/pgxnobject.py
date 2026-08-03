@@ -1026,6 +1026,11 @@ class PgxnObject(QDialog):
         dispatcher.connect(self.on_checkouts_changed, 'checkouts changed')
         # listen for "new object" in case it is a related Acu
         dispatcher.connect(self.on_new_object, 'new object')
+        # NOTE: these were wired per-instance by Main, which had to know
+        # about every PgxnObject it created; each instance now listens for
+        # itself and ignores oids that are not its own.
+        dispatcher.connect(self.on_remote_frozen, 'remote frozen')
+        dispatcher.connect(self.on_remote_thawed, 'remote thawed')
 
     def build_from_object(self):
         """

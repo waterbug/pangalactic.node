@@ -47,6 +47,10 @@ MIGRATED = {
     'toggle_library_size': "'toggle library size'",
     'hw_fields_edited': "'hw fields edited'",
     'rqt_parm_mod': "'rqt parm mod'",
+    'units_set': "'units set'",
+    'remote_frozen': "'remote frozen'",
+    'remote_thawed': "'remote thawed'",
+    'refresh_admin_tool': "'refresh admin tool'",
     }
 
 
@@ -161,3 +165,31 @@ def test_05_filter_panel_responds_to_hw_fields_edited(qtbot, test_orb,
     dispatcher.send(signal='hw fields edited', oid=objs[0].oid)
 
     assert called == [objs[0].oid]
+
+
+def test_06_pgxnobject_listens_for_freeze_and_thaw_itself(qtbot, test_orb):
+    """CASE: PgxnObject connects its own freeze/thaw receivers
+
+    Main used to wire these per instance, so it had to know about every
+    PgxnObject it created.  Each instance now listens for itself.
+    """
+    from pangalactic.node import pgxnobject
+    src = open(pgxnobject.__file__.replace('.pyc', '.py'),
+               encoding='utf-8').read()
+    assert "dispatcher.connect(self.on_remote_frozen, 'remote frozen')" in src
+    assert "dispatcher.connect(self.on_remote_thawed, 'remote thawed')" in src
+
+
+def test_07_admin_tool_refresh_is_disconnected_on_reopen(qtbot, test_orb):
+    """CASE: the admin-tool teardown still disconnects the old dialog
+
+    `refresh_admin_tool` was the one converted signal with an explicit
+    teardown, added to fix the accumulation bug where every open left another
+    live dialog connected (remaining-chunks review #2).  pydispatcher does not
+    disconnect on destruction either, so converting it must not lose that.
+    """
+    from pangalactic.node import pangalaxian
+    src = open(pangalaxian.__file__.replace('.pyc', '.py'),
+               encoding='utf-8').read()
+    assert "dispatcher.disconnect(old_dlg.refresh_roles," in src
+    assert "dispatcher.connect(self.admin_dlg.refresh_roles," in src
