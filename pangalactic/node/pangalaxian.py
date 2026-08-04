@@ -5802,24 +5802,31 @@ class Main(QMainWindow):
         ######################################################################
         # orb.log.debug('* refreshing system tree and rebuilding dashboard ...')
         # use number of tree levels to set max in progress bar
-        try:
-            # orb.log.debug('  + self.sys_tree exists ...')
-            # if dashboard exists, it has to be destroyed too since the tree
-            # and dashboard share their model()
-            if hasattr(self, 'dashboard_panel'):
-                # orb.log.debug('  + destroying existing dashboard, if any ...')
-                dashboard_panel_layout = self.dashboard_panel.layout()
-                if getattr(self, 'dashboard', None):
-                    dashboard_panel_layout.removeWidget(self.dashboard)
-                    self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
-                    self.dashboard.hide()
-                    self.dashboard.setParent(None)
-                    self.dashboard.close()
-                    self.dashboard = None
-                    self.dashboard_rebuilt = False
-        except:
-            # if unsuccessful, it means there wasn't one, so no harm done
-            pass
+        # ------------------------------------------------------------------
+        # NOTE: a block here used to "destroy the existing dashboard" --
+        # removeWidget / WA_DeleteOnClose / hide / setParent(None) / close on
+        # self.dashboard.  It has been removed, for two reasons.
+        #
+        # First, "dashboard" is a read-only *property* (see above): it returns
+        # multidashboard.dashboards.widget(idx), i.e. a page belonging to the
+        # MultiDashboard stack, not a widget this window owns.  The block
+        # ended with "self.dashboard = None", which a property without a
+        # setter refuses -- so it raised AttributeError every time, was
+        # swallowed by the bare "except: pass" below it, and the line after it
+        # never ran at all.  The block never did what it said.
+        #
+        # Second, it became actively destructive once the widget-detach idiom
+        # was corrected (".parent = None", which did nothing, became
+        # setParent(None), which detaches): the page was then genuinely
+        # destroyed, the MultiDashboard was left with a dead page, and the
+        # Systems Dashboard went blank and stayed blank when a remote
+        # modification arrived.  Reported from live two-machine testing,
+        # 2026-08-04.
+        #
+        # The MultiDashboard's lifetime is rebuild_dashboard()'s business, and
+        # it is called below.  The identical teardown *inside* that method was
+        # already commented out.
+        # ------------------------------------------------------------------
         try:
             # orb.log.debug('  + destroying existing self.sys_tree, if any ...')
             # NOTE:  WA_DeleteOnClose kills the "ghost tree" bug
