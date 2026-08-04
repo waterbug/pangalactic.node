@@ -112,9 +112,9 @@ The lesson worth carrying: a teardown that has been silently failing looks
 exactly like a teardown that works, until something makes it effective. The
 bare `except: pass` is what let it hide for however long it had been there.
 
-## 5. Could they share one model after all?
+## 5. Could they share one model after all? — no, and here is the reason
 
-They did once: the commented-out line at `pangalaxian.py` still reads
+They did once: the commented-out line in `pangalaxian.py` still reads
 
 ```python
             # self.dashboard = SystemDashboard(self.sys_tree.model(),
@@ -122,36 +122,38 @@ They did once: the commented-out line at `pangalaxian.py` still reads
 ```
 
 — the single-dashboard version, viewing the left-panel tree's own model. The
-per-dashboard models arrived with the `QStackedWidget` rewrite, apparently
-without a specific reason to drop the sharing.
+per-dashboard models arrived with the `QStackedWidget` rewrite.
 
-**And sharing does look viable.** `dash_name` is *only a column selector*
-(author, 2026-08-04, confirmed in the code): it feeds the `cols` property —
-`['System'] + prefs['dashboards'][dash_name]` — the header text, and the
-column add/remove operations that write back to `prefs['dashboards']`. It
-never touches the `Node` hierarchy. **The row structure is identical across
-every dashboard**; only the columns differ.
+**The reason they had to (author, 2026-08-04): in Qt's model/view, the columns
+belong to the model.** `columnCount()` and `data(index)` are model APIs, so
+views that must show *different columns* need different models. The dashboards
+differ in exactly that way — `dash_name` selects the column set — so separate
+models follow directly. Calling it a defect of the concept is fair: the row
+structure is identical across all of them and is the expensive part, yet it
+has to be duplicated seven times to vary the columns.
 
-So the shape a shared model would take is:
+*An earlier draft of this section claimed sharing "does look viable" via
+`QSortFilterProxyModel.filterAcceptsColumn()`. That was too optimistic and is
+corrected here.* The hook does exist and would let each proxy present a subset
+of a union model's columns, but it does not dissolve the problem:
 
-- one `SystemTreeModel` per project, exposing the union of the columns;
-- per-dashboard column selection moved into each `SystemTreeProxyModel`, via
-  `filterAcceptsColumn()` — which is exactly that hook's purpose, and is
-  currently unused: the proxy overrides `filterAcceptsRow` and `lessThan`
-  only, so it is free.
+- **Column sets are mutable per dashboard.** Columns are added by dropping a
+  parameter or data element onto a dashboard, appending to
+  `prefs['dashboards'][dash_name]` (`dashboards.py:276, 295, 315`), and
+  removed through the header context menu. With a shared model each such
+  action would have to extend the union *and* adjust only that dashboard's
+  filter — machinery that does not exist now.
+- **Column order is per dashboard.** `prefs['dashboards'][dash_name]` is an
+  ordered list and `cols` returns it in order. A proxy filter preserves the
+  *source* order and cannot permute, so per-dashboard ordering could not be
+  expressed by filtering alone. (Header drag-reordering via `sectionMoved` is
+  wired but commented out — it crashes — so this is latent rather than active,
+  but the pref order still drives display order.)
+- **"System Power Modes" is not a column subset at all.** Its columns are
+  project modes from `mode_defz`, with special-cased branches in `data()`, so
+  it could never be a filtered view of a parameter-column model.
 
-That would also make atomic updates tractable, because there would then be
-one model to signal instead of seven.
-
-**The wrinkle is "System Power Modes".** Alone among the dashboards its
-columns are not parameters selected from `prefs['dashboards']` — they are
-project modes from `mode_defz`, and `data()` carries several special-cased
-branches for it. It is not a pure column subset of a common model, so it
-would need either its own model (leaving two rather than seven) or a way to
-present modes as columns of the shared one.
-
-None of this changes the decision in §1 — it is recorded so that if the
-question comes back, it starts from "move column selection into the proxy",
-not from "add a `refresh()` method". Neither `SystemDashboard` nor
-`MultiDashboard` has a `refresh()` today, and adding one that rebuilds
-internally would be destroy/rebuild wearing a different name.
+So separate models are a reasonable response to a real constraint, not an
+oversight — which also means §2's "signal every instance" is not a problem to
+be engineered away by sharing. The decision in §1 stands on this rather than
+on maintainability alone.
