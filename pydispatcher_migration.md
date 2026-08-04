@@ -364,3 +364,64 @@ connected. The explicit `disconnect` added by that fix is preserved and is now
 symmetric — both it and the `'deleted object'` disconnect next to it go
 through pydispatcher, which does not disconnect on destruction either.
 Converting a signal that has a teardown means converting the teardown.
+
+---
+
+## 12. Step 5 as built: the deletion/creation signals — migration complete (2026-08-04)
+
+`deleted_object`, `new_object`, `delete_obj`. **Live `pyqtSignal`
+declarations: 11 → 4**, and the four that remain are `threads.py`'s
+cross-thread `WorkerSignals`. The migration is finished.
+
+Most of this group turned out to be **already dead**, which the survey had
+not established:
+
+| chain | state |
+|---|---|
+| `delete_obj` (`filters` → `libraries` → `Main`) | dead end to end — its only emitter, `FilterPanel.on_delete_obj_signal`, had no caller |
+| `RADropLabel.deleted_object` | dead — all three emits commented out, deliberately (see below) |
+| `AdminDialog.deleted_object` | dead by consequence — emitted only from `on_deleted_object`, which was connected only to the above |
+| `Main.new_object` | dead — connected, never emitted (like `mod_object` in step 1) |
+
+Only two sites were live, and both had their replacement already written and
+commented out at the site:
+
+```python
+                # dispatcher.send(signal='new object', obj=ra)
+                self.new_object.emit(ra.oid)
+```
+
+That makes four of the five steps where the intended dispatcher call was
+sitting in the source, commented out, next to the pyqtSignal that had
+outlived it.
+
+**Why `RADropLabel`'s emits were commented out matters**, and the note at
+`admin.py:145` says so: emitting `deleted_object` *as well as* the dispatcher
+signal would reach `del_object()` in addition to `on_deleted_object_signal()`,
+and both call `vger.delete` — a double delete. That is the same defect class
+as the double `vger.save` found in step 1 (§3a), caught earlier by the author
+and defended with a comment. Migrating removes the possibility rather than
+relying on the comment being heeded.
+
+### `del_object` is now unreferenced — which is the point
+
+Nothing connects to or calls it. Every deletion goes through
+`on_deleted_object_signal()`.
+
+It is **kept rather than deleted**, deliberately: the two had *diverged*
+(`pangalaxian_remaining_chunks_review.md` #4, the component-mode branch), and
+deleting it now would silently discard behaviour that needs a judgement about
+which version is correct. It is marked as unreferenced at the definition, with
+a pointer to #4.
+
+So the migration has done what it was prioritised to do: #4 is no longer
+entangled with a live signalling path. It is now an isolated decision — fold
+whatever is right from `del_object` into `on_deleted_object_signal`, then
+delete it.
+
+### Guard
+
+`test_signal_migration.py` gains a check that the only `pyqtSignal`
+declarations left in the package are `threads.py`'s four, and that there are
+exactly four. That is a stronger invariant than the per-name guard and
+subsumes it going forward.

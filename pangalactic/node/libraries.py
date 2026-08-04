@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from textwrap import wrap
 
-from PyQt5.QtCore import (pyqtSignal, Qt, QAbstractListModel, QMimeData,
+from PyQt5.QtCore import (Qt, QAbstractListModel, QMimeData,
                           QModelIndex, QPoint, QSize, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
@@ -330,7 +330,6 @@ class CompoundLibraryWidget(QWidget):
             index of the library view in the QStackedLayout
     """
 
-    delete_obj = pyqtSignal(str, str)       # args: oid, cname
 
     def __init__(self, cnames=None, include_subtypes=True, icon_size=None,
                  title=None, min_width=None, parent=None):
@@ -410,7 +409,6 @@ class CompoundLibraryWidget(QWidget):
                                     external_filters=True,
                                     min_width=min_width,
                                     parent=self)
-            lib_table.delete_obj.connect(self.on_delete_obj)
             if hasattr(lib_table, 'ext_filters'):
                 lib_table.ext_filters.clicked.connect(self.show_ext_filters)
                 lib_table.clear_filters_btn.clicked.connect(
@@ -465,8 +463,6 @@ class CompoundLibraryWidget(QWidget):
         self.library_select.addItem(select_label, QVariant())
 
 
-    def on_delete_obj(self, oid, cname):
-        self.delete_obj.emit(oid, cname)
 
     def on_remote_obj_mod(self, oid, cname):
         # orb.log.debug(f"* CompLibWidget.on_remote_obj_mod(oid, {cname})")

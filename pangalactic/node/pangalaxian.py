@@ -83,7 +83,7 @@ if sys.platform == 'darwin':
     os.environ['QT_MAC_WANTS_LAYER'] = '1'
 
 # PyQt5
-from PyQt5.QtCore import pyqtSignal, Qt, QModelIndex, QPoint, QTimer, QVariant
+from PyQt5.QtCore import Qt, QModelIndex, QPoint, QTimer, QVariant
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QCheckBox,
                              QComboBox, QDockWidget, QFileDialog, QFrame,
@@ -233,8 +233,6 @@ class Main(QMainWindow):
                        Version('4.4.dev3')
                        ]
     # signals
-    deleted_object = pyqtSignal(str, str)         # args: oid, cname
-    new_object = pyqtSignal(str)                  # args: oid
     # remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
 
     def __init__(self, app_base_name='Pangalaxian', app_version='',
@@ -447,9 +445,6 @@ class Main(QMainWindow):
         state['user_objs_sync_completed'] = False
         state['library_sync_completed'] = False
         # self.create_timer()
-        # connect pyqtSignals ...
-        self.deleted_object.connect(self.del_object)
-        self.new_object.connect(self.on_new_object_qtsignal)
         # self.remote_deleted_object.connect(self.on_remote_deleted_object)
         # connect dispatcher signals ...
         dispatcher.connect(self.on_units_set, 'units set')
@@ -3589,7 +3584,6 @@ class Main(QMainWindow):
         widget = CompoundLibraryWidget(cnames=cnames,
                                        include_subtypes=include_subtypes,
                                        parent=self)
-        widget.delete_obj.connect(self.del_object)
         widget.setContextMenuPolicy(Qt.PreventContextMenu)
         return widget
 
@@ -3889,12 +3883,6 @@ class Main(QMainWindow):
     # vger.assign_role() for them ...
     # NOTE TODO: also need to update the diagram -- i.e., DiagramScene
     # (in view.py)
-
-    def on_new_object_qtsignal(self, oid):
-        obj = orb.get(oid)
-        if obj:
-            cname = obj.__class__.__name__
-            self.on_mod_object_signal(obj=obj, cname=cname, new=True)
 
     def on_new_rqt_signal(self, obj=None, cname=''):
         """
@@ -5302,6 +5290,19 @@ class Main(QMainWindow):
 
     def del_object(self, oid, cname):
         """
+        NOTE [2026-08-04]: **this method is now unreferenced.**  It was the
+        pyqtSignal side of the deletion path; with the pydispatcher migration
+        complete, nothing connects to or calls it, and every deletion goes
+        through on_deleted_object_signal().
+
+        It is kept, rather than deleted, because the two had *diverged* --
+        remaining-chunks review #4, the component-mode branch, which needs a
+        judgement about which of the two behaviours is correct.  Deleting this
+        now would silently discard that behaviour.  Resolving #4 means folding
+        whatever is right into on_deleted_object_signal() and then removing
+        this; the review predicted exactly that, and finishing the migration
+        is what made it possible.
+
         Delete a local object, then (1) if we are in a "connected" state set
         state to update applicable widgets after vger.get_parms() is called,
         and call the 'vger.delete' rpc, or (2) if not in a "connected" state,
@@ -7082,7 +7083,8 @@ class Main(QMainWindow):
                 obj = orb.get(oid)
                 cname = obj.__class__.__name__
                 orb.delete([obj])
-                self.deleted_object.emit(oid, cname)
+                dispatcher.send(signal='deleted object', oid=oid,
+                                cname=cname)
 
     def new_functional_rqt(self):
         wizard = RqtWizard(parent=self, performance=False)
@@ -7838,8 +7840,6 @@ class Main(QMainWindow):
                                      None)
         if ldap_search_button:
             ldap_search_button.clicked.connect(self.open_person_dlg)
-        self.admin_dlg.new_object.connect(self.on_new_object_qtsignal)
-        self.admin_dlg.deleted_object.connect(self.del_object)
         dispatcher.connect(self.admin_dlg.refresh_roles,
                            'refresh admin tool')
         # ---------------------------------------------------------------------

@@ -51,6 +51,9 @@ MIGRATED = {
     'remote_frozen': "'remote frozen'",
     'remote_thawed': "'remote thawed'",
     'refresh_admin_tool': "'refresh admin tool'",
+    'deleted_object': "'deleted object'",
+    'new_object': "'new object'",
+    'delete_obj': 'nothing -- the whole chain was dead',
     }
 
 
@@ -193,3 +196,28 @@ def test_07_admin_tool_refresh_is_disconnected_on_reopen(qtbot, test_orb):
                encoding='utf-8').read()
     assert "dispatcher.disconnect(old_dlg.refresh_roles," in src
     assert "dispatcher.connect(self.admin_dlg.refresh_roles," in src
+
+
+def test_08_only_the_cross_thread_signals_remain(qtbot):
+    """CASE: the only pyqtSignals left are threads.py's WorkerSignals
+
+    Those four cross a thread boundary, which is the one thing pydispatcher
+    cannot do -- Qt marshals a cross-thread signal onto the receiver's event
+    loop, pydispatcher calls the receiver in whatever thread sent it.  Every
+    other signal in the package is same-thread gui signalling and has been
+    migrated.
+    """
+    import re
+    decls = []
+    for path in _python_files():
+        with open(path, encoding='utf-8') as f:
+            for n, line in enumerate(f, 1):
+                code = line.split('#')[0]
+                if re.search(r'\w+\s*=\s*pyqtSignal\s*\(', code):
+                    decls.append((os.path.relpath(path, PKG), n,
+                                  line.strip()))
+    unexpected = [d for d in decls if os.path.basename(d[0]) != 'threads.py']
+    assert not unexpected, (
+        'pyqtSignal declared outside threads.py:\n  '
+        + '\n  '.join(f'{f}:{n}: {t}' for f, n, t in unexpected))
+    assert len(decls) == 4, f'expected threads.py\'s 4 signals, got {decls}'

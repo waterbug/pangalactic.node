@@ -2,7 +2,7 @@
 """
 Filtering widgets: dialogs, tables, etc.
 """
-from PyQt5.QtCore import (pyqtSignal, Qt, QModelIndex, QPoint, QRegExp,
+from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
                           QSortFilterProxyModel, QTimer, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
@@ -564,7 +564,6 @@ class FilterPanel(QWidget):
     A widget containing a filterable table of objects.
     """
 
-    delete_obj = pyqtSignal(str, str)   # args: oid, cname
 
     def __init__(self, objs, cname=None, view=None, sized_cols=None, label='',
                  title='', headers_are_ids=False, width=None, min_width=None,
@@ -1153,12 +1152,6 @@ class FilterPanel(QWidget):
             # the model's C++ object may have gone away with a rebuilt table
             orb.log.debug('* [filters] model gone, cannot update.')
 
-    def on_delete_obj_signal(self, oid, cname):
-        """
-        Propagate a locally originated "delete_obj" pyqt signal.
-        """
-        # orb.log.debug('  [FilterPanel] received "delete_obj" signal.')
-        self.delete_obj.emit(oid, cname)
 
 
 class FilterDialog(QDialog):

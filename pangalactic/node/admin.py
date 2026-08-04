@@ -4,7 +4,7 @@ Admin interface
 import sys
 from collections import OrderedDict
 
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDialog,
                              QDialogButtonBox, QFileDialog, QFormLayout,
                              QHBoxLayout, QLabel, QMenu, QMessageBox,
@@ -93,7 +93,6 @@ class RADropLabel(ColorLabel):
     RoleAssignment.  
     """
 
-    deleted_object = pyqtSignal(str, str)
 
     def __init__(self, name, ra, color=None, element=None, border=None,
                  margin=None, mime=None, parent=None, **kw):
@@ -654,8 +653,6 @@ class AdminDialog(QDialog):
     Dialog for provisioning Roles to Persons in the context of an Organization.
     """
 
-    deleted_object = pyqtSignal(str, str)
-    new_object = pyqtSignal(str)
 
     def __init__(self, org=None, parent=None):
         """
@@ -917,7 +914,6 @@ class AdminDialog(QDialog):
             r_label = RADropLabel(r.name, ra,
                                   mime='application/x-pgef-role',
                                   margin=2, border=1)
-            r_label.deleted_object.connect(self.on_deleted_object)
         else:
             r_label = None
         # Person
@@ -927,12 +923,7 @@ class AdminDialog(QDialog):
         p_label = RADropLabel(p_name, ra,
                               mime='application/x-pgef-person',
                               margin=2, border=1)
-        p_label.deleted_object.connect(self.on_deleted_object)
         return r_label, p_label
-
-    def on_deleted_object(self, oid, cname):
-        self.refresh_roles()
-        self.deleted_object.emit(oid, cname)
 
     def mimeTypes(self):
         """
@@ -1010,8 +1001,8 @@ class AdminDialog(QDialog):
                 self.refresh_roles()
                 # pangalaxian will handle the 'new object' signal and call the
                 # 'vger.assign_role' rpc ...
-                # dispatcher.send(signal='new object', obj=ra)
-                self.new_object.emit(ra.oid)
+                dispatcher.send(signal='new object', obj=ra,
+                                cname='RoleAssignment')
             else:
                 orb.log.info('[Admin] Unknown Person dropped: "{}"'.format(
                                                                    p_name))
