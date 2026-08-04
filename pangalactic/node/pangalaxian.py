@@ -1482,12 +1482,6 @@ class Main(QMainWindow):
             else:
                 orb.log.debug('        none were found in local db.')
         if user_objs_sync:
-            # NOTE: state['synced_oids'] is no longer consulted for
-            # permissions -- access.py now uses state['locally_created_oids']
-            # (see add_locally_created()).  It is left maintained here because
-            # other code still reads it; retiring it is a separate change.
-            state['synced_oids'] = [o.oid for o in
-                                    self.local_user.created_objects]
             # NOTE: state['locally_created_oids'] is deliberately NOT cleared
             # wholesale here.  It is pruned per-oid in on_vger_save_result(),
             # from the oids the repository actually confirmed -- so an object
@@ -1899,9 +1893,9 @@ class Main(QMainWindow):
     # section 5.
     #
     # NOTE: state is persisted, so this survives a restart -- which it must,
-    # since offline work can span sessions.  state['synced_oids'] is still
-    # maintained elsewhere but is no longer consulted for permissions; it can
-    # be retired separately.
+    # since offline work can span sessions.  (state['synced_oids'], which the
+    # old test used, was retired on 2026-08-04: it had stopped being consulted
+    # for anything and was only being maintained.)
     # ---------------------------------------------------------------------
 
     # ---------------------------------------------------------------------
@@ -4712,9 +4706,6 @@ class Main(QMainWindow):
         orb.log.debug(f'  oids_deleted: {oids_deleted}')
         if oids_unauth:
             orb.log.info(f'  REFUSED by the repository: {oids_unauth}')
-        for oid in (oids_not_found + oids_deleted):
-            if oid in state.get('synced_oids', []):
-                state['synced_oids'].remove(oid)
         # ------------------------------------------------------------------
         # Clear queued offline deletions the repository has now accounted for.
         # "not found" counts as settled:  the object is not in the repository,
@@ -6481,9 +6472,6 @@ class Main(QMainWindow):
                     rpc = self.mbus.session.call('vger.delete', to_delete_oids)
                     rpc.addCallback(self.on_rpc_vger_delete_result)
                     rpc.addErrback(self.on_failure)
-                    for oid in to_delete_oids:
-                        if oid in state.get('synced_oids', []):
-                            state['synced_oids'].remove(oid)
                 except:
                     orb.log.debug('  ** rpc failed (possible loss of transport)')
                     orb.log.debug('     trying to reconnect ...')
