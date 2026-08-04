@@ -341,6 +341,48 @@ skip it because the flag reads `False`. One of the two is wrong and I cannot
 tell which without the running app — hence reporting the divergence rather
 than a fix.
 
+**STATUS: RESOLVED (2026-08-04). `del_object`'s version was the correct one.**
+
+`set_product_modeler_interface()` *does* rebuild the diagram, and by
+construction rather than by refresh: it calls `set_system_model_window()`,
+which does
+
+```python
+            self.system_model_window = ModelWindow(obj=system, logo=self.logo)
+            self.setCentralWidget(self.system_model_window)
+```
+
+— a **brand new `ModelWindow`**, reassigning `self.system_model_window` and
+installing it as the central widget. So by the time the branch reaches
+`if getattr(self, 'system_model_window', None):`, that attribute names a
+window whose diagram was just built from the current model.
+`on_signal_to_refresh()` on it calls `refresh_block_diagram()`, regenerating
+what had just been generated. Clearing the flag is the part that was actually
+needed, so a later `get_parmz` callback does not rebuild it a third time.
+
+Note the **"system"-mode branches are genuinely different** and keep their
+refresh: they call `refresh_tree_and_dashboard()`, which builds no new
+`ModelWindow`, so there the refresh is real work. The divergence was only ever
+in the component branch, and the asymmetry is now marked at each site.
+
+Applied to both live component branches in `on_deleted_object_signal` (the
+offline path and the local-while-connected path; a third copy in the remote
+path was already commented out), and — one site wider than the finding — to
+the identical pattern in `on_vger_get_parmz_result`, which had the same
+redundant refresh. Every other `set_product_modeler_interface()` call site
+(the navigation handlers, `_update_modal_views`) correctly calls it alone.
+
+**`del_object` is deleted**, its 117 lines gone. It had been unreferenced
+since the pydispatcher migration completed; the only behaviour it held that
+`on_deleted_object_signal` did not is the branch resolved above, which has
+been folded in. That also disposes of the duplication this finding called the
+underlying problem: there is no second dispatch block left to drift, so the
+suggested `_post_deletion_updates()` helper is unnecessary.
+
+Tests: `test_signal_migration.py` cases 09 and 10 — that `del_object` has not
+returned, and that no `set_product_modeler_interface()` call is followed by a
+refresh of the window it just rebuilt. Both fail against the pre-fix code.
+
 The duplication itself is the underlying problem: these blocks have already
 drifted, and will drift again. They are a natural candidate for a single
 shared `_post_deletion_updates(cname, oid)` helper.
@@ -463,8 +505,7 @@ visible.
 
 - *(#1 applied and validated against the running app, 2026-08-02 — see its
   STATUS block.)*
-- **#4** the divergent component-mode branch — needs your judgement on which
-  behaviour is correct.
+- *(none — #4 was resolved 2026-08-04; see its STATUS block)*
 
 **Fixed since (2026-08-02):**
 

@@ -221,3 +221,50 @@ def test_08_only_the_cross_thread_signals_remain(qtbot):
         'pyqtSignal declared outside threads.py:\n  '
         + '\n  '.join(f'{f}:{n}: {t}' for f, n, t in unexpected))
     assert len(decls) == 4, f'expected threads.py\'s 4 signals, got {decls}'
+
+
+def test_09_del_object_is_gone(qtbot):
+    """CASE: the pyqtSignal-side deletion handler has been removed
+
+    `del_object` was the pyqtSignal half of the deletion path and had
+    diverged from `on_deleted_object_signal` in its component-mode branch
+    (remaining-chunks review #4).  The correct branch was folded in and the
+    method deleted; a reappearance would mean the duplication is back.
+    """
+    from pangalactic.node import pangalaxian
+    src = open(pangalaxian.__file__.replace('.pyc', '.py'),
+               encoding='utf-8').read()
+    assert 'def del_object' not in src
+
+
+def test_10_component_branch_does_not_refresh_after_rebuilding(qtbot):
+    """CASE: the component-mode branches clear the flag, they do not refresh
+
+    set_product_modeler_interface() constructs a new ModelWindow, so the
+    diagram is already rebuilt; calling on_signal_to_refresh() after it
+    regenerates what was just generated.  The "system" branches are different
+    -- they build no new window -- so they legitimately still refresh.
+
+    Resolves remaining-chunks review #4, which reported the divergence
+    between del_object() and on_deleted_object_signal() without being able to
+    say which was right.  del_object()'s was.
+    """
+    import re
+    from pangalactic.node import pangalaxian
+    src = open(pangalaxian.__file__.replace('.pyc', '.py'),
+               encoding='utf-8').read()
+    # comments are stripped first: the explanatory notes at these very sites
+    # mention on_signal_to_refresh() in order to say it is deliberately absent
+    code = '\n'.join(l.split('#')[0] for l in src.split('\n'))
+    pattern = re.compile(
+        r'self\.set_product_modeler_interface\(\)\n(.{0,600}?)'
+        r'\n\s*(elif|else|orb\.log|if )', re.S)
+    offenders = []
+    for m in pattern.finditer(code):
+        block = m.group(1)
+        if 'system_model_window' in block and 'on_signal_to_refresh' in block:
+            offenders.append(block.strip())
+    assert not offenders, (
+        'set_product_modeler_interface() is followed by on_signal_to_refresh()'
+        ' -- the diagram was just rebuilt by the new ModelWindow:\n\n'
+        + '\n\n'.join(offenders))

@@ -141,20 +141,23 @@ class RADropLabel(ColorLabel):
         ra_oid = self.ra.oid
         orb.delete([self.ra])
         # ------------------------------------------------------------------
-        # NOTE: the dispatcher signal is sufficient and the "deleted_object"
-        # emit below must stay commented out.  DO NOT "fix" it:
-        # pangalaxian.on_deleted_object_signal() handles this signal and, for
-        # a local deletion while connected (remote defaults to False), calls
-        # the "vger.delete" rpc itself.  Emitting deleted_object as well would
-        # additionally reach pangalaxian.del_object(), which calls
-        # "vger.delete" a *second* time for the same oid.
-        # (This review pass initially mistook the commented-out emit for the
-        # reason deletions were not reaching the repository; they were --
+        # NOTE: pangalaxian.on_deleted_object_signal() handles this signal and,
+        # for a local deletion while connected (remote defaults to False),
+        # calls the "vger.delete" rpc itself -- so this send is all that is
+        # needed.
+        #
+        # A "deleted_object" pyqtSignal used to be emitted here as well, and
+        # had to be commented out because it additionally reached
+        # pangalaxian.del_object(), which called "vger.delete" a *second* time
+        # for the same oid.  Both that signal and del_object() are now gone
+        # (the pydispatcher migration, and remaining-chunks review #4), so the
+        # hazard no longer exists rather than being held off by a comment.
+        # (A review pass once mistook the commented-out emit for the reason
+        # deletions were not reaching the repository; they were --
         # on_deleted_object_signal is simply longer than it looks.)
         # ------------------------------------------------------------------
         dispatcher.send(signal='deleted object', oid=ra_oid,
                         cname='RoleAssignment')
-        # self.deleted_object.emit(ra_oid, 'RoleAssignment')
 
     def adjust_parent_size(self):
         self.parent().adjustSize()

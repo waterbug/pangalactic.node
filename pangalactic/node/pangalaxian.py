@@ -4498,9 +4498,11 @@ class Main(QMainWindow):
                     # this will set placeholders in place of PgxnObject and diagram
                     self.set_product_modeler_interface()
                     if getattr(self, 'system_model_window', None):
-                        # txt = 'system_model_window.on_signal_to_refresh() ...'
-                        # orb.log.info(f'  [ovgpr] calling {txt}')
-                        self.system_model_window.on_signal_to_refresh()
+                        # NOTE: no on_signal_to_refresh() -- same reason as in
+                        # on_deleted_object_signal's component branches:
+                        # set_product_modeler_interface() has just built a new
+                        # ModelWindow, so the diagram is already regenerated.
+                        # Clearing the flag is the part that matters.
                         state['diagram needs refresh'] = False
             else:
                 # refresh dashboard and hw library if appropriate ...
@@ -5006,7 +5008,19 @@ class Main(QMainWindow):
                 # this will set placeholders in place of PgxnObject and diagram
                 self.set_product_modeler_interface()
                 if getattr(self, 'system_model_window', None):
-                    self.system_model_window.on_signal_to_refresh()
+                    # NOTE: no on_signal_to_refresh() here, unlike the
+                    # "system" branches.  set_product_modeler_interface()
+                    # goes through set_system_model_window(), which
+                    # constructs a *new* ModelWindow and reassigns
+                    # self.system_model_window -- so the diagram has already
+                    # been built from scratch and refreshing it would
+                    # regenerate what was just generated.  Clearing the flag
+                    # is what is actually needed, so that a later
+                    # get_parmz callback does not rebuild it a third time.
+                    # Resolves remaining-chunks review #4; this is
+                    # del_object()'s version of the branch, which was the
+                    # correct one.
+                    state['diagram needs refresh'] = False
             elif (self.mode == 'system' and
                   cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                             'Port', 'Flow']):
@@ -5167,7 +5181,19 @@ class Main(QMainWindow):
                 # this will set placeholders in place of PgxnObject and diagram
                 self.set_product_modeler_interface()
                 if getattr(self, 'system_model_window', None):
-                    self.system_model_window.on_signal_to_refresh()
+                    # NOTE: no on_signal_to_refresh() here, unlike the
+                    # "system" branches.  set_product_modeler_interface()
+                    # goes through set_system_model_window(), which
+                    # constructs a *new* ModelWindow and reassigns
+                    # self.system_model_window -- so the diagram has already
+                    # been built from scratch and refreshing it would
+                    # regenerate what was just generated.  Clearing the flag
+                    # is what is actually needed, so that a later
+                    # get_parmz callback does not rebuild it a third time.
+                    # Resolves remaining-chunks review #4; this is
+                    # del_object()'s version of the branch, which was the
+                    # correct one.
+                    state['diagram needs refresh'] = False
             orb.log.info('  - calling "vger.delete"')
             try:
                 rpc = self.mbus.session.call('vger.delete', [oid])
@@ -5287,123 +5313,6 @@ class Main(QMainWindow):
             # self.get_parmz()
         # else:
             # orb.log.debug('  oid not found in local db; ignoring.')
-
-    def del_object(self, oid, cname):
-        """
-        NOTE [2026-08-04]: **this method is now unreferenced.**  It was the
-        pyqtSignal side of the deletion path; with the pydispatcher migration
-        complete, nothing connects to or calls it, and every deletion goes
-        through on_deleted_object_signal().
-
-        It is kept, rather than deleted, because the two had *diverged* --
-        remaining-chunks review #4, the component-mode branch, which needs a
-        judgement about which of the two behaviours is correct.  Deleting this
-        now would silently discard that behaviour.  Resolving #4 means folding
-        whatever is right into on_deleted_object_signal() and then removing
-        this; the review predicted exactly that, and finishing the migration
-        is what made it possible.
-
-        Delete a local object, then (1) if we are in a "connected" state set
-        state to update applicable widgets after vger.get_parms() is called,
-        and call the 'vger.delete' rpc, or (2) if not in a "connected" state,
-        update applicable widgets.
-
-        Keyword Args:
-            oid (str):  oid of the deleted object
-            cname (str):  class name of the deleted object
-        """
-        orb.log.debug('* local object to be deleted:')
-        orb.log.debug(f'  cname="{cname}", oid="{oid}"')
-        # first check if a hw object, and if so remove it from hw lib ...
-        if cname == 'HardwareProduct':
-            lib_widget = getattr(self, 'library_widget', None)
-            hw_lib = None
-            if lib_widget:
-                hw_lib = lib_widget.libraries.get('HardwareProduct')
-            if hw_lib:
-                hw_lib.remove_object(oid)
-        obj = orb.get(oid)
-        if obj:
-            orb.delete([obj])
-        else:
-            orb.log.debug('  obj already deleted, proceeding with updates ...')
-        # always fix state['product'] and state['system'] if either matches the
-        # oid
-        if (state.get('system') or {}).get(state.get('project')) == oid:
-            orb.log.debug('  state "system" oid matched, set to project ...')
-            state['system'][state.get('project')] = state.get('project')
-        if cname in ['Acu', 'HardwareProduct', 'Port', 'Flow']:
-            state['lib updates needed'] = True
-        if state.get('product') == oid:
-            orb.log.debug('  state "product" oid matched, resetting ...')
-            if state.get('component_modeler_history'):
-                hist = state['component_modeler_history']
-                next_oid = hist.pop()
-                orb.log.debug(f'  to next comp history oid: "{next_oid}"')
-                state['product'] = next_oid
-            else:
-                # otherwise, set to empty string
-                orb.log.debug('  to empty')
-                state['product'] = ''
-        if not state.get('connected'):
-            # recompute parameters if operating unconnected to repo ...
-            recompute_parmz()
-        # only attempt to update tree and dashboard if in "system" mode ...
-        if ((self.mode == 'system') and
-            cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
-            self.refresh_tree_and_dashboard()
-            if getattr(self, 'system_model_window', None):
-                # rebuild diagram in case an object corresponded to a
-                # block in the current diagram
-                self.system_model_window.on_signal_to_refresh()
-        elif self.mode == 'db':
-            # NOTE: this used to be "state['update db table'] = True", which
-            # nothing on this path could consume:  the only reader of that
-            # flag sits inside the "updates_needed_for_remote_obj_deletion"
-            # branch of on_vger_get_parmz_result(), and that key is set only
-            # for a *remote* deletion.  So offline, get_parmz() is never
-            # called at all; online, it is called but the local-delete case
-            # takes the else branch and never reaches the reader.  Either way
-            # the flag stayed set and the deleted object remained visible in
-            # the table.  This mirrors on_deleted_object_signal(), which
-            # handles the same case directly -- the two are the dispatcher
-            # and pyqtSignal sides of the same stalled migration.
-            filter_panel = getattr(self, 'object_tableview', None)
-            if filter_panel:
-                # if the oid is not in the table, it will be ignored
-                filter_panel.remove_object(oid)
-        elif (self.mode == 'component' and
-            cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                      'Port', 'Flow']):
-            # DIAGRAM MAY NEED UPDATING
-            # update state['product'] if needed, and regenerate diagram
-            # this will set placeholders in place of PgxnObject and diagram
-            self.set_product_modeler_interface()
-            if getattr(self, 'system_model_window', None):
-                state['diagram needs refresh'] = False
-        elif (self.mode == 'system' and
-              cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                        'Port', 'Flow']):
-            # DIAGRAM MAY NEED UPDATING
-            # regenerate diagram
-            if getattr(self, 'system_model_window', None):
-                self.system_model_window.on_signal_to_refresh()
-        if state.get('connected'):
-            orb.log.info('  - calling "vger.delete"')
-            try:
-                rpc = self.mbus.session.call('vger.delete', [oid])
-                rpc.addCallback(self.on_rpc_vger_delete_result)
-                rpc.addCallback(self.get_parmz)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                orb.log.debug('     trying to reconnect ...')
-                self.queue_deletion(oid, cname)
-                self.set_bus_state()
-        else:
-            # offline -- queue for replay at the next sync (see
-            # queue_deletion() and on_deleted_object_signal())
-            self.queue_deletion(oid, cname)
 
     def resync_current_project(self, msg=''):
         """
