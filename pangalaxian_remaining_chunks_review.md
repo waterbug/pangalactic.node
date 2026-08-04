@@ -383,6 +383,10 @@ Tests: `test_signal_migration.py` cases 09 and 10 — that `del_object` has not
 returned, and that no `set_product_modeler_interface()` call is followed by a
 refresh of the window it just rebuilt. Both fail against the pre-fix code.
 
+**Validated against the running app (author, 2026-08-04):** deleting an Acu,
+Port or Flow in component mode updates the diagram once and quickly, with no
+sign of a double rebuild and no stale diagram.
+
 The duplication itself is the underlying problem: these blocks have already
 drifted, and will drift again. They are a natural candidate for a single
 shared `_post_deletion_updates(cname, oid)` helper.
