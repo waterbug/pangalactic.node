@@ -112,9 +112,46 @@ The lesson worth carrying: a teardown that has been silently failing looks
 exactly like a teardown that works, until something makes it effective. The
 bare `except: pass` is what let it hide for however long it had been there.
 
-## 5. If this is ever revisited
+## 5. Could they share one model after all?
 
-Start by establishing whether a single shared `SystemTreeModel` per project is
-viable given `dash_name`, rather than by adding `refresh()` methods. Neither
-`SystemDashboard` nor `MultiDashboard` has one today, and adding one that
-rebuilds internally would be destroy/rebuild wearing a different name.
+They did once: the commented-out line at `pangalaxian.py` still reads
+
+```python
+            # self.dashboard = SystemDashboard(self.sys_tree.model(),
+                                             # parent=self)
+```
+
+— the single-dashboard version, viewing the left-panel tree's own model. The
+per-dashboard models arrived with the `QStackedWidget` rewrite, apparently
+without a specific reason to drop the sharing.
+
+**And sharing does look viable.** `dash_name` is *only a column selector*
+(author, 2026-08-04, confirmed in the code): it feeds the `cols` property —
+`['System'] + prefs['dashboards'][dash_name]` — the header text, and the
+column add/remove operations that write back to `prefs['dashboards']`. It
+never touches the `Node` hierarchy. **The row structure is identical across
+every dashboard**; only the columns differ.
+
+So the shape a shared model would take is:
+
+- one `SystemTreeModel` per project, exposing the union of the columns;
+- per-dashboard column selection moved into each `SystemTreeProxyModel`, via
+  `filterAcceptsColumn()` — which is exactly that hook's purpose, and is
+  currently unused: the proxy overrides `filterAcceptsRow` and `lessThan`
+  only, so it is free.
+
+That would also make atomic updates tractable, because there would then be
+one model to signal instead of seven.
+
+**The wrinkle is "System Power Modes".** Alone among the dashboards its
+columns are not parameters selected from `prefs['dashboards']` — they are
+project modes from `mode_defz`, and `data()` carries several special-cased
+branches for it. It is not a pure column subset of a common model, so it
+would need either its own model (leaving two rather than seven) or a way to
+present modes as columns of the shared one.
+
+None of this changes the decision in §1 — it is recorded so that if the
+question comes back, it starts from "move column selection into the proxy",
+not from "add a `refresh()` method". Neither `SystemDashboard` nor
+`MultiDashboard` has a `refresh()` today, and adding one that rebuilds
+internally would be destroy/rebuild wearing a different name.
