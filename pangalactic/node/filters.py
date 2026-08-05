@@ -717,7 +717,6 @@ class FilterPanel(QWidget):
         main_layout.addWidget(proxy_group_box)
         self.setLayout(main_layout)
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
-        dispatcher.connect(self.on_hw_fields_edited, 'hw fields edited')
         self.setWindowTitle("Custom Sort/Filter Model")
         width = width or 500
         height = height or 500
@@ -1049,10 +1048,6 @@ class FilterPanel(QWidget):
             else:
                 # orb.log.info('* hw item fields editing cancelled.')
                 dlg.close()
-
-    def on_hw_fields_edited(self, oid=None):
-        # orb.log.debug('* on_hw_fields_edited()')
-        self.mod_object(oid)
 
     def display_object(self):
         # orb.log.debug('* display object ...')

@@ -45,7 +45,7 @@ MIGRATED = {
     'mod_object': 'nothing -- it was never emitted',
     'activity_edited': 'nothing -- it had no receiver',
     'toggle_library_size': "'toggle library size'",
-    'hw_fields_edited': "'hw fields edited'",
+    'hw_fields_edited': "'modified object'",
     'rqt_parm_mod': "'rqt parm mod'",
     'units_set': "'units set'",
     'remote_frozen': "'remote frozen'",
@@ -146,28 +146,44 @@ def test_04_filter_panel_ignores_a_signal_with_no_object(qtbot, test_orb):
     dispatcher.send(signal='modified object', obj=None)
 
 
-def test_05_filter_panel_responds_to_hw_fields_edited(qtbot, test_orb,
-                                                      monkeypatch):
-    """CASE: the migrated "hw fields edited" signal reaches FilterPanel
+def test_05_hw_fields_dialog_sends_modified_object(qtbot, test_orb):
+    """CASE: editing HW fields reaches the repository
 
-    HWFieldsDialog used to be wired to the panel that opened it.  It now
-    sends a dispatcher signal, so the panel must pick it up without the
-    per-dialog connection.
+    HWFieldsDialog saved locally and refreshed the table but sent no
+    "modified object", so Main.on_mod_object_signal never ran and vger.save
+    was never called -- edits to name, description, product_type and owner
+    were silently never synced.  A "modified object" send here was replaced
+    by a dedicated pyqtSignal in 4a4b6ec (2023-01-21).
+
+    Asserting on the *signal* rather than on an rpc: on_mod_object_signal is
+    what calls vger.save, and reaching it is the thing that was missing.
     """
     from pydispatch import dispatcher
+    from pangalactic.node.dialogs import HWFieldsDialog
 
     objs = orb.get_by_type('HardwareProduct')
     if not objs:
         pytest.skip('test data has no HardwareProduct instances')
-    panel = FilterPanel(objs[:3], cname='HardwareProduct')
-    qtbot.addWidget(panel)
+    hw = objs[0]
 
-    called = []
-    monkeypatch.setattr(panel, 'mod_object', lambda oid: called.append(oid))
+    class Spy:
+        def __init__(self):
+            self.calls = []
 
-    dispatcher.send(signal='hw fields edited', oid=objs[0].oid)
+        def receive(self, obj=None, cname='', **kw):
+            self.calls.append((getattr(obj, 'oid', None), cname))
 
-    assert called == [objs[0].oid]
+    spy = Spy()
+    dispatcher.connect(spy.receive, 'modified object')
+    try:
+        dlg = HWFieldsDialog(hw, parent=None)
+        qtbot.addWidget(dlg)
+        dlg.on_save()
+    finally:
+        dispatcher.disconnect(spy.receive, 'modified object')
+
+    assert (hw.oid, 'HardwareProduct') in spy.calls, (
+        f'no "modified object" sent for the edited product: {spy.calls}')
 
 
 def test_06_pgxnobject_listens_for_freeze_and_thaw_itself(qtbot, test_orb):

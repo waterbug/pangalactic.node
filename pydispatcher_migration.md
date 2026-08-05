@@ -304,15 +304,40 @@ the existing `FilterPanel.mod_object`. It now calls it.
 
 ## 10. Behaviour questions surfaced by step 2 (not acted on)
 
-1. **`HWFieldsDialog` edits never reach the repository.** `on_save` calls
-   `orb.save([self.hw_item])` and signals the table to refresh, but no
-   `'modified object'` is sent, so `Main.on_mod_object_signal` never runs and
-   `vger.save` is never called. The dispatcher send is present in the source
-   but **commented out**, directly beneath the emit. Sending it would fix the
-   sync but is a behaviour change, and the commented-out line suggests it was
-   disabled deliberately at some point — so it is left exactly as it was, with
-   the reason marked at the site. There is one caller
-   (`filters.py:1045`), so the blast radius is small either way.
+1. ~~**`HWFieldsDialog` edits never reach the repository.**~~
+   **RESOLVED (2026-08-04): it now sends `'modified object'` like every other
+   edit path.**
+
+   `on_save` saved locally and refreshed the table but sent no
+   `'modified object'`, so `Main.on_mod_object_signal` never ran and
+   `vger.save` was never called — edits to `name`, `description`,
+   `product_type` and `owner` were silently never synced.
+
+   It *was* disabled deliberately, and the history says why: `4a4b6ec`
+   (2023-01-21, *"No parm recompute when deser recvd objs; new pyqtSignal
+   'hw_fields_edited'"*) replaced the `dispatcher.send` with a dedicated
+   pyqtSignal. The line had been live since `c463607` (2022-09-10).
+
+   **The cost that swap was avoiding is real, but it was the wrong half that
+   got dropped.** `on_mod_object_signal` chains `get_parmz` after
+   `vger.save`, and `get_parmz` replaces the whole parameter cache. None of
+   the four fields this dialog edits can affect parameters, so that *pull* is
+   genuinely wasteful here — but the *save* is not, and dropping both to
+   avoid one lost the sync for three years.
+
+   Restoring the send also made `'hw fields edited'` redundant: `FilterPanel`
+   has received `'modified object'` since step 1 of this migration and does
+   the same `mod_object(oid)` refresh, so the signal and its handler are
+   gone. Net effect is one fewer signal than before the migration started.
+
+   *If the wasted `get_parmz` ever matters*, the fix is to stop chaining it
+   unconditionally after every save rather than to stop sending the signal —
+   the same reasoning as the redundant diagram rebuild in remaining-chunks
+   review #4.
+
+   Tests: `test_signal_migration.py` case 05, which drives the real dialog's
+   `on_save()` and asserts the signal is sent; it fails against the pre-fix
+   code.
 
 2. **`rqt_parm_mod` may now be redundant.** Its receiver only acts when
    offline (`if not state.get('connected')`), and its caller already sends

@@ -452,11 +452,21 @@ class HWFieldsDialog(QDialog):
         self.hw_item.mod_datetime = NOW
         self.hw_item.modifier = user
         orb.save([self.hw_item])
-        dispatcher.send(signal='hw fields edited', oid=self.hw_item.oid)
-        # NOTE: "modified object" is deliberately NOT sent here -- see
-        # pydispatcher_migration.md section 9.  Sending it would push the edit
-        # to the repository, which this dialog has never done; that is a
-        # behaviour question, kept separate from the mechanical migration.
+        # NOTE: this sends "modified object", like every other edit path,
+        # so the change reaches the repository.  It has not always: a
+        # "modified object" send here was replaced by a dedicated pyqtSignal
+        # in 4a4b6ec (2023-01-21, "No parm recompute when deser recvd objs"),
+        # which refreshed the table but never called vger.save -- so edits to
+        # these fields were saved locally and silently never synced.
+        #
+        # The cost that swap was avoiding is real but misplaced:
+        # on_mod_object_signal chains get_parmz after vger.save, and none of
+        # the fields this dialog edits (name, description, product_type,
+        # owner) can affect parameters.  That makes the *pull* wasteful here,
+        # not the *save* -- and dropping both to avoid one lost the sync.
+        # See pydispatcher_migration.md section 10.
+        dispatcher.send(signal='modified object', obj=self.hw_item,
+                        cname='HardwareProduct')
         self.accept()
 
 
