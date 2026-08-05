@@ -339,6 +339,32 @@ the existing `FilterPanel.mod_object`. It now calls it.
    `on_save()` and asserts the signal is sent; it fails against the pre-fix
    code.
 
+   **CAVEAT — this may want revisiting (author, 2026-08-04).** The fix was
+   made without establishing *where* the dialog is used, and the context
+   changes the argument. `HWFieldsDialog` is reached only from
+   `FilterPanel.hw_fields_action`, and `filters.py:1009` says so plainly:
+
+   > the hw_fields_action is only used by the DataImportWizard when importing
+   > HW Product data (because it assumes edit perms exist), so it is only
+   > added to the context menu in the wizard module
+
+   So its purpose is narrow: a shortcut, inside the `DataImportWizard`, for
+   populating required fields that the source spreadsheet left empty — as an
+   alternative to opening the full `pgxnobject` editor — *before* the objects
+   are created in earnest. If the data at that point is meaningfully
+   local-only, pushing each field edit to the repository may be the wrong
+   behaviour, and the 2023 swap may have been righter than the history alone
+   suggests.
+
+   Left as it is for now (author): the `DataImportWizard` has never seen
+   production use, and would likely need to become more sophisticated to be
+   worth having, so its priority is unsettled. Revisit this together with the
+   wizard rather than on its own.
+
+   *Method note, worth keeping:* the miss was checking who *constructs* the
+   dialog (one caller) without checking when that caller is *reachable*. The
+   answer was a comment in the same file.
+
 2. **`rqt_parm_mod` may now be redundant.** Its receiver only acts when
    offline (`if not state.get('connected')`), and its caller already sends
    `'modified object'` on `Accepted` — which, since step 1, `FilterPanel`
