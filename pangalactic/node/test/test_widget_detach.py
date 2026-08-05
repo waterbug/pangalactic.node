@@ -33,18 +33,18 @@ ALLOWED = {
     # Node and FakeRoot subclass plain `object`, so `self.parent` is an
     # ordinary data attribute and nothing is shadowed.
     'systemtree.py',
-    # This test deliberately uses the broken idiom in order to test it.
+    # These two deliberately quote the broken idiom -- one to exercise it,
+    # one to explain it in a docstring.  The guard strips "#" comments but
+    # not docstrings, which has now tripped it three times; an allowlist
+    # entry is cheaper than teaching it to parse Python.
     'test_widget_detach.py',
-    # BlockLabel(QGraphicsTextItem) does `self.parent = parent` and then uses
-    # `self.parent` as data in four places.  It is the same shadowing -- it
-    # hides QObject.parent() -- but unlike the sites fixed on 2026-08-02 it is
-    # not a failed *detach*: the real parent is set correctly by
-    # super().__init__(parent=parent) first, and the attribute works as
-    # intended.  Nothing calls parent() on a BlockLabel today, so it is latent.
-    # Fixing it means renaming the attribute (e.g. to parent_item) across its
-    # four uses in a diagram class that has no automated coverage -- a separate
-    # change, deliberately not bundled with the mechanical conversion.
-    'shapes.py',
+    'test_block_label.py',
+    # (shapes.py was here until 2026-08-04.  BlockLabel did
+    # `self.parent = parent` -- the same shadowing of QObject.parent(), though
+    # not a failed detach: the real parent was set by
+    # super().__init__(parent=parent) and the attribute was used as data.  It
+    # is now fixed, along with the same shadowing of x() and y() that the
+    # guard's pattern did not catch.  See test_block_label.py.)
     }
 
 PKG = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

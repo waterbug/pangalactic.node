@@ -2198,15 +2198,22 @@ class BlockLabel(QGraphicsTextItem):
     def __init__(self, text, parent, font_name=None, point_size=None,
                  weight=None, color=None, centered=True, x=None, y=None):
         super().__init__(parent=parent)
-        self.parent = parent
+        # NOTE: no "self.parent = parent" here.  QGraphicsTextItem is a
+        # QObject, so "parent" is a *method*; assigning to it shadows the
+        # method on the instance and any later self.parent() raises
+        # TypeError.  super().__init__(parent=parent) has already set the
+        # parent item, so self.parentItem() is both correct and always
+        # current -- an attribute would go stale if the parent were ever
+        # changed with setParentItem().  Same reason "x" and "y" below are
+        # not stored as self.x / self.y: those are methods too.
         self.centered = centered
         self.point_size = point_size or POINT_SIZE
         # orb.log.debug(f'* BlockLabel init; font size {self.point_size}')
         self.text_option = QTextOption()
         self.text_option.setWrapMode(QTextOption.WordWrap)
         self.document().setDefaultTextOption(self.text_option)
-        self.x = x or 0
-        self.y = y or 0
+        self.x_pos = x or 0
+        self.y_pos = y or 0
         self.set_text(text, color=color, font_name=font_name,
                       point_size=point_size, weight=weight)
 
@@ -2222,19 +2229,22 @@ class BlockLabel(QGraphicsTextItem):
         # orb.log.debug(f'* BlockLabel text set: point size {self.point_size}')
         self.setFont(font)
         self.document().setDefaultTextOption(self.text_option)
-        self.setParentItem(self.parent)
+        # NOTE: the setParentItem() call that used to be here was
+        # redundant -- super().__init__(parent=parent) already set it, and
+        # verified: QGraphicsTextItem(parent=p).parentItem() is p.
+        parent_item = self.parentItem()
         self.adjustSize()
-        self.setTextWidth(self.parent.boundingRect().width() - 50)
+        self.setTextWidth(parent_item.boundingRect().width() - 50)
         w = self.boundingRect().width()
         h = self.boundingRect().height()
-        centered_x = self.parent.boundingRect().center().x() - w/2
-        centered_y = self.parent.boundingRect().center().y() - h/2
+        centered_x = parent_item.boundingRect().center().x() - w/2
+        centered_y = parent_item.boundingRect().center().y() - h/2
         x = centered_x
         y = centered_y
-        if self.x:
-            x = self.x
-        if self.y:
-            y = self.y
+        if self.x_pos:
+            x = self.x_pos
+        if self.y_pos:
+            y = self.y_pos
         self.setPos(x, y)
 
 

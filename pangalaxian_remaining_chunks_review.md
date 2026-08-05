@@ -96,7 +96,8 @@ finding above, all established by execution rather than reading:
   (b) the detach becomes deterministic instead of depending on Python
   refcounting. It is *not* the recovery of an accumulating leak, and the
   original entry should not have implied one.
-- **A site none of the searches had found**: `diagrams/shapes.py:2201`,
+- **A site none of the searches had found — since FIXED (2026-08-04)**:
+  `diagrams/shapes.py:2201`,
   `BlockLabel(QGraphicsTextItem)` does `self.parent = parent` — same
   shadowing of `QObject.parent()`, but assigning a value rather than `None`,
   so every `.parent = None` search missed it. It is *not* a failed detach:
@@ -106,6 +107,27 @@ finding above, all established by execution rather than reading:
   attribute across those four uses in a diagram class with no automated
   coverage — deliberately left as a separate change, and recorded in the
   guard's allowlist so it is not forgotten.
+
+  **Fixed 2026-08-04, and it was worse than reported.** `BlockLabel` shadowed
+  *three* Qt methods, not one: `parent`, and also `x` and `y`, which are
+  likewise `QGraphicsItem` methods and were being stored as position
+  offsets. The guard's pattern only looks for `.parent =`, so it found one of
+  the three; the other two were found by reading the constructor it pointed
+  at.
+
+  `self.parent` is gone rather than renamed — `super().__init__(parent=parent)`
+  already sets the parent item (verified by execution:
+  `QGraphicsTextItem(parent=p).parentItem() is p`), so `self.parentItem()` is
+  both correct and always current, where an attribute would go stale if the
+  parent were later changed with `setParentItem()`. That also made the
+  `setParentItem(self.parent)` call in `set_text()` redundant, and it is
+  removed. `self.x`/`self.y` became `self.x_pos`/`self.y_pos`.
+
+  Tests: `test/test_block_label.py`, 5 cases — that the three methods are
+  callable, that the parent item is set, that default centring and explicit
+  offsets both position correctly, and that `set_text()` re-reads the parent
+  rather than a stored copy. Four of the five fail against the pre-fix code.
+  `shapes.py` is off the guard's allowlist.
 
 **Regression guard.** `test/test_widget_detach.py` fails if any assignment to
 `.parent` reappears outside an explicitly-reasoned allowlist. This matters
