@@ -114,9 +114,13 @@ def worker_on_thread(qtbot):
     """An Ipc42Worker running on its own QThread, torn down after the test."""
     made = {}
 
-    def _make(start_paused=False):
+    def _make(start_paused=False, display_hz=None):
+        # display_hz=None by default: most tests here are about protocol and
+        # lifecycle, and the free-running display cap would coalesce messages
+        # they send back-to-back.  The cap has its own tests (07a/07b).
         port = _free_port()
-        worker = Ipc42Worker(port=port, start_paused=start_paused)
+        worker = Ipc42Worker(port=port, start_paused=start_paused,
+                             display_hz=display_hz)
         thread = QThread()
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
@@ -270,6 +274,62 @@ def test_07_step_n_releases_n_messages(qtbot, worker_on_thread, captured):
         with qtbot.waitSignal(worker.message, timeout=5000):
             fake.send(captured)
         assert fake.wait_ack(timeout=0.7) is False
+    finally:
+        fake.close()
+
+
+# ------------------------------------------------------- display rate cap
+
+def test_07a_free_running_display_is_rate_limited(qtbot, worker_on_thread,
+                                                  captured):
+    """CASE: free-running, 42 is acked every step but the gui is not spammed
+
+    A cross-thread emit only posts an event and returns, so acking is *not*
+    gated on the gui: measured against a real 42, the worker sent 6426 acks
+    while the gui processed 787, leaving 5639 messages accumulating in Qt's
+    event queue.  Every message must still be read and counted -- only the
+    reporting is capped.
+    """
+    # 0.1 Hz -> a 10 s interval, i.e. "one, then no more" for this test
+    worker, port = worker_on_thread(display_hz=0.1)
+    emitted = []
+    worker.message.connect(lambda m: emitted.append(m))
+    fake = Fake42(port)
+    try:
+        fake.connect()
+        for _ in range(12):
+            fake.send(captured)
+            assert fake.wait_ack(timeout=3.0), 'a message went un-acked'
+        qtbot.wait(300)
+        assert worker.n_messages == 12, (
+            f'not every message was read: {worker.n_messages}')
+        assert len(emitted) == 1, (
+            f'display was not rate-limited: {len(emitted)} emissions')
+        assert worker.latest is not None, 'latest message not retained'
+    finally:
+        fake.close()
+
+
+def test_07b_stepping_emits_every_message(qtbot, worker_on_thread, captured):
+    """CASE: the rate cap must not apply while stepping
+
+    Stepping is exactly when each individual message matters, and step(n)
+    can release n of them faster than the cap would allow -- so coalescing
+    there would silently lose the steps the user asked to see.
+    """
+    worker, port = worker_on_thread(start_paused=True, display_hz=0.1)
+    emitted = []                        # would coalesce if the cap applied
+    worker.message.connect(lambda m: emitted.append(m))
+    fake = Fake42(port)
+    try:
+        fake.connect()
+        worker.step(4)
+        for _ in range(4):
+            fake.send(captured)
+            assert fake.wait_ack(timeout=3.0)
+        qtbot.wait(300)
+        assert len(emitted) == 4, (
+            f'stepping coalesced messages: {len(emitted)} of 4')
     finally:
         fake.close()
 

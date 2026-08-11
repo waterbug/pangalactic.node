@@ -43,6 +43,13 @@ point in opposite directions:
   all** — they are ack policy. `Listener42.messages()` acks *after* yielding
   for exactly this reason, so a consumer that stops iterating stops 42, and a
   slow consumer throttles it rather than losing data.
+
+  **That last property does not survive a thread boundary** — see §5.1. In
+  `Listener42.messages()` the ack genuinely cannot happen until the consumer
+  asks for the next item. In `Ipc42Worker` the "consumer" is a cross-thread
+  `pyqtSignal`, and emitting one only *posts an event and returns*, so the
+  ack goes out whether or not the GUI ever looks at the message. Backpressure
+  is a property of the synchronous generator, not of the ack protocol.
 - **It is the hazard.** Anything holding the socket must ack even when busy.
   A GUI that blocks its event loop hangs the simulation. Per
   `pydispatcher_migration.md` §1 this is a *cross-thread* concern: a socket
@@ -179,7 +186,44 @@ new code that depends on it. `test_02` asserts on `threading.current_thread()
 alongside `threads.py`, with a pinned signal count so a *new* pyqtSignal in
 either still has to justify itself.
 
-### Three defects the tests found
+### 5.1 What running against a real 42 found
+
+Fake42 proves the protocol and the ack policy. It cannot produce messages at
+42's actual rate, and that turned out to be the interesting variable.
+
+**Real 42 emits ~1600 messages/second** on loopback (stock demo, `SC` prefix
+only). Against that:
+
+| | acked | offered to GUI | GUI processed | accumulated |
+|---|---|---|---|---|
+| before | 6,426 | 6,426 | 787 | **5,639 and climbing** |
+| after | 4,876 | 61 | 61 | **0** |
+
+The claim in §1 that "a slow consumer throttles 42" is true of
+`Listener42.messages()` and **false of the Qt worker** — a cross-thread
+`emit()` posts an event and returns, so the ack is not gated on the GUI at
+all. Every undelivered message stays in Qt's event queue, which grows without
+bound; a 3-second run left 5,639 `Message42` objects queued.
+
+The fix is `DISPLAY_HZ` (20): every message is still read, counted and acked
+— **42 runs flat out, 1625 steps/s** — but the `message` signal is
+rate-limited while free-running. Two consequences worth stating plainly:
+
+- `message` is a **display feed, not a lossless one**. Anything needing every
+  message must pass `display_hz=None` and keep up, or drive `Listener42`
+  directly, where the ack really is gated on the consumer.
+- The cap is **suspended while paused or stepping**. That is exactly when
+  each individual step is the thing being looked at, and `step(n)` can
+  release n messages faster than the cap would pass them — coalescing there
+  would silently drop the steps the user asked to see.
+
+`test_ipc42_real.py` keeps this honest: it drives the panel against a real 42
+(skipped unless `42` is on PATH) and asserts on 42's *own clock*, which is
+the only witness that pausing stops the simulation rather than just the
+socket. One step moves it exactly 0.1 s — the step size in `Inp_Sim.txt` —
+which is a stronger assertion than "the counter went up".
+
+### Three defects the Fake42 tests found
 
 1. **Qt aborted the process on shutdown.** The worker sat in `accept()` with
    nothing ever connecting; `stop()` closed the socket, which on Linux does

@@ -24,6 +24,7 @@ ack while paused. There is no command channel in 42's IPC (see
 import errno
 import socket
 import threading
+import time
 
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from PyQt5.QtWidgets import (QGridLayout, QGroupBox, QHBoxLayout, QLabel,
@@ -55,12 +56,40 @@ _DISCONNECT_ERRNOS = frozenset([errno.ECONNRESET, errno.EPIPE,
                                 errno.ENOTCONN, errno.ESHUTDOWN,
                                 errno.EBADF])
 
+# How often a free-running stream is reported to the gui, in Hz.
+#
+# 42 outruns any gui by orders of magnitude: measured against the stock demo
+# on loopback, it produces ~2000 messages/second.  Emitting every one does
+# **not** throttle it, which is the trap -- a cross-thread emit only posts an
+# event and returns, so the ack goes out whether or not the gui ever gets
+# round to the message, and the undelivered ones pile up in Qt's event queue
+# without bound.  Measured: 6426 acks against 787 deliveries in 3 s, i.e.
+# 5639 messages accumulated, and climbing.
+#
+# (The synchronous `Listener42.messages()` generator does not have this
+# problem -- there the ack genuinely cannot happen until the consumer asks
+# for the next message.  The property is lost precisely at the thread
+# boundary, so it is worth not assuming it carries over.)
+#
+# 20 Hz is well past what anyone can read and keeps memory flat.
+DISPLAY_HZ = 20
+
 
 class Ipc42Worker(QObject):
     """Owns the 42 socket and runs its blocking loop off the GUI thread.
 
     Signals are the only way state leaves this object.  All of them are
     pyqtSignal so Qt marshals them to whatever thread the receiver lives in.
+
+    **`message` is a display feed, not a lossless one.**  While free-running
+    it is rate-limited to `display_hz` (see DISPLAY_HZ for why); every message
+    is still read and acked, so 42 runs at full speed and `n_messages` is the
+    true step count.  While paused or stepping *every* message is emitted --
+    that is when each individual step is the thing being looked at.
+
+    A consumer that needs every message must not take it from this signal.
+    Give it `display_hz=None` and accept that it must keep up, or drive
+    `Listener42` directly, where the ack is genuinely gated on the consumer.
     """
 
     # peer address, e.g. "('127.0.0.1', 34928)"
@@ -73,7 +102,14 @@ class Ipc42Worker(QObject):
     # True while free-running, False while paused
     running_changed = pyqtSignal(bool)
 
-    def __init__(self, port=DEFAULT_PORT, start_paused=False, parent=None):
+    def __init__(self, port=DEFAULT_PORT, start_paused=False,
+                 display_hz=DISPLAY_HZ, parent=None):
+        """
+        Keyword Args:
+            display_hz (float):  cap on `message` emissions per second while
+                free-running; None emits every message (see the class
+                docstring for what that costs)
+        """
         super().__init__(parent)
         self.port = port
         self._listener = None
@@ -84,6 +120,13 @@ class Ipc42Worker(QObject):
             self._running.set()
         # one permit per single-step request
         self._step_permits = threading.Semaphore(0)
+        self._emit_interval = (1.0 / display_hz) if display_hz else 0.0
+        self._last_emit = 0.0
+        # total messages read and acked -- the true step count, which the
+        # rate-limited `message` signal does not convey on its own
+        self.n_messages = 0
+        # most recent message, whether or not it was emitted
+        self.latest = None
 
     # ---------------------------------------------------------- control
     # These are called from the GUI thread.  threading primitives are used
@@ -127,6 +170,23 @@ class Ipc42Worker(QObject):
                 return True
         return False
 
+    def _should_emit(self):
+        """Whether to report this message to the gui.
+
+        Every message while paused or stepping -- there each step is the
+        thing being looked at, and there are few of them.  While free-running
+        the gui cannot use more than `display_hz` of them and accumulates the
+        rest, so the surplus is dropped from the *display* only; it is still
+        read and acked, and `n_messages` still counts it.
+        """
+        if not self._running.is_set() or self._emit_interval <= 0:
+            return True
+        now = time.monotonic()
+        if now - self._last_emit >= self._emit_interval:
+            self._last_emit = now
+            return True
+        return False
+
     def _accept(self):
         """Wait for 42 to dial in, returning None if stopped first.
 
@@ -160,7 +220,11 @@ class Ipc42Worker(QObject):
                 text = self._listener.read_message()
                 if text is None:
                     break
-                self.message.emit(parse_message(text))
+                msg = parse_message(text)
+                self.n_messages += 1
+                self.latest = msg
+                if self._should_emit():
+                    self.message.emit(msg)
                 # ack AFTER reporting: while paused, 42 stays blocked here,
                 # which is precisely the pause mechanism
                 if not self._await_permission():
@@ -209,7 +273,6 @@ class Ipc42Panel(QWidget):
         self.watch = list(watch or ['SC[0].qn', 'SC[0].wn', 'SC[0].PosR'])
         self.thread = None
         self.worker = None
-        self._count = 0
 
         self.status = QLabel('not listening')
         self.status.setStyleSheet('font-weight: bold')
@@ -278,6 +341,10 @@ class Ipc42Panel(QWidget):
         self.worker.disconnected.connect(self.on_disconnected)
         self.worker.failed.connect(self.on_failed)
         self.thread.start()
+        self.counter.setText('0')
+        self.clock.setText('--')
+        for lbl in self.value_labels.values():
+            lbl.setText('--')
         self.status.setText(f'listening on port {self.port} ...')
         self._update_buttons(listening=True)
 
@@ -304,8 +371,14 @@ class Ipc42Panel(QWidget):
         self.status.setText(f'42 connected from {peer}')
 
     def on_message(self, msg):
-        self._count += 1
-        self.counter.setText(str(self._count))
+        if self.worker is None:
+            # a queued message can still arrive after stop_listening() has
+            # dropped the worker: Qt delivers what was already posted
+            return
+        # the true step count, not the number of messages displayed: while
+        # free-running the worker deliberately reports only DISPLAY_HZ of
+        # them, so counting arrivals here would understate what 42 has done
+        self.counter.setText(str(self.worker.n_messages))
         if msg.time is not None:
             self.clock.setText(
                 f'{msg.time.year}-{msg.time.doy:03d} '
