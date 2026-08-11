@@ -27,7 +27,9 @@ node.pid
 .pytest_cache
 .pythonscope*
 pangalaxian/*
-pangalactic/test/pangalaxian_test
+# test_node.py creates this in os.getcwd(), so it lands wherever pytest
+# was run from -- match it at any level rather than at one fixed path
+pangalaxian_test/
 private.key
 *.pickle
 test_bump_version.sh

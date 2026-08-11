@@ -214,16 +214,30 @@ def test_07_admin_tool_refresh_is_disconnected_on_reopen(qtbot, test_orb):
     assert "dispatcher.connect(self.admin_dlg.refresh_roles," in src
 
 
-def test_08_only_the_cross_thread_signals_remain(qtbot):
-    """CASE: the only pyqtSignals left are threads.py's WorkerSignals
+# The only modules allowed to declare pyqtSignal, and how many each may
+# declare.  There is exactly one justification -- crossing a thread boundary,
+# which is the one thing pydispatcher cannot do -- so every module here owns a
+# worker thread.  The counts are pinned deliberately: adding a signal to one
+# of these modules still trips this test and has to be justified rather than
+# waved through because the file was already on the list.
+CROSS_THREAD_MODULES = {
+    # WorkerSignals: results from the async rpc workers
+    'threads.py': 4,
+    # Ipc42Worker: the 42 socket loop, reporting from its own QThread
+    'ipc42_gui.py': 5,
+}
 
-    Those four cross a thread boundary, which is the one thing pydispatcher
-    cannot do -- Qt marshals a cross-thread signal onto the receiver's event
-    loop, pydispatcher calls the receiver in whatever thread sent it.  Every
-    other signal in the package is same-thread gui signalling and has been
-    migrated.
+
+def test_08_only_the_cross_thread_signals_remain(qtbot):
+    """CASE: pyqtSignal survives only where a thread boundary is crossed
+
+    Qt marshals a cross-thread signal onto the receiver's event loop;
+    pydispatcher calls the receiver in whatever thread sent it, so a widget
+    touched from a worker thread is undefined behaviour.  Everything else in
+    the package is same-thread gui signalling and has been migrated.
     """
     import re
+    from collections import Counter
     decls = []
     for path in _python_files():
         with open(path, encoding='utf-8') as f:
@@ -232,11 +246,15 @@ def test_08_only_the_cross_thread_signals_remain(qtbot):
                 if re.search(r'\w+\s*=\s*pyqtSignal\s*\(', code):
                     decls.append((os.path.relpath(path, PKG), n,
                                   line.strip()))
-    unexpected = [d for d in decls if os.path.basename(d[0]) != 'threads.py']
+    unexpected = [d for d in decls
+                  if os.path.basename(d[0]) not in CROSS_THREAD_MODULES]
     assert not unexpected, (
-        'pyqtSignal declared outside threads.py:\n  '
+        'pyqtSignal declared outside the cross-thread modules '
+        f'{sorted(CROSS_THREAD_MODULES)}:\n  '
         + '\n  '.join(f'{f}:{n}: {t}' for f, n, t in unexpected))
-    assert len(decls) == 4, f'expected threads.py\'s 4 signals, got {decls}'
+    counts = Counter(os.path.basename(d[0]) for d in decls)
+    assert counts == Counter(CROSS_THREAD_MODULES), (
+        f'expected {dict(CROSS_THREAD_MODULES)}, got {dict(counts)}')
 
 
 def test_09_del_object_is_gone(qtbot):

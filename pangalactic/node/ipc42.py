@@ -207,10 +207,26 @@ class Listener42:
     deliberate: it is what makes run/pause/step possible without touching 42.
     """
 
-    def __init__(self, port=10001, host='', timeout=None):
+    def __init__(self, port=10001, host='', timeout=None,
+                 accept_timeout=None):
+        """
+        Keyword Args:
+            timeout (float):  timeout applied to the *connection*, i.e. to
+                reads once 42 has connected.  None blocks indefinitely, which
+                is usually right: 42 sends when it steps, and a step can take
+                as long as it takes.
+            accept_timeout (float):  timeout applied to the *listening*
+                socket.  Separate from `timeout` because they serve opposite
+                purposes -- this one exists so a caller waiting for a
+                connection can be woken up.  Closing a listening socket does
+                not reliably interrupt a thread blocked in accept() on Linux,
+                so a shutdown path needs accept() to return periodically and
+                re-check whatever "should I stop" flag it owns.
+        """
         self.host = host
         self.port = port
         self.timeout = timeout
+        self.accept_timeout = accept_timeout
         self.server = None
         self.conn = None
         self.peer = None
@@ -229,12 +245,17 @@ class Listener42:
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind((self.host, self.port))
         self.server.listen(1)
-        if self.timeout is not None:
-            self.server.settimeout(self.timeout)
+        if self.accept_timeout is not None:
+            self.server.settimeout(self.accept_timeout)
         return self
 
     def accept(self):
-        """Block until 42 connects."""
+        """Block until 42 connects.
+
+        Raises `socket.timeout` if `accept_timeout` was set and elapsed --
+        callers polling for shutdown should treat that as "not yet" rather
+        than as an error.
+        """
         self.conn, self.peer = self.server.accept()
         if self.timeout is not None:
             self.conn.settimeout(self.timeout)

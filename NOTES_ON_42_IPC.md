@@ -160,11 +160,52 @@ covers parsing, the value grammar, prefix semantics, round-tripping, framing
 `messages()` acks *after* yielding — the property the pause/step design rests
 on.
 
-## 5. Next
+## 5. The Qt front end (2026-08-11)
 
-- A Qt front end: worker thread owning `Listener42`, `pyqtSignal` to the GUI
-  (see §1 on why not pydispatcher), with run/pause/step implemented as ack
-  policy.
+`pangalactic/node/ipc42_gui.py` — `Ipc42Worker` (a `QObject` moved onto a
+`QThread`, owning the `Listener42`) plus `Ipc42Panel` (clock, message count,
+watched values, Run/Pause/Step/Stop).
+
+**Run / pause / step are ack policy.** The worker emits the message *first*
+and acks *after* — while paused it simply doesn't ack, so 42 stays parked in
+`read(Socket, Ack, 4)`. Nothing is sent to 42 and 42 needs no support for it.
+Step is a `threading.Semaphore` with one permit per requested step.
+
+**pyqtSignal here, not pydispatcher** — the boundary from §1, and the first
+new code that depends on it. `test_02` asserts on `threading.current_thread()
+.ident` inside the slot rather than trusting the docs.
+
+`test_signal_migration.py` `CROSS_THREAD_MODULES` now lists `ipc42_gui.py`
+alongside `threads.py`, with a pinned signal count so a *new* pyqtSignal in
+either still has to justify itself.
+
+### Three defects the tests found
+
+1. **Qt aborted the process on shutdown.** The worker sat in `accept()` with
+   nothing ever connecting; `stop()` closed the socket, which on Linux does
+   **not** reliably interrupt a blocked `accept()`. `thread.wait()` timed out
+   and Qt aborts when a still-running `QThread` is destroyed. Fixed by giving
+   `Listener42` an `accept_timeout` *separate from* its read timeout — the
+   listening socket polls (`ACCEPT_POLL`, 0.1 s) so a stop is noticed, while
+   reads still block indefinitely, since a simulation step may take as long
+   as it takes.
+
+2. **42 exiting was reported as an error.** A peer that closes with data
+   still unread sends RST, so the same event surfaces as `ECONNRESET` on a
+   read or `EPIPE` on the ack purely by timing — the failure was
+   intermittent, roughly 1 run in 6. `_DISCONNECT_ERRNOS` now classifies
+   those as a disconnect. `test_09a` forces it deterministically with
+   `SO_LINGER` 0 rather than waiting for the race.
+
+3. **A chained signal with no consumers.** The panel re-emitted the stream as
+   its own `message` signal — `worker.message` → `on_message` → `panel
+   .message`. Removed: anything wanting the raw stream connects to
+   `panel.worker.message`, which is also the more specific signal.
+
+## 6. Next
+
 - Deciding what "control" should mean given there is no command channel.
+- Wiring the panel into pangalaxian (a dock or a tool window) once there is
+  something for the stream to drive.
 - Separately, goal (1) — generating 42 input files from a gargleblaster ACS
   assembly — extends `interface42.py` and does not touch any of this.
