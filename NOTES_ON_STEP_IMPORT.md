@@ -86,11 +86,19 @@ the *same* AS1 assembly, from
 `pangalactic.core/pangalactic/core/test/data`, shows three different
 behaviours:
 
-| file | translator | occurrence names |
-|---|---|---|
-| `as1-id-203.stp` | I-DEAS MS8 | `plate_1`, `l-bracket assy_2`, `nut_2` |
-| `as1-oc-214.stp` | Datakit / OpenCASCADE | `rod-assembly_1`, `nut_1`, `nut_2` |
-| `as1_pe_203.stp` | Pro/ENGINEER | `PLATE`, `L-BRACKET`, and `=>[0:1:1:3]` |
+| file | translator | AP | occurrence names |
+|---|---|---|---|
+| `as1-id-203.stp` | I-DEAS MS8 | 203 | `plate_1`, `l-bracket assy_2`, `nut_2` |
+| `as1-oc-214.stp` | Datakit / OpenCASCADE | 214 | `rod-assembly_1`, `nut_1`, `nut_2` |
+| `as1_pe_203.stp` | Pro/ENGINEER | 203 | `PLATE`, `L-BRACKET`, `=>[0:1:1:3]` |
+
+**The variation here is by translator, not by application protocol.** The two
+files that differ most are both AP203; the AP214 one agrees closely with the
+AP203 I-DEAS export on mass properties (§2.2). In the corpus the two-letter
+code is the translator — `id` I-DEAS, `pe` Pro/ENGINEER, `oc` Open CASCADE,
+`ug` Unigraphics, `cm` CoCreate — and the numeric suffix is the AP, with the
+same vendor appearing at both (`as1_pe_203` and `s1-pe-214`). Testing across
+APs alone would have surfaced none of §1.3, §2.3 or §2.4's problems.
 
 Only the middle one is really usable: its two nuts in `rod-assembly` are
 `nut_1` and `nut_2`, both referring to prototype `nut`, so the suffix does
