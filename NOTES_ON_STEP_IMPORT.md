@@ -78,13 +78,33 @@ down the tree — the same composition a chain of `Acu`s would have to do. The
 nut inside `nut-bolt assy` is at `(0, -17, 0)` in its own parent's frame and
 lands at `(155, 75, -5.5)` in the assembly's.
 
-### 1.3 Names
+### 1.3 Names are translator-dependent and cannot be trusted
 
-`label.GetLabelName()` yields `plate_1`, `l-bracket assy_2`,
-`nut-bolt assy_4` — the reference-designator analogue. **Unverified:** the
-reader appears to synthesise the `_N` suffixes, so whether a real CAD
-export's NAUO id survives verbatim needs checking against a file from the
-tool users actually run, not against this sample.
+`label.GetLabelName()` gives the occurrence name — the obvious candidate for
+`reference_designator`. Running the spike over three translators' exports of
+the *same* AS1 assembly, from
+`pangalactic.core/pangalactic/core/test/data`, shows three different
+behaviours:
+
+| file | translator | occurrence names |
+|---|---|---|
+| `as1-id-203.stp` | I-DEAS MS8 | `plate_1`, `l-bracket assy_2`, `nut_2` |
+| `as1-oc-214.stp` | Datakit / OpenCASCADE | `rod-assembly_1`, `nut_1`, `nut_2` |
+| `as1_pe_203.stp` | Pro/ENGINEER | `PLATE`, `L-BRACKET`, and `=>[0:1:1:3]` |
+
+Only the middle one is really usable: its two nuts in `rod-assembly` are
+`nut_1` and `nut_2`, both referring to prototype `nut`, so the suffix does
+distinguish the occurrences. I-DEAS suffixes look synthesised rather than
+authored. **Pro/ENGINEER names many occurrences after their prototype, and
+leaves others with no name at all** — `=>[0:1:1:3]` is OCC's stand-in for a
+reference label with no name attribute.
+
+So an importer must not take `reference_designator` from the file on faith.
+It will have to derive one (from the occurrence path, which is always
+available and always unique) or have the user assign it, and treat any name
+in the file as a hint. The assembly *decomposition* is translator-dependent
+too: Pro/E nests a `SOLID` and an empty `COMPOUND` under each part where the
+others have a single leaf.
 
 ## 2. Mass properties: what CAD gives and what it doesn't
 
@@ -127,10 +147,40 @@ parallel-axis arithmetic is not accidentally right.
 The left column is exactly 42's Body block: Mass, Moments of Inertia,
 Products of Inertia, Location of mass center.
 
-### 2.2 Four caveats
+### 2.2 The same assembly through two translators agrees
 
-1. **Units.** The sample is in mm and the spike hardcodes mm→m. STEP carries
-   its units; a real importer must read them. 42 wants m and kg.
+I-DEAS and Datakit exports of AS1, rolled up independently:
+
+| | mass (kg) | CoM z (mm) | MoI (kg-m^2) |
+|---|---|---|---|
+| `as1-id-203.stp` | 2.0668 | 18.789 | 0.003854, 0.007583, 0.010103 |
+| `as1-oc-214.stp` | 2.0642 | 18.860 | 0.003851, 0.007564, 0.010088 |
+
+Agreement to about 0.1–0.4% across independent translations of the same
+design — a stronger check than the internal one in §2.1, since nothing is
+shared between the two paths but the original geometry.
+
+### 2.3 Zero-volume leaves are real and must be skipped
+
+The Pro/E export has 36 leaf occurrences where the others have 18: each part
+appears as a `SOLID` *and* an empty `COMPOUND`. Those compounds have zero
+volume, and the first version of the roll-up divided by volume to scale the
+unit-density inertia tensor, so it raised `ZeroDivisionError` on this file.
+`roll_up()` now skips zero-volume occurrences and reports how many. Any real
+importer needs the same guard — translators emit leaves with no solid
+geometry (empty compounds, wireframe, surfaces) and they carry no mass.
+
+### 2.4 Four caveats
+
+1. **Units — observed, not hypothetical.** `as1_pe_203.stp` declares
+   `CONVERSION_BASED_UNIT('INCH', ...)` where the other two declare
+   millimetres, and its geometry comes through at inch magnitude. With the
+   spike's hardcoded mm assumption that inflates the assembly to
+   **33,888 kg**, a factor of 16,396 against the mm files, where 25.4³ =
+   16,387 — i.e. exactly the unit error and nothing else. Setting
+   `xstep.cascade.unit` did not visibly change the result in a quick attempt
+   and needs proper investigation. A real importer must read the file's
+   units. 42 wants m and kg.
 2. **Uniform density per component** is the assumption doing all the work.
    It is wrong for, say, an electronics box with one dense corner — but
    boundedly and explicably wrong, and taking mass from PGEF keeps the
@@ -168,8 +218,16 @@ STEP's own construct, the closer import gets to transcription.
 ## 4. Running the spikes
 
 They take a STEP file path; neither is wired into the app and neither is a
-test. The AS1 file used here is not committed — it ships with the pythonocc
-samples, and a copy is in `~/sandbox/pythonocc/as1-id-203.stp`.
+test.
+
+**The test corpus is already in the tree**, at
+`pangalactic.core/pangalactic/core/test/data` — 37 STEP files, many of them
+the canonical examples used to test vendor STEP translators in the PDES, Inc.
+consortium's CAx-IF test forum. That is why the multi-translator comparisons
+above were cheap, and it is the right place to draw files from for any
+further work here: the `as1-*`, `dm1-*`, `io1-*` and `s1-*` families are the
+same designs exported by different vendors' translators, which is exactly the
+variation an importer has to survive.
 
 ```
 python spikes/step_assembly/step_placements.py  <file.stp>

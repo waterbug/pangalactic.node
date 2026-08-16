@@ -86,13 +86,21 @@ def roll_up(entries, rho):
     Roll per-occurrence properties up to assembly mass, centre of mass and
     inertia about that centre of mass.
 
+    Occurrences of zero volume are skipped:  some translators emit leaves
+    that carry no solid geometry (empty COMPOUNDs, wireframe, surfaces), and
+    they contribute no mass.  See NOTES_ON_STEP_IMPORT.md section 2.3.
+
     Args:
         entries (list):  of (name_path, volume, centroid, GProp_GProps)
         rho (float):  density, kg/mm^3
 
     Returns:
-        dict:  mass, com, moi, poi
+        dict:  mass, com, moi, poi, skipped
     """
+    skipped = [e[0] for e in entries if e[1] <= 0]
+    entries = [e for e in entries if e[1] > 0]
+    if not entries:
+        raise ValueError('no occurrence in this file has any volume')
     mass = sum(vol * rho for _, vol, _, _ in entries)
     com = [sum(vol * rho * c.Coord(i) for _, vol, c, _ in entries) / mass
            for i in (1, 2, 3)]
@@ -110,7 +118,8 @@ def roll_up(entries, rho):
         iyz += scale * tensor.Value(2, 3) - m * dy * dz
     return dict(mass=mass, com=com,
                 moi=[i * MM2_TO_M2 for i in (ixx, iyy, izz)],
-                poi=[i * MM2_TO_M2 for i in (ixy, ixz, iyz)])
+                poi=[i * MM2_TO_M2 for i in (ixy, ixz, iyz)],
+                skipped=skipped)
 
 
 def whole_assembly(shape_tool, root, rho):
@@ -148,7 +157,10 @@ def report(path, rho=DEFAULT_RHO, out=sys.stdout):
 
     rolled = roll_up(entries, rho)
     whole = whole_assembly(shape_tool, root, rho)
-    out.write(f'\n{len(entries)} leaf occurrences, rho={rho} kg/mm^3\n\n')
+    out.write(f'\n{len(entries)} leaf occurrences, rho={rho} kg/mm^3\n')
+    if rolled['skipped']:
+        out.write(f'{len(rolled["skipped"])} skipped as having no volume\n')
+    out.write('\n')
     out.write(f'{"":14} {"rolled up from parts":>34} '
               f'{"whole assembly, one shot":>34}\n')
     fmt = lambda v: '[' + ', '.join(f'{x:.6f}' for x in v) + ']'
