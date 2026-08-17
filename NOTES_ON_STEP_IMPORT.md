@@ -205,23 +205,23 @@ It settles the factual question: a STEP import yields per-occurrence
 placements in `axis2_placement_3d` form, and those placements plus PGEF's
 existing mass parameters are sufficient to produce 42's Body block.
 
-It does **not** settle where placement should live in the model. That
-decision is open, and the options were:
+**Where placement lives in the model has since been decided** (2026-08-16):
+the ontology gained `ContextDependentShapeRepresentation` and
+`Axis2Placement3D`, along STEP's own lines, at schema version 3.5.0.  The
+design and the full STEP mapping are recorded in
+`pangalactic.core/NOTES_ON_ONTOLOGY_AND_DB.md` under "Component placement";
+`pangalactic.core/pangalactic/core/test/test_placement.py` is the test suite.
 
-- data elements on the `Acu` — no ontology change; the ontology already
-  distinguishes cleanly, `ParameterDefinition` being a subclass of
-  `DataElementDefinition` ("a data element that represents a measurable
-  physical property"), and placement is not a measurable physical property,
-  so it would be a data element and not a parameter. The `Acu` already has
-  22 `DataElementDefinition`s declared against it, including
-  `position_in_optical_path`, which is the same shape of fact;
-- a placement construct in the ontology along STEP's own lines
-  (`context_dependent_shape_representation` → `axis2_placement_3d`),
-  accepting the schema impact in exchange for a clean STEP mapping;
-- no model change at all, with the exporter owning a layout per analysis.
+The alternatives considered and rejected were data elements on the `Acu` (no
+ontology change, and the ontology does distinguish cleanly —
+`ParameterDefinition` is a subclass of `DataElementDefinition`, "a data
+element that represents a measurable physical property", so placement would
+have been a data element and not a parameter), and no model change at all
+with the exporter owning a layout per analysis.
 
-§1.1 is the argument that bears on that choice: the closer the model is to
-STEP's own construct, the closer import gets to transcription.
+§1.1 is the argument that decided it: the closer the model is to STEP's own
+construct, the closer import gets to transcription.  Nothing populates the
+new classes yet — that is the importer, and it is the next piece.
 
 ## 4. Running the spikes
 
