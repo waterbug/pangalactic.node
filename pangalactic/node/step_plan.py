@@ -24,7 +24,8 @@ import json
 from pangalactic.core import orb
 from pangalactic.core.names import get_acu_id, get_acu_name
 from pangalactic.core.parametrics import get_dval, set_dval
-from pangalactic.core.placements import new_thing, set_placement
+from pangalactic.core.placements import (get_placement, new_thing,
+                                         set_placement)
 from pangalactic.core.utils.datetimes import dtstamp
 
 # modes
@@ -226,8 +227,13 @@ class ImportResult:
     What an import did.
 
     Attributes:
-        objects (list):  the objects created or modified.  The caller is
-            responsible for saving them; neither apply function commits.
+        created (list):  objects that did not exist before.
+        modified (list):  objects that existed and were changed.  The
+            distinction matters to the caller:  the repository is told about
+            the two differently, and announcing a moved placement as new
+            would misreport it.
+        objects (list):  created + modified.  The caller is responsible for
+            saving them; neither apply function commits.
         mapping (dict):  {occurrence path: oid}, the correspondence between
             the STEP file's occurrences and the repository's objects.
 
@@ -245,12 +251,18 @@ class ImportResult:
     """
 
     def __init__(self):
-        self.objects = []
+        self.created = []
+        self.modified = []
         self.mapping = {}
         self.skipped = []
 
+    @property
+    def objects(self):
+        return self.created + self.modified
+
     def __repr__(self):
-        return (f'<ImportResult {len(self.objects)} objects, '
+        return (f'<ImportResult {len(self.created)} created, '
+                f'{len(self.modified)} modified, '
                 f'{len(self.mapping)} mapped, {len(self.skipped)} skipped>')
 
 
@@ -276,8 +288,14 @@ def apply_placements(items, NOW=None):
         if item.occurrence.placement is None:
             result.skipped.append(item)
             continue
-        result.objects += set_placement(item.acu, item.occurrence.placement,
-                                        NOW=NOW)
+        # an Acu that had no placement gains new objects; one that had a
+        # placement has it moved, which is a modification
+        was_placed = get_placement(item.acu) is not None
+        touched = set_placement(item.acu, item.occurrence.placement, NOW=NOW)
+        if was_placed:
+            result.modified += touched
+        else:
+            result.created += touched
         result.mapping[item.path] = item.acu.oid
     return result
 
@@ -322,7 +340,7 @@ def apply_creation(items, owner=None, NOW=None):
             kw['owner'] = owner
         product = clone('HardwareProduct', **kw)
         products[item.key] = product
-        result.objects.append(product)
+        result.created.append(product)
         result.mapping[item.path] = product.oid
     for item in items:
         if item.kind != ACU:
@@ -339,10 +357,10 @@ def apply_creation(items, owner=None, NOW=None):
                         name=get_acu_name(assembly.name, occ.ref_des),
                         assembly=assembly, component=component,
                         reference_designator=occ.ref_des)
-        result.objects.append(acu)
+        result.created.append(acu)
         result.mapping[item.path] = acu.oid
         if occ.placement is not None:
-            result.objects += set_placement(acu, occ.placement, NOW=NOW)
+            result.created += set_placement(acu, occ.placement, NOW=NOW)
     return result
 
 

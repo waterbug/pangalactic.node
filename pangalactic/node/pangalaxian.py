@@ -3022,6 +3022,13 @@ class Main(QMainWindow):
                                 icon='lander',
                                 tip="42 Attitude Control System Modeler",
                                 modes=['system', 'component'])
+        self.step_import_action = self.create_action(
+                                "Import STEP Assembly",
+                                slot=self.step_import,
+                                icon='box',
+                                tip="Import an assembly's structure and "
+                                    "component placements from a STEP file",
+                                modes=['system', 'component'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
         hw_lib_tip = "Library of Hardware Product Specifications"
         self.product_lib_action = self.create_action(
@@ -3640,6 +3647,7 @@ class Main(QMainWindow):
                                 # self.mode_def_tool_action,
                                 self.conops_modeler_action,
                                 self.modeler42_action,
+                                self.step_import_action,
                                 self.product_lib_action,
                                 self.template_lib_action,
                                 self.product_types_lib_action,
@@ -7077,6 +7085,20 @@ class Main(QMainWindow):
         state['conops'] = True
         win.setAttribute(Qt.WA_DeleteOnClose)
         win.show()
+
+    def step_import(self):
+        """
+        Import an assembly's structure and component placements from a STEP
+        file.
+        """
+        # imported here rather than at module scope so that start-up does not
+        # pull in pythonocc
+        from pangalactic.node.step_dialogs import run_step_import
+        product = self.product
+        if getattr(product, 'oid', '') == 'pgefobjects:TBD':
+            # the placeholder is not an assembly to place into
+            product = None
+        run_step_import(assembly=product, parent=self)
 
     def sc_42_modeler(self):
         w = 4 * self.geometry().width() / 5
