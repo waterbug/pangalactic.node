@@ -19,8 +19,11 @@ import will do can be tested without a dialog and reviewed without a
 commitment.  `pangalactic.node.step_dialogs` presents a plan; this module
 decides what is in one.
 """
+import json
+
 from pangalactic.core import orb
 from pangalactic.core.names import get_acu_id, get_acu_name
+from pangalactic.core.parametrics import get_dval, set_dval
 from pangalactic.core.placements import new_thing, set_placement
 from pangalactic.core.utils.datetimes import dtstamp
 
@@ -341,3 +344,96 @@ def apply_creation(items, owner=None, NOW=None):
         if occ.placement is not None:
             result.objects += set_placement(acu, occ.placement, NOW=NOW)
     return result
+
+
+# ---------------------------------------------------------------------------
+# The correspondence between a STEP file and the objects imported from it.
+#
+# Kept as a data element on the RepresentationFile the STEP file was stored
+# as -- RepresentationFile is a Modelable, so this needs no ontology change,
+# it syncs with the file object, and a new version of the file gets its own
+# correspondence.
+# ---------------------------------------------------------------------------
+
+# id of the DataElementDefinition in pangalactic.core.refdata
+CORRESPONDENCE_DEID = 'step_correspondence'
+
+# bumped if the stored structure changes in a way readers must notice
+CORRESPONDENCE_VERSION = 1
+
+
+def get_correspondence(rep_file):
+    """
+    Get the stored correspondence for a STEP file.
+
+    Args:
+        rep_file (RepresentationFile):  the stored STEP file
+
+    Returns:
+        dict:  the stored structure, or {} if the file has never been
+        imported or what is stored cannot be read.  A correspondence that
+        will not parse is treated as absent rather than raising:  it is
+        cached bookkeeping, and losing it costs a re-match, not data.
+    """
+    raw = get_dval(getattr(rep_file, 'oid', None), CORRESPONDENCE_DEID)
+    if not raw:
+        return {}
+    try:
+        stored = json.loads(raw)
+    except (ValueError, TypeError):
+        orb.log.warning('* step: unreadable correspondence on '
+                        f'"{getattr(rep_file, "id", "?")}", ignoring it')
+        return {}
+    return stored if isinstance(stored, dict) else {}
+
+
+def set_correspondence(rep_file, result, mode, checksum='', NOW=None):
+    """
+    Store the correspondence produced by an import.
+
+    Args:
+        rep_file (RepresentationFile):  the stored STEP file
+        result (ImportResult):  what the import did
+        mode (str):  PLACE or CREATE
+
+    Keyword Args:
+        checksum (str):  the checksum of the file as imported, so that a
+            later import can tell whether it is reading the same file
+        NOW (datetime):  timestamp recorded as the import time
+
+    Returns:
+        dict:  the structure that was stored
+    """
+    stored = {'version': CORRESPONDENCE_VERSION,
+              'mode': mode,
+              'imported': str(NOW or dtstamp()),
+              'checksum': checksum or getattr(rep_file, 'checksum', '') or '',
+              'map': dict(result.mapping)}
+    set_dval(rep_file.oid, CORRESPONDENCE_DEID, json.dumps(stored))
+    return stored
+
+
+def file_has_changed(rep_file, checksum):
+    """
+    Say whether a STEP file differs from the one a stored correspondence was
+    built against.
+
+    A changed file may have gained, lost or renamed parts, so re-matching it
+    silently could move components that were placed deliberately.  The caller
+    is expected to stop and ask rather than re-import on this answer.
+
+    Args:
+        rep_file (RepresentationFile):  the stored STEP file
+        checksum (str):  checksum of the file about to be imported
+
+    Returns:
+        bool:  True if there is a stored correspondence and it was built
+        against a different file.  False if there is none -- nothing to
+        contradict -- or if the checksums agree, or if either checksum is
+        unknown, since an absent checksum is not evidence of a change.
+    """
+    stored = get_correspondence(rep_file)
+    if not stored:
+        return False
+    was = stored.get('checksum') or ''
+    return bool(was and checksum and was != checksum)

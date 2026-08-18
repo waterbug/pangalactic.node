@@ -242,6 +242,54 @@ with the exporter owning a layout per analysis.
 construct, the closer import gets to transcription.  Nothing populates the
 new classes yet — that is the importer, and it is the next piece.
 
+## 3a. The correspondence, and what round-tripping would need
+
+An import records which occurrence of the STEP file became which object, as
+a `step_correspondence` data element on the `RepresentationFile` the file was
+stored as. `RepresentationFile` is a `Modelable`, so this needs no ontology
+change, it syncs with the file object, and a new version of the file gets its
+own correspondence. It holds the import mode, the time, the file's checksum,
+and a map of **occurrence path** to oid.
+
+The key is the occurrence path and not any identifier internal to the file,
+for the reason in §1.3's neighbourhood: XCAF label entries are assigned in
+the order the exporting tool happened to write the file. The same design
+through two translators gives `plate` the entry `0:1:1:2` in one and
+`0:1:1:9` in the other, so a correspondence keyed on them would point at the
+wrong part as soon as the model were re-exported. The path is semantic, and
+stable for exactly as long as the reference designators are — the same
+assumption the matching itself rests on.
+
+A re-import whose checksum differs from the stored one **stops and asks**
+rather than re-matching. A re-export may have gained, lost or renamed parts,
+and silently re-placing components that were positioned deliberately is the
+failure mode with the worst consequences. An absent checksum on either side
+is *not* treated as a change: warning about a file we cannot compare would
+only train the user to click through the warning.
+
+### What a round trip would additionally need — not built
+
+Writing changes back out through STEP is a larger thing than it looks, and
+nothing here attempts it. Recorded so the shape of the problem is not
+rediscovered:
+
+- **PGEF cannot produce a STEP file.** It holds assembly structure,
+  placements and mass parameters; it holds no BREP geometry. So an export is
+  necessarily a *modification of the original file*, not a generation of a
+  new one — which means the original must still be in the vault, and must be
+  the file the correspondence was built against.
+- **Write-back would re-read that original.** The correspondence's keys are
+  derived paths, not offsets into the file, so locating the transform to
+  rewrite means reading the file again and re-deriving the same paths. That
+  is sound because the derivation is deterministic, but it makes the checksum
+  check a precondition of export and not only of import.
+- **Round-tripping is therefore only meaningful for the placements and the
+  structure** — the things PGEF is authoritative for. Geometry edits belong
+  to CAD and would be lost or, worse, silently reverted.
+
+Whether any of this is worth building depends on a use case that has not
+appeared yet.
+
 ## 4. Running the spikes
 
 They take a STEP file path; neither is wired into the app and neither is a

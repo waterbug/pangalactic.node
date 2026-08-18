@@ -26,8 +26,9 @@ from pangalactic.node.step_import import Occurrence, Placement
 from pangalactic.node.step_plan import (ACU, CREATE, MATCHED, NEW, PLACE,
                                         PLACEMENT, PRODUCT, REUSED, UNMATCHED,
                                         UNPLACED, apply_creation,
-                                        apply_placements, plan_creation,
-                                        plan_placements)
+                                        apply_placements, file_has_changed,
+                                        get_correspondence, plan_creation,
+                                        plan_placements, set_correspondence)
 
 DATA = test_data_module.__path__[0]
 AS1 = os.path.join(DATA, 'as1-id-203.stp')
@@ -293,6 +294,94 @@ class StepPlanTest(unittest.TestCase):
         acus = [i for i in items if i.kind == ACU]
         expected = [len(root.prototypes()), len(list(root.walk())) - 1]
         value = [len(products), len(acus)]
+        self.assertEqual(expected, value)
+
+    # ---- the stored correspondence ---------------------------------------
+
+    def _rep_file(self, name='step-corr-test'):
+        """
+        A RepresentationFile to hang a correspondence on.
+        """
+        from pangalactic.core.placements import new_thing
+        return new_thing('RepresentationFile', id=name, name=name,
+                         user_file_name=f'{name}.stp')
+
+    def test_14_no_correspondence_on_a_fresh_file(self):
+        """
+        CASE:  a file that has never been imported has no correspondence
+        """
+        expected = {}
+        value = get_correspondence(self._rep_file('fresh'))
+        self.assertEqual(expected, value)
+
+    def test_15_correspondence_round_trips(self):
+        """
+        CASE:  what an import stored comes back, keyed on occurrence path
+        """
+        acu = orb.get(self.ACU_OID)
+        root = occ('root', children=[occ(acu.reference_designator)])
+        items = plan_placements(root, self._assembly())
+        result = apply_placements(items)
+        rf = self._rep_file('round-trip')
+        set_correspondence(rf, result, PLACE, checksum='abc123')
+        orb.db.commit()
+        stored = get_correspondence(rf)
+        expected = [PLACE, 'abc123', {acu.reference_designator: acu.oid}]
+        value = [stored['mode'], stored['checksum'], stored['map']]
+        self.assertEqual(expected, value)
+
+    def test_16_unchanged_file_is_not_flagged(self):
+        """
+        CASE:  re-importing the same file is not treated as a change
+        """
+        rf = self._rep_file('same-file')
+        set_correspondence(rf, apply_placements([]), PLACE, checksum='abc123')
+        orb.db.commit()
+        expected = False
+        value = file_has_changed(rf, 'abc123')
+        self.assertEqual(expected, value)
+
+    def test_17_changed_file_is_flagged(self):
+        """
+        CASE:  a re-export is detected, so the caller can stop and ask.
+
+        A changed file may have gained, lost or renamed parts, and silently
+        re-matching it could move components that were placed deliberately.
+        """
+        rf = self._rep_file('changed-file')
+        set_correspondence(rf, apply_placements([]), PLACE, checksum='abc123')
+        orb.db.commit()
+        expected = True
+        value = file_has_changed(rf, 'def456')
+        self.assertEqual(expected, value)
+
+    def test_18_unknown_checksum_is_not_a_change(self):
+        """
+        CASE:  an absent checksum on either side is not evidence of a change.
+
+        Reporting "changed" for a file we simply cannot compare would train
+        the user to click through the warning.
+        """
+        rf = self._rep_file('no-checksum')
+        set_correspondence(rf, apply_placements([]), PLACE, checksum='')
+        orb.db.commit()
+        expected = [False, False]
+        value = [file_has_changed(rf, 'abc123'),
+                 file_has_changed(self._rep_file('other'), '')]
+        self.assertEqual(expected, value)
+
+    def test_19_unreadable_correspondence_is_treated_as_absent(self):
+        """
+        CASE:  a correspondence that will not parse does not break the import.
+
+        It is cached bookkeeping; losing it costs a re-match, not data.
+        """
+        from pangalactic.core.parametrics import set_dval
+        rf = self._rep_file('corrupt')
+        set_dval(rf.oid, 'step_correspondence', 'not json at all')
+        orb.db.commit()
+        expected = [{}, False]
+        value = [get_correspondence(rf), file_has_changed(rf, 'abc123')]
         self.assertEqual(expected, value)
 
 
