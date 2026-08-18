@@ -24,6 +24,7 @@ deserialize(orb, create_test_users() + create_test_project())
 
 from pangalactic.node.step_import import Occurrence, Placement
 from pangalactic.node.step_plan import (ACU, CREATE, MATCHED, NEW, PLACE,
+                                        add_project_system,
                                         PLACEMENT, PRODUCT, REUSED, UNMATCHED,
                                         UNPLACED, apply_creation,
                                         apply_placements, file_has_changed,
@@ -416,6 +417,90 @@ class StepPlanTest(unittest.TestCase):
         expected = wheel.id
         value = widget.product_type.id
         self.assertEqual(expected, value)
+
+    def test_12d_root_product_item_is_marked(self):
+        """
+        CASE:  exactly one product item is flagged as the top-level assembly.
+
+        apply_creation() uses that flag to decide which product could become
+        a system of the project -- making each component a system too would
+        flatten the assembly into the tree.
+        """
+        root = occ('root', prototype_key='rr', prototype_name='Rig3',
+                   children=[occ('A', 'w1', 'W1'), occ('B', 'w2', 'W2')])
+        items = plan_creation(root, reuse_products=False)
+        roots = [i for i in items if i.kind == PRODUCT and i.is_root]
+        expected = [1, 'Rig3']
+        value = [len(roots), roots[0].path]
+        self.assertEqual(expected, value)
+
+    def test_12e_project_option_adds_the_assembly_as_a_system(self):
+        """
+        CASE:  given a project, apply_creation() makes the top-level assembly
+        a system of it, so it appears in the System Tree.
+
+        Without this the assembly is created but reachable only through the
+        Hardware Library -- which is exactly how it was first noticed
+        missing.
+        """
+        from pangalactic.core import state
+        was = (state.get('project'), state.get('local_user_oid'))
+        state['project'] = 'H2G2'
+        state['local_user_oid'] = 'test:zaphod'
+        try:
+            project = orb.get('H2G2')
+            root = occ('root', prototype_key='sr', prototype_name='Sys Rig',
+                       children=[occ('A', 'sw', 'Sys Widget')])
+            result = apply_creation(plan_creation(root,
+                                                  reuse_products=False),
+                                    project=project)
+            orb.db.commit()
+            psus = [o for o in result.created
+                    if type(o).__name__ == 'ProjectSystemUsage']
+            expected = [1, 'Sys Rig', True]
+            value = [len(psus),
+                     psus[0].system.name if psus else None,
+                     any(getattr(p.system, 'name', '') == 'Sys Rig'
+                         for p in project.systems)]
+            self.assertEqual(expected, value)
+        finally:
+            state['project'], state['local_user_oid'] = was
+
+    def test_12f_no_project_means_no_system_usage(self):
+        """
+        CASE:  without a project, nothing is added to any tree -- the option
+        is opt-in, and declining it still creates the assembly
+        """
+        root = occ('root', prototype_key='nr', prototype_name='No Sys Rig',
+                   children=[occ('A', 'nw', 'No Sys Widget')])
+        result = apply_creation(plan_creation(root, reuse_products=False))
+        orb.db.commit()
+        psus = [o for o in result.created
+                if type(o).__name__ == 'ProjectSystemUsage']
+        products = [o for o in result.created
+                    if type(o).__name__ == 'HardwareProduct']
+        expected = [0, 2]
+        value = [len(psus), len(products)]
+        self.assertEqual(expected, value)
+
+    def test_12g_existing_system_is_not_added_twice(self):
+        """
+        CASE:  a product already used on a project is not given a second
+        ProjectSystemUsage, which would put it in the tree twice.
+
+        Re-importing the same file is the obvious way to hit this.
+        """
+        from pangalactic.core import state
+        was = state.get('local_user_oid')
+        state['local_user_oid'] = 'test:zaphod'
+        try:
+            project = orb.get('H2G2')
+            already = orb.get('test:spacecraft0')  # a system of H2G2 already
+            expected = None
+            value = add_project_system(already, project)
+            self.assertEqual(expected, value)
+        finally:
+            state['local_user_oid'] = was
 
     def test_13_plans_a_real_step_file(self):
         """

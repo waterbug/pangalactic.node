@@ -290,6 +290,37 @@ rediscovered:
 Whether any of this is worth building depends on a use case that has not
 appeared yet.
 
+## 3b. Making an imported assembly visible
+
+A CREATE import builds a `HardwareProduct` for the file's top-level assembly,
+but that alone does not put it in the System Tree: the tree shows a project's
+*systems*, and a product becomes one only by way of a `ProjectSystemUsage`.
+Without one the assembly exists and is perfectly well formed, but is
+reachable only through the Hardware Library or a direct database query —
+which is how it was first noticed missing.
+
+So CREATE mode offers it, as a checkbox defaulting to on: *Add "X" to project
+P as a system*. Three details worth stating:
+
+- **The top-level assembly only.** Making each component a system too would
+  flatten the assembly into the tree, which is precisely what the Acu
+  structure exists to avoid. `plan_creation()` marks exactly one product item
+  `is_root` for this.
+- **It follows the block modeler's convention**, which is the only other
+  place a PSU is created (dropping a product onto a Project block in
+  `diagrams/shapes.py`): the same `psu-{system}-{project}` id form, the same
+  `psu: X (system used on) P` name form, and `system_role` taken from the
+  product type. So an imported system is indistinguishable from one added by
+  hand — including that its role reads "Unclassified" until a real product
+  type is assigned.
+- **It will not add a second one.** `add_project_system()` returns None if the
+  product is already a system of that project, since a duplicate PSU would
+  show the assembly in the tree twice. Re-importing the same file is the
+  obvious way to hit that.
+
+Declining the checkbox still creates the assembly; it just stays in the
+library until someone puts it on a project deliberately.
+
 ## 4. Running the spikes
 
 They take a STEP file path; neither is wired into the app and neither is a

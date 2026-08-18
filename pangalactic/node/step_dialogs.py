@@ -16,7 +16,7 @@ import os
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QBrush, QColor
-from PyQt5.QtWidgets import (QAbstractItemView, QComboBox, QDialog,
+from PyQt5.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
                              QDialogButtonBox, QFileDialog, QFormLayout,
                              QHBoxLayout, QLabel, QPushButton, QRadioButton,
                              QTableWidget, QTableWidgetItem, QVBoxLayout)
@@ -164,7 +164,7 @@ class StepPlanDialog(QDialog):
     HEADERS = ['', 'kind', 'status', 'in the assembly', 'product type',
               'note']
 
-    def __init__(self, items, mode, file_name='', parent=None):
+    def __init__(self, items, mode, file_name='', project=None, parent=None):
         """
         Args:
             items (list of PlanItem):  the plan, from step_plan
@@ -172,6 +172,8 @@ class StepPlanDialog(QDialog):
 
         Keyword Args:
             file_name (str):  name of the file being imported, for the title
+            project (Project):  the current project.  In CREATE mode, offers
+                to make the imported assembly a system of it.
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
@@ -196,6 +198,25 @@ class StepPlanDialog(QDialog):
         self.table.resizeColumnsToContents()
         self.table.itemChanged.connect(self.on_item_changed)
         layout.addWidget(self.table)
+
+        # CREATE only:  without a ProjectSystemUsage the imported assembly
+        # exists but does not appear in the System Tree, which is where a
+        # user looks for it first
+        self.add_system_checkbox = None
+        if mode == CREATE and project is not None:
+            root = next((i for i in items
+                         if i.kind == PRODUCT and i.is_root), None)
+            if root is not None:
+                self.add_system_checkbox = QCheckBox(
+                    f'Add "{root.path}" to project {project.id} as a system',
+                    self)
+                self.add_system_checkbox.setChecked(True)
+                self.add_system_checkbox.setToolTip(
+                    'Creates a ProjectSystemUsage, so the assembly appears '
+                    'in the System Tree.  Without it the assembly is still '
+                    'created, but is reachable only through the Hardware '
+                    'Library.')
+                layout.addWidget(self.add_system_checkbox)
 
         button_row = QHBoxLayout()
         accept_all = QPushButton('Accept all', self)
@@ -415,7 +436,9 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
         dlg.exec_()
         return None
 
-    plan_dlg = StepPlanDialog(items, mode, file_name=file_name, parent=parent)
+    project = orb.get(state.get('project'))
+    plan_dlg = StepPlanDialog(items, mode, file_name=file_name,
+                              project=project, parent=parent)
     if not plan_dlg.exec_():
         return None
 
@@ -427,7 +450,10 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
         # should belong to; taking it from the selected assembly would put
         # the new specs wherever that happened to live -- PGANA, for a
         # library item -- which is the opposite of project-owned by default.
-        result = apply_creation(items)
+        add_system = (plan_dlg.add_system_checkbox is not None and
+                      plan_dlg.add_system_checkbox.isChecked())
+        result = apply_creation(items,
+                                project=project if add_system else None)
     if result.objects:
         orb.save(result.objects)
     if result.created:

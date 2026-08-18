@@ -21,7 +21,7 @@ decides what is in one.
 """
 import json
 
-from pangalactic.core import orb
+from pangalactic.core import orb, state
 from pangalactic.core.names import get_acu_id, get_acu_name
 from pangalactic.core.parametrics import get_dval, set_dval
 from pangalactic.core.placements import (get_placement, new_thing,
@@ -64,6 +64,8 @@ class PlanItem:
         key (str):  for a PRODUCT item, the prototype_key it stands for
         parent_occurrence (Occurrence or None):  for an ACU item, the
             occurrence whose product is the assembly this Acu belongs to
+        is_root (bool):  True for the PRODUCT item standing for the file's
+            top-level assembly
         product_type (ProductType or None):  for a PRODUCT item with status
             NEW, the type to assign the new product.  STEP carries nothing
             that implies a type, so this starts as the "unclassified"
@@ -74,7 +76,7 @@ class PlanItem:
 
     def __init__(self, kind, status, path='', occurrence=None, acu=None,
                  product=None, note='', confirmed=None, key='',
-                 parent_occurrence=None, product_type=None):
+                 parent_occurrence=None, product_type=None, is_root=False):
         self.kind = kind
         self.status = status
         self.path = path
@@ -87,6 +89,9 @@ class PlanItem:
         self.key = key
         self.parent_occurrence = parent_occurrence
         self.product_type = product_type
+        # True for the PRODUCT item standing for the file's top-level
+        # assembly -- the only one that could become a system of the project
+        self.is_root = is_root
         self.confirmed = (status in (MATCHED, NEW, REUSED)
                           if confirmed is None else confirmed)
 
@@ -205,14 +210,15 @@ def plan_creation(root, reuse_products=True):
     unclassified = orb.get('pgefobjects:ProductType.unclassified')
     product_items = {}
     for key, name in root.prototypes().items():
+        is_root = (key == root.prototype_key)
         existing = _find_product(name) if reuse_products else None
         if existing is not None:
             item = PlanItem(PRODUCT, REUSED, path=name, product=existing,
-                            key=key,
+                            key=key, is_root=is_root,
                             note=f'existing product "{existing.id}"')
         else:
             item = PlanItem(PRODUCT, NEW, path=name, key=key,
-                            product_type=unclassified,
+                            product_type=unclassified, is_root=is_root,
                             note='no existing product with this name -- '
                                  'assign a product type below')
         product_items[key] = item
@@ -332,7 +338,46 @@ def apply_placements(items, NOW=None):
     return result
 
 
-def apply_creation(items, owner=None, NOW=None):
+def add_project_system(product, project, NOW=None):
+    """
+    Make a product a system of a project, by creating a ProjectSystemUsage.
+
+    Follows the convention established by the block modeler, which is the
+    only other place a PSU is created (dropping a product onto a Project
+    block):  same id and name forms, and system_role taken from the product
+    type so the System Tree labels it usefully.
+
+    Args:
+        product (Product):  the system
+        project (Project):  the project it is used on
+
+    Keyword Args:
+        NOW (datetime):  timestamp for the new object
+
+    Returns:
+        ProjectSystemUsage or None:  None if the product is already a system
+        of that project, since a second PSU would put it in the tree twice
+    """
+    from pangalactic.core.clone import clone
+    if product is None or project is None:
+        return None
+    if orb.search_exact(cname='ProjectSystemUsage', project=project,
+                        system=product):
+        orb.log.info(f'* step import: "{product.id}" is already a system of '
+                     f'"{project.id}"; not adding it again')
+        return None
+    NOW = NOW or dtstamp()
+    user = orb.get(state.get('local_user_oid'))
+    return clone('ProjectSystemUsage',
+                 id=f'psu-{product.id}-{project.id}',
+                 name=f'psu: {product.name} (system used on) {project.name}',
+                 creator=user, create_datetime=NOW,
+                 modifier=user, mod_datetime=NOW,
+                 system_role=getattr(product.product_type, 'name', 'System'),
+                 project=project, system=product)
+
+
+def apply_creation(items, owner=None, project=None, NOW=None):
     """
     Apply the confirmed items of a CREATE plan:  create the products that do
     not exist, then the Acus that assemble them, then place them.
@@ -349,6 +394,10 @@ def apply_creation(items, owner=None, NOW=None):
             unset unless the caller has a reason to override:  clone()
             defaults the owner to the current project, and the creator to the
             local user, which is what a newly imported specification wants.
+        project (Project):  if given, the file's top-level assembly is also
+            made a system of this project, so that it appears in the System
+            Tree.  Without it the assembly is created but is reachable only
+            through the Hardware Library.
         NOW (datetime):  timestamp for the new objects
 
     Returns:
@@ -403,6 +452,16 @@ def apply_creation(items, owner=None, NOW=None):
         result.mapping[item.path] = acu.oid
         if occ.placement is not None:
             result.created += set_placement(acu, occ.placement, NOW=NOW)
+    if project is not None:
+        # the top-level assembly only:  the components below it are reached
+        # through it, and making each of them a system of the project would
+        # flatten the assembly into the tree
+        root_item = next((i for i in items
+                          if i.kind == PRODUCT and i.is_root), None)
+        root_product = products.get(getattr(root_item, 'key', None))
+        psu = add_project_system(root_product, project, NOW=NOW)
+        if psu is not None:
+            result.created.append(psu)
     return result
 
 

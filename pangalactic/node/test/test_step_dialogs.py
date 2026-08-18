@@ -28,7 +28,8 @@ from pangalactic.node.step_import import Occurrence, Placement
 from pangalactic.node.step_dialogs import (StepFileChangedDialog,
                                            StepImportModeDialog,
                                            StepPlanDialog)
-from pangalactic.node.step_plan import CREATE, PLACE, plan_placements
+from pangalactic.node.step_plan import (CREATE, PLACE, PRODUCT,
+                                        plan_creation, plan_placements)
 
 ASSEMBLY_OID = 'test:spacecraft0'
 ACU_OID = 'test:H2G2:acu-sc0-propsys'
@@ -350,3 +351,43 @@ def test_22_choosing_a_type_updates_the_item(qtbot, create_plan):
     other_index = 1 if widget.count() > 1 else 0
     widget.setCurrentIndex(other_index)
     assert item.product_type is widget.itemData(other_index)
+
+
+# ---- "add as a system" option (CREATE only) ------------------------------
+
+def _create_plan():
+    root = Occurrence(name='rig', ref_des='rig', prototype_key='dr',
+                      prototype_name='Dialog Rig', placement=None,
+                      children=[occ('A')])
+    return plan_creation(root, reuse_products=False)
+
+
+def test_19_create_mode_offers_to_add_the_assembly_as_a_system(qtbot):
+    """
+    In CREATE mode with a project, the option is offered and defaults on --
+    without it the assembly is created but never appears in the System Tree.
+    """
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
+    qtbot.addWidget(dlg)
+    assert dlg.add_system_checkbox is not None
+    assert dlg.add_system_checkbox.isChecked()
+    assert 'Dialog Rig' in dlg.add_system_checkbox.text()
+
+
+def test_20_place_mode_does_not_offer_it(qtbot, plan):
+    """
+    PLACE mode places components of an assembly that already exists, so there
+    is nothing to add to the project.
+    """
+    dlg = StepPlanDialog(plan, PLACE, project=orb.get('H2G2'))
+    qtbot.addWidget(dlg)
+    assert dlg.add_system_checkbox is None
+
+
+def test_21_no_project_means_no_option(qtbot):
+    """
+    With no current project there is nothing to add the assembly to.
+    """
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=None)
+    qtbot.addWidget(dlg)
+    assert dlg.add_system_checkbox is None
