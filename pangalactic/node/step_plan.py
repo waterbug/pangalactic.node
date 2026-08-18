@@ -335,7 +335,10 @@ def apply_creation(items, owner=None, NOW=None):
         items (list of PlanItem):  the plan, as confirmed by the user
 
     Keyword Args:
-        owner (Organization):  owner for newly created products
+        owner (Organization):  owner for newly created products.  Leave it
+            unset unless the caller has a reason to override:  clone()
+            defaults the owner to the current project, and the creator to the
+            local user, which is what a newly imported specification wants.
         NOW (datetime):  timestamp for the new objects
 
     Returns:
@@ -357,7 +360,12 @@ def apply_creation(items, owner=None, NOW=None):
             products[item.key] = item.product
             result.mapping[item.path] = item.product.oid
             continue
-        kw = dict(name=item.path, save_hw=False)
+        # public=False is set explicitly rather than left to default:  an
+        # unset "public" reads as cloaked only by falling through the last
+        # branch of is_cloaked(), which is the right answer for the wrong
+        # reason.  A newly imported specification belongs to the project that
+        # imported it until someone decides otherwise.
+        kw = dict(name=item.path, public=False, save_hw=False)
         if owner is not None:
             kw['owner'] = owner
         product = clone('HardwareProduct', **kw)

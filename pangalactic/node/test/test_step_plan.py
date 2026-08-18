@@ -325,6 +325,45 @@ class StepPlanTest(unittest.TestCase):
                  len([i for i in items if i.status == UNPLACED])]
         self.assertEqual(expected, value)
 
+    def test_12c_created_specs_belong_to_the_project(self):
+        """
+        CASE:  a newly imported specification is owned by the current
+        project, created by the local user, and cloaked.
+
+        A Product is a specification rather than a physical item, and a
+        specification that arrived from someone's CAD model belongs to the
+        project that imported it until someone decides it is reusable.
+        Putting it in the shared library instead is hard to undo socially --
+        other projects start referencing it.
+
+        clone() already defaults the owner to state['project'] and the
+        creator to the local user; the point of this test is that nothing in
+        the import path overrides them.
+        """
+        from pangalactic.core import state
+        from pangalactic.core.access import is_cloaked
+        was = (state.get('project'), state.get('local_user_oid'))
+        state['project'] = 'H2G2'
+        state['local_user_oid'] = 'test:zaphod'
+        try:
+            root = occ('root', prototype_key='po', prototype_name='Owned Rig',
+                       children=[occ('A', 'pw', 'Owned Widget')])
+            result = apply_creation(plan_creation(root,
+                                                  reuse_products=False))
+            orb.db.commit()
+            products = [o for o in result.created
+                        if type(o).__name__ == 'HardwareProduct']
+            expected = [True, True, True, True]
+            value = [bool(products),
+                     all(getattr(p.owner, 'id', None) == 'H2G2'
+                         for p in products),
+                     all(getattr(p.creator, 'id', None) == 'zaphod'
+                         for p in products),
+                     all(is_cloaked(p) for p in products)]
+            self.assertEqual(expected, value)
+        finally:
+            state['project'], state['local_user_oid'] = was
+
     def test_13_plans_a_real_step_file(self):
         """
         CASE:  a create plan for the AS1 test assembly proposes one product

@@ -387,7 +387,12 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     if mode == PLACE:
         result = apply_placements(items)
     else:
-        result = apply_creation(items, owner=getattr(assembly, 'owner', None))
+        # NOTE: deliberately not passing an owner.  clone() defaults it to
+        # the current project, which is what a newly imported specification
+        # should belong to; taking it from the selected assembly would put
+        # the new specs wherever that happened to live -- PGANA, for a
+        # library item -- which is the opposite of project-owned by default.
+        result = apply_creation(items)
     if result.objects:
         orb.save(result.objects)
     if result.created:
