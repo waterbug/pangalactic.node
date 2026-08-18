@@ -168,6 +168,11 @@ Agreement to about 0.1–0.4% across independent translations of the same
 design — a stronger check than the internal one in §2.1, since nothing is
 shared between the two paths but the original geometry.
 
+The Pro/ENGINEER export is left out of this comparison not because it
+disagrees but because it describes a physically different object: its
+dimensions are the same numbers declared in inches, so it is 25.4× the size.
+See caveat 1 in §2.4.
+
 ### 2.3 Zero-volume leaves are real and must be skipped
 
 The Pro/E export has 36 leaf occurrences where the others have 18: each part
@@ -180,15 +185,29 @@ geometry (empty compounds, wireframe, surfaces) and they carry no mass.
 
 ### 2.4 Four caveats
 
-1. **Units — observed, not hypothetical.** `as1_pe_203.stp` declares
-   `CONVERSION_BASED_UNIT('INCH', ...)` where the other two declare
-   millimetres, and its geometry comes through at inch magnitude. With the
-   spike's hardcoded mm assumption that inflates the assembly to
-   **33,888 kg**, a factor of 16,396 against the mm files, where 25.4³ =
-   16,387 — i.e. exactly the unit error and nothing else. Setting
-   `xstep.cascade.unit` did not visibly change the result in a quick attempt
-   and needs proper investigation. A real importer must read the file's
-   units. 42 wants m and kg.
+1. **Units.** *(Corrected 2026-08-17 — the original text of this caveat
+   claimed OCC had failed to convert the inch file, and that was wrong.)*
+   OCC converts a file's declared length unit to the unit named by the
+   `xstep.cascade.unit` static, whose default is `MM`. It does this
+   correctly: `as1_pe_203.stp` declares
+   `CONVERSION_BASED_UNIT('INCH', ...)` and arrives in millimetres, its
+   5080 mm extent being 200 inches converted. The other two declare
+   millimetres and arrive unscaled.
+
+   So the **33,888 kg** figure was not a conversion failure — that assembly
+   really is 5.08 m across at the density the spike assumes. The three files
+   are the same *design numerically* (about 200 × 150 × 84 units) with the
+   unit differing by vendor, so after correct conversion the Pro/ENGINEER
+   one is 25.4× the size of the others. That is also why its mass ratio
+   landed so near 25.4³: the ratio is real, not an error.
+
+   The practical consequences for an importer are unchanged in substance but
+   different in mechanism: convert OCC's output (mm) to metres, and do not
+   assume two exports of "the same" CAx-IF design describe the same physical
+   object. `step_import.scale_to_m()` reads the static rather than setting
+   it — setting it did not take reliably, only having an effect when set
+   after the STEP machinery had been imported, and not consistently even
+   then. 42 wants m and kg.
 2. **Uniform density per component** is the assumption doing all the work.
    It is wrong for, say, an electronics box with one dense corner — but
    boundedly and explicably wrong, and taking mass from PGEF keeps the
