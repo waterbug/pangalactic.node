@@ -364,6 +364,59 @@ class StepPlanTest(unittest.TestCase):
         finally:
             state['project'], state['local_user_oid'] = was
 
+    def test_12d_new_products_default_to_unclassified(self):
+        """
+        CASE:  a new product proposed by a create plan is given the
+        "unclassified" placeholder type, since STEP carries nothing that
+        implies a real one.
+        """
+        root = occ('root', prototype_key='pu', prototype_name='Unclass Rig',
+                   children=[occ('A', 'pw2', 'Unclass Widget')])
+        items = plan_creation(root, reuse_products=False)
+        new_products = [i for i in items if i.kind == PRODUCT
+                        and i.status == NEW]
+        unclassified = orb.get('pgefobjects:ProductType.unclassified')
+        expected = True
+        value = (len(new_products) > 0 and
+                 all(i.product_type is unclassified for i in new_products))
+        self.assertEqual(expected, value)
+
+    def test_12e_reused_products_have_no_proposed_type(self):
+        """
+        CASE:  a REUSED item does not propose a type -- the existing product
+        already has whatever type it has, and importing must not silently
+        change it
+        """
+        existing = orb.search_exact(cname='HardwareProduct',
+                                    name='Honeywell HR04')[0]
+        root = occ('root', prototype_key='pr', prototype_name='Reuse Rig',
+                   children=[occ('A', 'pr2', existing.name)])
+        items = plan_creation(root)
+        reused = [i for i in items if i.status == REUSED]
+        expected = [1, None]
+        value = [len(reused), reused[0].product_type]
+        self.assertEqual(expected, value)
+
+    def test_12f_choosing_a_type_is_honoured_on_apply(self):
+        """
+        CASE:  a user-assigned product_type reaches the created product
+        """
+        root = occ('root', prototype_key='pt', prototype_name='Typed Rig',
+                   children=[occ('A', 'pt2', 'Typed Widget')])
+        items = plan_creation(root, reuse_products=False)
+        wheel = orb.get('pgefobjects:ProductType.reaction_wheel')
+        for item in items:
+            if item.kind == PRODUCT and item.path == 'Typed Widget':
+                item.product_type = wheel
+        result = apply_creation(items)
+        orb.db.commit()
+        widget = [o for o in result.created
+                  if type(o).__name__ == 'HardwareProduct'
+                  and o.name == 'Typed Widget'][0]
+        expected = wheel.id
+        value = widget.product_type.id
+        self.assertEqual(expected, value)
+
     def test_13_plans_a_real_step_file(self):
         """
         CASE:  a create plan for the AS1 test assembly proposes one product

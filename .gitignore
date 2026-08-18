@@ -30,6 +30,12 @@ pangalaxian/*
 # test_node.py creates this in os.getcwd(), so it lands wherever pytest
 # was run from -- match it at any level rather than at one fixed path
 pangalaxian_test/
+# likewise the STEP-import test suites' home directories.  step_plan_test/
+# was committed by accident on 2026-08-19 (see 141d3ef) before this pattern
+# existed; removed from tracking in the commit that adds this line.
+step_plan_test/
+step_dialogs_test/
+step_import_test/
 private.key
 *.pickle
 test_bump_version.sh

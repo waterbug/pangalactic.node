@@ -16,10 +16,10 @@ import os
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QBrush, QColor
-from PyQt5.QtWidgets import (QAbstractItemView, QDialog, QDialogButtonBox,
-                             QFileDialog, QFormLayout, QHBoxLayout, QLabel,
-                             QPushButton, QRadioButton, QTableWidget,
-                             QTableWidgetItem, QVBoxLayout)
+from PyQt5.QtWidgets import (QAbstractItemView, QComboBox, QDialog,
+                             QDialogButtonBox, QFileDialog, QFormLayout,
+                             QHBoxLayout, QLabel, QPushButton, QRadioButton,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 from pangalactic.node.dialogs import OptionNotification
 
@@ -160,8 +160,9 @@ class StepPlanDialog(QDialog):
     """
 
     # columns
-    CONFIRM, KIND, STATUS, PATH, NOTE = range(5)
-    HEADERS = ['', 'kind', 'status', 'in the assembly', 'note']
+    CONFIRM, KIND, STATUS, PATH, TYPE, NOTE = range(6)
+    HEADERS = ['', 'kind', 'status', 'in the assembly', 'product type',
+              'note']
 
     def __init__(self, items, mode, file_name='', parent=None):
         """
@@ -176,6 +177,9 @@ class StepPlanDialog(QDialog):
         super().__init__(parent)
         self.items = items
         self.mode = mode
+        # product types offered in the TYPE column, sorted for a stable menu
+        self.product_types = sorted(orb.get_by_type('ProductType'),
+                                    key=lambda pt: pt.name or pt.id)
         what = ('Place components' if mode == PLACE
                 else 'Create products and structure')
         self.setWindowTitle(f'{what} from {file_name}' if file_name else what)
@@ -249,6 +253,37 @@ class StepPlanDialog(QDialog):
             if col == self.STATUS and item.status in STATUS_COLOR:
                 cell.setForeground(QBrush(QColor(STATUS_COLOR[item.status])))
             self.table.setItem(row, col, cell)
+        self._fill_type_cell(row, item)
+
+    def _fill_type_cell(self, row, item):
+        """
+        Give a new product a combo box to assign its type, since STEP carries
+        nothing that implies one -- the plan proposes "unclassified" and this
+        is where the importing user replaces it with a real one, per item.
+
+        Every other row gets a plain, non-editable cell:  a REUSED product's
+        type belongs to the product already in the repository, and importing
+        must not appear to offer changing it here.
+        """
+        if item.kind == PRODUCT and item.status == NEW:
+            combo = QComboBox(self.table)
+            current = 0
+            for i, pt in enumerate(self.product_types):
+                combo.addItem(pt.name or pt.id, pt)
+                if item.product_type is not None and pt.oid == \
+                   item.product_type.oid:
+                    current = i
+            combo.setCurrentIndex(current)
+            combo.currentIndexChanged.connect(
+                lambda idx, item=item, combo=combo:
+                    setattr(item, 'product_type', combo.itemData(idx)))
+            self.table.setCellWidget(row, self.TYPE, combo)
+        else:
+            text = (getattr(item.product, 'product_type', None) and
+                   item.product.product_type.name) or ''
+            cell = QTableWidgetItem(text)
+            cell.setFlags(Qt.ItemIsEnabled)
+            self.table.setItem(row, self.TYPE, cell)
 
     def on_item_changed(self, cell):
         """

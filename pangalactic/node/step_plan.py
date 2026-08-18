@@ -64,11 +64,17 @@ class PlanItem:
         key (str):  for a PRODUCT item, the prototype_key it stands for
         parent_occurrence (Occurrence or None):  for an ACU item, the
             occurrence whose product is the assembly this Acu belongs to
+        product_type (ProductType or None):  for a PRODUCT item with status
+            NEW, the type to assign the new product.  STEP carries nothing
+            that implies a type, so this starts as the "unclassified"
+            placeholder and is presented for the user to change per item --
+            it is not guessed at.  None for a REUSED item, whose type is
+            whatever the existing product already has.
     """
 
     def __init__(self, kind, status, path='', occurrence=None, acu=None,
                  product=None, note='', confirmed=None, key='',
-                 parent_occurrence=None):
+                 parent_occurrence=None, product_type=None):
         self.kind = kind
         self.status = status
         self.path = path
@@ -80,6 +86,7 @@ class PlanItem:
         # the occurrence whose product will be the assembly
         self.key = key
         self.parent_occurrence = parent_occurrence
+        self.product_type = product_type
         self.confirmed = (status in (MATCHED, NEW, REUSED)
                           if confirmed is None else confirmed)
 
@@ -195,6 +202,7 @@ def plan_creation(root, reuse_products=True):
         list of PlanItem:  the product items first, then the Acu items, so a
         reviewer sees what will exist before what will be assembled
     """
+    unclassified = orb.get('pgefobjects:ProductType.unclassified')
     product_items = {}
     for key, name in root.prototypes().items():
         existing = _find_product(name) if reuse_products else None
@@ -204,7 +212,9 @@ def plan_creation(root, reuse_products=True):
                             note=f'existing product "{existing.id}"')
         else:
             item = PlanItem(PRODUCT, NEW, path=name, key=key,
-                            note='no existing product with this name')
+                            product_type=unclassified,
+                            note='no existing product with this name -- '
+                                 'assign a product type below')
         product_items[key] = item
     acu_items = []
     _plan_acus(root, root.children, '', acu_items, set())
@@ -368,6 +378,8 @@ def apply_creation(items, owner=None, NOW=None):
         kw = dict(name=item.path, public=False, save_hw=False)
         if owner is not None:
             kw['owner'] = owner
+        if item.product_type is not None:
+            kw['product_type'] = item.product_type
         product = clone('HardwareProduct', **kw)
         products[item.key] = product
         result.created.append(product)

@@ -34,9 +34,10 @@ ASSEMBLY_OID = 'test:spacecraft0'
 ACU_OID = 'test:H2G2:acu-sc0-propsys'
 
 
-def occ(ref_des, children=()):
-    return Occurrence(name=ref_des, ref_des=ref_des, prototype_key='p',
-                      prototype_name='Part',
+def occ(ref_des, prototype_key='p', prototype_name='Part', children=()):
+    return Occurrence(name=ref_des, ref_des=ref_des,
+                      prototype_key=prototype_key,
+                      prototype_name=prototype_name,
                       placement=Placement((0.0, 0.0, 0.0), (0.0, 0.0, 1.0),
                                           (1.0, 0.0, 0.0)),
                       children=list(children))
@@ -51,6 +52,20 @@ def plan():
     root = occ('root', children=[occ(acu.reference_designator),
                                  occ('NOT-IN-THE-ASSEMBLY')])
     return plan_placements(root, orb.get(ASSEMBLY_OID))
+
+
+@pytest.fixture
+def create_plan():
+    """
+    A CREATE plan with one new product and one reused one.
+    """
+    existing = orb.search_exact(cname='HardwareProduct',
+                                name='Honeywell HR04')[0]
+    from pangalactic.node.step_plan import plan_creation
+    root = occ('root', prototype_key='dr', prototype_name='Dialog Rig',
+              children=[occ('A', 'dw', 'Dialog Widget'),
+                        occ('B', 'de', existing.name)])
+    return plan_creation(root)
 
 
 @pytest.fixture
@@ -270,3 +285,68 @@ def test_18_checksum_of_a_missing_file_is_empty(qtbot):
     """
     from pangalactic.node.step_dialogs import _checksum
     assert _checksum('/no/such/file.stp') == ''
+
+
+# ---- product type assignment ---------------------------------------------
+
+def test_19_new_products_get_a_type_combo(qtbot, create_plan):
+    """
+    A row proposing a new product carries a combo box to assign its type,
+    since STEP implies none and the plan can only propose a placeholder.
+    """
+    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp')
+    qtbot.addWidget(dlg)
+    from pangalactic.node.step_plan import PRODUCT, NEW
+    new_products = [(row, item) for row, item in enumerate(create_plan)
+                    if item.kind == PRODUCT and item.status == NEW]
+    assert new_products
+    for row, item in new_products:
+        widget = dlg.table.cellWidget(row, dlg.TYPE)
+        assert widget is not None
+        assert widget.currentData() is item.product_type
+
+
+def test_20_reused_products_get_no_combo(qtbot, create_plan):
+    """
+    A REUSED row does not offer to change the type -- that product's type
+    belongs to what is already in the repository.
+    """
+    from pangalactic.node.step_plan import PRODUCT, REUSED
+    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp')
+    qtbot.addWidget(dlg)
+    reused_rows = [row for row, item in enumerate(create_plan)
+                  if item.kind == PRODUCT and item.status == REUSED]
+    assert reused_rows
+    for row in reused_rows:
+        assert dlg.table.cellWidget(row, dlg.TYPE) is None
+
+
+def test_21_combo_defaults_to_unclassified(qtbot, create_plan):
+    """
+    Before the user touches it, the combo shows the "unclassified"
+    placeholder the plan proposed -- not silently a different type.
+    """
+    from pangalactic.node.step_plan import PRODUCT, NEW
+    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp')
+    qtbot.addWidget(dlg)
+    unclassified = orb.get('pgefobjects:ProductType.unclassified')
+    row = [row for row, item in enumerate(create_plan)
+          if item.kind == PRODUCT and item.status == NEW][0]
+    widget = dlg.table.cellWidget(row, dlg.TYPE)
+    assert widget.currentData().oid == unclassified.oid
+
+
+def test_22_choosing_a_type_updates_the_item(qtbot, create_plan):
+    """
+    Picking a type in the combo reaches the PlanItem, so apply_creation()
+    sees it -- the dialog holds the actual item, not a display copy.
+    """
+    from pangalactic.node.step_plan import PRODUCT, NEW
+    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp')
+    qtbot.addWidget(dlg)
+    row, item = [(row, item) for row, item in enumerate(create_plan)
+                if item.kind == PRODUCT and item.status == NEW][0]
+    widget = dlg.table.cellWidget(row, dlg.TYPE)
+    other_index = 1 if widget.count() > 1 else 0
+    widget.setCurrentIndex(other_index)
+    assert item.product_type is widget.itemData(other_index)
