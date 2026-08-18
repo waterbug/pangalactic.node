@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Assembly Component Usage (Acu) context of the start_port for a Flow. For example, a Flow that represents an electrical connection between the ports of two components in an assembled product is defined within the context of the usages of those components within the assembled product, so those usages represent the start_port_context and end_port_context for that Flow; conversely, the Flow belongs to the internal (white box) model of the assembled product, which is the assembly attribute of those two contexts.",
+    "domain": "Flow",
+    "functional": true,
+    "id": "start_port_context",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "start_port_context",
+    "oid": "pgef:start_port_context",
+    "range": "Acu"
+}

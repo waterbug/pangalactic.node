@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "DigitalProduct"
+    ],
+    "comment": "",
+    "definition": "Software is a digital product that can be executed within a hardware product.",
+    "id": "Software",
+    "id_ns": "pgef",
+    "name": "Software",
+    "oid": "pgef:Software"
+}

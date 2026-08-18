@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Product"
+    ],
+    "comment": "",
+    "definition": "A digital product is a non-hardware product that is computer-sensible -- i.e., can be stored in a computer, written on a digital medium, and transmitted over a network link.",
+    "id": "DigitalProduct",
+    "id_ns": "pgef",
+    "name": "DigitalProduct",
+    "oid": "pgef:DigitalProduct"
+}

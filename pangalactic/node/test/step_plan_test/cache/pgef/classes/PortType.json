@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Modelable"
+    ],
+    "comment": "",
+    "definition": "A Port Type defines a family of Ports by the type of Flow that they accommodate, e.g. electrical power. A PortType may also have an associated set of Parameters.",
+    "id": "PortType",
+    "id_ns": "pgef",
+    "name": "PortType",
+    "oid": "pgef:PortType"
+}

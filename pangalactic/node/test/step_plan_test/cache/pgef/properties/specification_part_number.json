@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The identifier given to a hardware product by its specification.",
+    "domain": "HardwareProduct",
+    "functional": true,
+    "id": "specification_part_number",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "specification_part_number",
+    "oid": "pgef:specification_part_number",
+    "range": "str"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The identifier of the military specification (a.k.a. MIL Spec) that applies to a EEE part.",
+    "domain": "HardwareProduct",
+    "functional": true,
+    "id": "military_specification",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "military_specification",
+    "oid": "pgef:military_specification",
+    "range": "str"
+}

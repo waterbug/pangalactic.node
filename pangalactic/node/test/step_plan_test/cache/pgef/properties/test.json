@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Test used in this Verification Test.",
+    "domain": "VerificationTest",
+    "functional": true,
+    "id": "test",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "test",
+    "oid": "pgef:test",
+    "range": "Test"
+}

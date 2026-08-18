@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The extent to which the mission, system, or component to which the Requirement is allocated meets the Requirement.",
+    "domain": "Requirement",
+    "functional": true,
+    "id": "rqt_compliance",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "rqt_compliance",
+    "oid": "pgef:rqt_compliance",
+    "range": "str"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The date and time at which a CheckOut claim lapses, after which the repository may release it.",
+    "domain": "CheckOut",
+    "functional": true,
+    "id": "expiry_datetime",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "expiry_datetime",
+    "oid": "pgef:expiry_datetime",
+    "range": "datetime"
+}

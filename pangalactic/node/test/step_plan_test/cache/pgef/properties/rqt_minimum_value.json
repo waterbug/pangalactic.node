@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "For a Requirement whose constraint has a minimum, the value of the minimum.",
+    "domain": "Requirement",
+    "functional": true,
+    "id": "rqt_minimum_value",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "rqt_minimum_value",
+    "oid": "pgef:rqt_minimum_value",
+    "range": "float"
+}

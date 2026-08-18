@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The requirements that have been allocated to this item.",
+    "domain": "Modelable",
+    "functional": false,
+    "id": "allocated_requirements",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "allocated_to",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "allocated_requirements",
+    "oid": "pgef:allocated_requirements",
+    "range": "Requirement"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "A flag indicating that this working version can have no further modifications or iterations. When a specified version of an object is frozen, a new version of the object can be created by cloning the specified version or another version, by cloning another object, or from a clean slate. In general, a freeze can be reversed by an administrator, for example if corrections are needed, and the object can be re-frozen after edits are done -- this should be done using caution since it can effect configuration management.",
+    "domain": "ManagedObject",
+    "functional": true,
+    "id": "frozen",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "frozen",
+    "oid": "pgef:frozen",
+    "range": "bool"
+}

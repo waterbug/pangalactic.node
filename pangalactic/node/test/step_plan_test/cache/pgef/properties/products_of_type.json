@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The products classified as being in a functional category.",
+    "domain": "ProductType",
+    "functional": false,
+    "id": "products_of_type",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "product_type",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "products_of_type",
+    "oid": "pgef:products_of_type",
+    "range": "Product"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The level of a requirement within the hierarchy of a system's requirements.",
+    "domain": "Requirement",
+    "functional": true,
+    "id": "rqt_level",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "rqt_level",
+    "oid": "pgef:rqt_level",
+    "range": "int"
+}

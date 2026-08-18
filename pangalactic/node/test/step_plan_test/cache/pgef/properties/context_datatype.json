@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The datatype of a ParameterContext.",
+    "domain": "ParameterContext",
+    "functional": true,
+    "id": "context_datatype",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "context_datatype",
+    "oid": "pgef:context_datatype",
+    "range": "str"
+}

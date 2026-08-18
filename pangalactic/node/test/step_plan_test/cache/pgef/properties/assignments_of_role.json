@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The RoleAssignment relationships in which a role has been assigned.",
+    "domain": "Role",
+    "functional": false,
+    "id": "assignments_of_role",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "assigned_role",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "assignments_of_role",
+    "oid": "pgef:assignments_of_role",
+    "range": "RoleAssignment"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The city in which an organization or facility is located.",
+    "domain": "Organization",
+    "functional": true,
+    "id": "city",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "city",
+    "oid": "pgef:city",
+    "range": "str"
+}

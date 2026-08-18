@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Modelable"
+    ],
+    "comment": "",
+    "definition": "Managed Objects are those whose information is maintained by an Organization (the \"owner\").",
+    "id": "ManagedObject",
+    "id_ns": "pgef",
+    "name": "ManagedObject",
+    "oid": "pgef:ManagedObject"
+}

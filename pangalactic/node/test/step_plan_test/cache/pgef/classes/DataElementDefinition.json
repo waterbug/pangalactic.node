@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "ManagedObject"
+    ],
+    "comment": "",
+    "definition": "A data element definition specifies the datatype and textual description of a data element (an assignable property).",
+    "id": "DataElementDefinition",
+    "id_ns": "pgef",
+    "name": "DataElementDefinition",
+    "oid": "pgef:DataElementDefinition"
+}

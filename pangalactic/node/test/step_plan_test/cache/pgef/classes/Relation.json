@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Identifiable"
+    ],
+    "comment": "",
+    "definition": "A mathematical Relation that holds among two or more parameters.",
+    "id": "Relation",
+    "id_ns": "pgef",
+    "name": "Relation",
+    "oid": "pgef:Relation"
+}

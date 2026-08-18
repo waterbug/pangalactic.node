@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Modelable"
+    ],
+    "comment": "",
+    "definition": "A well-defined, persistent, and identifiable collection of Person instances.",
+    "id": "Organization",
+    "id_ns": "pgef",
+    "name": "Organization",
+    "oid": "pgef:Organization"
+}

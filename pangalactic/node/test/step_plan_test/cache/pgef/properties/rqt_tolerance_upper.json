@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "For a Requirement whose constraint is a specified value with an asymmetric tolerance, the value of the upper tolerance limit.",
+    "domain": "Requirement",
+    "functional": true,
+    "id": "rqt_tolerance_upper",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "rqt_tolerance_upper",
+    "oid": "pgef:rqt_tolerance_upper",
+    "range": "float"
+}

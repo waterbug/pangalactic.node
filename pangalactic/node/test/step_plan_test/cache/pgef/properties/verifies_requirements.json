@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "Requirements this Verification Test contributes to verifying.",
+    "domain": "Test",
+    "functional": false,
+    "id": "verifies_requirements",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "test",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "verifies_requirements",
+    "oid": "pgef:verifies_requirements",
+    "range": "VerificationTest"
+}

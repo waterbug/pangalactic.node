@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Modelable"
+    ],
+    "comment": "",
+    "definition": "A RoleAssignment is the relationship between a role and a person to which the role has been assigned. RoleAssignment is a many-to-many relationship in that a role may be assigned to multiple persons and a person may have several roles assigned to them.",
+    "id": "RoleAssignment",
+    "id_ns": "pgef",
+    "name": "RoleAssignment",
+    "oid": "pgef:RoleAssignment"
+}

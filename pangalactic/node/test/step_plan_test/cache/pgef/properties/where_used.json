@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "Where this product is used (assembly component usages) in any assemblies.",
+    "domain": "Product",
+    "functional": false,
+    "id": "where_used",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "component",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "where_used",
+    "oid": "pgef:where_used",
+    "range": "Acu"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The MIME type/subtype of file content, specifying the format of a file and aiding an application in choosing an appropriate tool to process its content.",
+    "domain": "DigitalFile",
+    "functional": true,
+    "id": "mime_type",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "mime_type",
+    "oid": "pgef:mime_type",
+    "range": "str"
+}

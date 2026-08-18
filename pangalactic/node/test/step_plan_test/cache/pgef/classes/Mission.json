@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Activity"
+    ],
+    "comment": "",
+    "definition": "A Mission is an activity which is defined by a project and is accomplished by means of a collection of systems. Although an Activity typically is related to a specific object (specified by its \"of_system\" property) the Mission does not have a specific object, but is regarded as the parent of all activities of the project systems. It will typically be decomposed into a set of phases for which the Mission concept of operations specification will associate sets of parameter values with the states of the physical systems and components used to accomplish the Mission goal.",
+    "id": "Mission",
+    "id_ns": "pgef",
+    "name": "Mission",
+    "oid": "pgef:Mission"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The y coordinate of the origin of the placement's coordinate frame, in metres.  See location_x.",
+    "domain": "Axis2Placement3D",
+    "functional": true,
+    "id": "location_y",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "location_y",
+    "oid": "pgef:location_y",
+    "range": "float"
+}

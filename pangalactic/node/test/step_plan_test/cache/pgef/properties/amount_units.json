@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The units in which the amount of the continuous product is expressed.",
+    "domain": "Qacu",
+    "functional": true,
+    "id": "amount_units",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "amount_units",
+    "oid": "pgef:amount_units",
+    "range": "str"
+}

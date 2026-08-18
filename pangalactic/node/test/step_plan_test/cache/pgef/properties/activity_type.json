@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The type of an Activity.",
+    "domain": "Activity",
+    "functional": true,
+    "id": "activity_type",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "activity_type",
+    "oid": "pgef:activity_type",
+    "range": "ActivityType"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Person holding a CheckOut claim.",
+    "domain": "CheckOut",
+    "functional": true,
+    "id": "checked_out_by",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "checked_out_by",
+    "oid": "pgef:checked_out_by",
+    "range": "Person"
+}

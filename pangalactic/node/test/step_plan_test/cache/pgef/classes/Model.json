@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "DigitalProduct"
+    ],
+    "comment": "",
+    "definition": "A constructed realization of the properties and/or behaviors of a concept or a real-world thing.  A Model instance can be used for analysis, simulation, description, specification, or presentation of some aspect(s) of a domain object.\n\nModel in the engineering domain generally maps to step:product_definition, but there may be other mappings for particular STEP Application Protocols and other types of models.\n\n(Note that the characteristics of any Model instance can be the subject of a Model at a higher level of abstraction.  The higher-level Model instance in this context is sometimes referred to as a \"meta-model\" relative to the Model instance whose characteristics it models.)",
+    "id": "Model",
+    "id_ns": "pgef",
+    "name": "Model",
+    "oid": "pgef:Model"
+}

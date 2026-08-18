@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Port from which a Flow originates.",
+    "domain": "Flow",
+    "functional": true,
+    "id": "start_port",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "start_port",
+    "oid": "pgef:start_port",
+    "range": "Port"
+}

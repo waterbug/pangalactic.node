@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The top-level systems that are used or developed by a project.",
+    "domain": "Project",
+    "functional": false,
+    "id": "systems",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "project",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "systems",
+    "oid": "pgef:systems",
+    "range": "ProjectSystemUsage"
+}

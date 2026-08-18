@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Product"
+    ],
+    "comment": "",
+    "definition": "A template is a named, reusable pattern or example to use in creating a type of product, document, or model. A template may contain parameter definitions and component products.",
+    "id": "Template",
+    "id_ns": "pgef",
+    "name": "Template",
+    "oid": "pgef:Template"
+}

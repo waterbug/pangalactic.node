@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "Requirement that this Verification Test is intended to verify.",
+    "domain": "VerificationTest",
+    "functional": true,
+    "id": "verifies",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "verifies",
+    "oid": "pgef:verifies",
+    "range": "Requirement"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "An indicator of whether the document is intended to be (1) stand-alone, (2) the parent in an assembly of documents, or (3) a component in another document.",
+    "domain": "Document",
+    "functional": true,
+    "id": "structural_role",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "structural_role",
+    "oid": "pgef:structural_role",
+    "range": "str"
+}

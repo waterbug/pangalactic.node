@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Modelable"
+    ],
+    "comment": "",
+    "definition": "The class of file-like objects.",
+    "id": "DigitalFile",
+    "id_ns": "pgef",
+    "name": "DigitalFile",
+    "oid": "pgef:DigitalFile"
+}

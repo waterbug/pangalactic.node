@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Identifiable"
+    ],
+    "comment": "",
+    "definition": "A DisciplineRole is the relationship between a Role and a Discipline. DisciplineRole is a many-to-many relationship in that a Role may be associated with multiple Disciplines and a Discipline may have several Roles related to it.",
+    "id": "DisciplineRole",
+    "id_ns": "pgef",
+    "name": "DisciplineRole",
+    "oid": "pgef:DisciplineRole"
+}

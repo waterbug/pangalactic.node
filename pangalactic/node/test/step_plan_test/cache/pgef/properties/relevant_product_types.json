@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The relationships that a Discipline has to its ProductTypes.",
+    "domain": "Discipline",
+    "functional": false,
+    "id": "relevant_product_types",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "used_in_discipline",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "relevant_product_types",
+    "oid": "pgef:relevant_product_types",
+    "range": "DisciplineProductType"
+}

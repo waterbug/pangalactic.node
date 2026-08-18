@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The user's local name for the file.",
+    "domain": "DigitalFile",
+    "functional": true,
+    "id": "user_file_name",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "user_file_name",
+    "oid": "pgef:user_file_name",
+    "range": "str"
+}

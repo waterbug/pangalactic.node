@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "DigitalProduct"
+    ],
+    "comment": "",
+    "definition": "The digital (computer-sensible) representation of a human-readable document.",
+    "id": "Document",
+    "id_ns": "pgef",
+    "name": "Document",
+    "oid": "pgef:Document"
+}

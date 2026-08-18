@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The purpose of a file relative to a representation to which it is related.  Example values are: attachment, content, stylesheet, DTD, etc.",
+    "domain": "DigitalFile",
+    "functional": true,
+    "id": "file_role",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "file_role",
+    "oid": "pgef:file_role",
+    "range": "str"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The primary organizational affiliation of a person.",
+    "domain": "Person",
+    "functional": true,
+    "id": "org",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "org",
+    "oid": "pgef:org",
+    "range": "Organization"
+}

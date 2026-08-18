@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Universal Resource Locator for an object.",
+    "domain": "Modelable",
+    "functional": true,
+    "id": "url",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "url",
+    "oid": "pgef:url",
+    "range": "str"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The DisciplineRole relationships in which a role is referenced.",
+    "domain": "Role",
+    "functional": false,
+    "id": "related_to_disciplines",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "related_role",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "related_to_disciplines",
+    "oid": "pgef:related_to_disciplines",
+    "range": "DisciplineRole"
+}

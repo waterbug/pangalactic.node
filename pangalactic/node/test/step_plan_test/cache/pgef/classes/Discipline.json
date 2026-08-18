@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Identifiable"
+    ],
+    "comment": "",
+    "definition": "A named subject matter area (e.g. a specific engineering discipline, such as Avionics or Flight Dynamics, or a scientific discipline, such as Solid State Physics, and may be even more specific, such as Surface Physics).  The intent of defining Disciplines in the context of a collaborative modeling activity is to define the roles and points of view of the participants and their models.",
+    "id": "Discipline",
+    "id_ns": "pgef",
+    "name": "Discipline",
+    "oid": "pgef:Discipline"
+}

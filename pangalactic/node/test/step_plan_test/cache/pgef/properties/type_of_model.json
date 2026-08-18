@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The type of a model (for example, a SysML Block Definition Diagram, or a STEP 3D mechanical model).  Types of models will typically have associated tools and file formats.",
+    "domain": "Model",
+    "functional": true,
+    "id": "type_of_model",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "type_of_model",
+    "oid": "pgef:type_of_model",
+    "range": "ModelType"
+}

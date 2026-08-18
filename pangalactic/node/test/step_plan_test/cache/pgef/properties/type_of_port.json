@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The characterization of a port by what flows through it (e.g., power, control, communications, analog or digital data, etc.).",
+    "domain": "Port",
+    "functional": true,
+    "id": "type_of_port",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "type_of_port",
+    "oid": "pgef:type_of_port",
+    "range": "PortType"
+}

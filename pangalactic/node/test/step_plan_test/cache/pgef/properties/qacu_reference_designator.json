@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The reference designator is a symbolic name that serves as an identifier for a component usage within the context of an assembly.",
+    "domain": "Qacu",
+    "functional": true,
+    "id": "qacu_reference_designator",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "qacu_reference_designator",
+    "oid": "pgef:qacu_reference_designator",
+    "range": "str"
+}

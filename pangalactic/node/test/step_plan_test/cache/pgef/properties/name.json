@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "A human-readable identifier for an object -- usually the one by which the object is known to the end-user, but it may be used for any type of identification, including aliases and local nomenclatures.  Its meaning is dependent on the application context.  This concept is analogous to a given name.",
+    "domain": "Identifiable",
+    "functional": true,
+    "id": "name",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "name",
+    "oid": "pgef:name",
+    "range": "str"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The identifier of the specification document that applies to a product.",
+    "domain": "Product",
+    "functional": true,
+    "id": "specification_number",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "specification_number",
+    "oid": "pgef:specification_number",
+    "range": "str"
+}

@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Identifiable"
+    ],
+    "comment": "",
+    "definition": "A shape representation whose meaning depends on the assembly context in which it occurs:  it positions the component of an assembly component usage (Acu) within the coordinate frame of that usage's assembly.  Corresponds to the STEP context_dependent_shape_representation, which is the entity that makes the shape of an occurrence dependent on its context, and is why placement is a property of the usage rather than of the component product -- the same product used at several places in an assembly has a different placement at each.",
+    "id": "ContextDependentShapeRepresentation",
+    "id_ns": "pgef",
+    "name": "ContextDependentShapeRepresentation",
+    "oid": "pgef:ContextDependentShapeRepresentation"
+}

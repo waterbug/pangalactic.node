@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Organization"
+    ],
+    "comment": "",
+    "definition": "An activity that has the purpose of producing and/or maintaining something, and which involves contributions from Persons and Organizations.",
+    "id": "Project",
+    "id_ns": "pgef",
+    "name": "Project",
+    "oid": "pgef:Project"
+}

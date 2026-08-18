@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The activity following a Decision if its condition evaluates as true.",
+    "domain": "Decision",
+    "functional": true,
+    "id": "next_activity",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "next_activity",
+    "oid": "pgef:next_activity",
+    "range": "Activity"
+}

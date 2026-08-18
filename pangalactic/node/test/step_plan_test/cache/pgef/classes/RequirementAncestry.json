@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Identifiable"
+    ],
+    "comment": "",
+    "definition": "A RequirementAncestry relationship is a parent / child relationship between two Requirements. A Requirement can, and often does, beget multiple child Requirements, and a Requirement that has parent Requirements can have more than one parent; hence, this is a many-to-many relationship.",
+    "id": "RequirementAncestry",
+    "id_ns": "pgef",
+    "name": "RequirementAncestry",
+    "oid": "pgef:RequirementAncestry"
+}

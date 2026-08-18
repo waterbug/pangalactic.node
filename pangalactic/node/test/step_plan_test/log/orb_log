@@ -1,0 +1,22 @@
+2026-08-18 12:05 * orb logging initialized ...
+2026-08-18 12:05 * [registry] home directory: /home/waterbug/clones/pangalactic.node/pangalactic/node/test/step_plan_test
+2026-08-18 12:05 * initializing db at "sqlite:////home/waterbug/clones/pangalactic.node/pangalactic/node/test/step_plan_test/local.db"
+2026-08-18 12:05   + all reference data loaded.
+2026-08-18 12:05   + mode defs loaded.
+2026-08-18 12:05 * clone(HardwareProduct)
+2026-08-18 12:05   new HardwareProduct oid: 3f15febf-4905-4c5e-b789-8ad9aaa8a20a)
+2026-08-18 12:05 * clone(HardwareProduct)
+2026-08-18 12:05   new HardwareProduct oid: 599ffcfd-bc3f-42c6-85ab-a67a9beb3ec2)
+2026-08-18 12:05 * clone(HardwareProduct)
+2026-08-18 12:05   new HardwareProduct oid: 1c11ddc3-1bd5-4403-8e68-523ffa8948c2)
+2026-08-18 12:05 * clone(HardwareProduct)
+2026-08-18 12:05   new HardwareProduct oid: a4daf46e-9757-4920-ab76-021d4448c6c8)
+2026-08-18 12:05 * clone(HardwareProduct)
+2026-08-18 12:05   new HardwareProduct oid: 046862fc-43f0-4cac-a940-9dbb5333ebda)
+2026-08-18 12:05 * clone(HardwareProduct)
+2026-08-18 12:05   new HardwareProduct oid: bd5fb728-4154-4446-b301-d5f2551afee3)
+2026-08-18 12:05 * clone(HardwareProduct)
+2026-08-18 12:05   new HardwareProduct oid: 77240dfd-d62f-4d38-ae83-0c397e537b5b)
+2026-08-18 12:05 * step: unreadable correspondence on "corrupt", ignoring it
+2026-08-18 12:05 * step: unreadable correspondence on "corrupt", ignoring it
+2026-08-18 12:05 * step import: could not read "": could not read STEP file ""

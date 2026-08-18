@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "Specifies whether the context is prescriptive or descriptive. Prescriptive contexts apply to requirements and design constraints; descriptive contexts apply to test data, analysis results, and data sheets that provide attributes of vendor parts.",
+    "domain": "ParameterContext",
+    "functional": true,
+    "id": "context_type",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "context_type",
+    "oid": "pgef:context_type",
+    "range": "str"
+}

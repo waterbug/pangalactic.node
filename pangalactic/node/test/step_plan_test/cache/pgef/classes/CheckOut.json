@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Modelable"
+    ],
+    "comment": "",
+    "definition": "A CheckOut is a claim, recorded in the repository, that a Person intends to make changes to an object and that no one else may change it until the claim is released. Its purpose is to make offline editing safe: an object checked out to a user can be edited by that user while disconnected, without the risk that someone else changes it in the meantime (in which case the offline edit would be silently discarded as stale). A CheckOut is time-bounded via expiry_datetime, so that a forgotten claim cannot block a project indefinitely, and its release is represented by deletion of the CheckOut instance. The Person holding the claim is given by checked_out_by; the time it was made is the inherited create_datetime, and its stated purpose is the inherited description.",
+    "id": "CheckOut",
+    "id_ns": "pgef",
+    "name": "CheckOut",
+    "oid": "pgef:CheckOut"
+}

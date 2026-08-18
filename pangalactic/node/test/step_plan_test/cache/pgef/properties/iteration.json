@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "An identifier for incremental snapshots of working copies of a specific version of a ManagedObject.  Iterations are a zero-based sequence of integers in which the unmodified version is itself the 0th iteration.",
+    "domain": "ManagedObject",
+    "functional": true,
+    "id": "iteration",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "iteration",
+    "oid": "pgef:iteration",
+    "range": "int"
+}

@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "ActivityControl"
+    ],
+    "comment": "",
+    "definition": "A point in a sequence of activities in which the following activity is determined based on a condition (a boolean-valued Relation).",
+    "id": "Decision",
+    "id_ns": "pgef",
+    "name": "Decision",
+    "oid": "pgef:Decision"
+}

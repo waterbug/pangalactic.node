@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The placement of the component's coordinate frame within the coordinate frame of the assembly.  In STEP the equivalent is carried by an item_defined_transformation, which holds two axis2_placement_3d items (transform_item_1, in the component's own representation, and transform_item_2, in the assembly's); this property holds the net placement of the component in the assembly, i.e. it assumes transform_item_1 is the identity placement.",
+    "domain": "ContextDependentShapeRepresentation",
+    "functional": true,
+    "id": "placement",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "placement",
+    "oid": "pgef:placement",
+    "range": "Axis2Placement3D"
+}

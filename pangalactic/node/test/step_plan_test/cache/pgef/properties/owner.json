@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The organizational entity (e.g., a project or a commecial entity) that creates and manages the information about an object.  This is an important property for products, specifying the entity that controls it, and especially for systems, which are generally owned by projects that control their specification and versioning.",
+    "domain": "ManagedObject",
+    "functional": true,
+    "id": "owner",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "owner",
+    "oid": "pgef:owner",
+    "range": "Organization"
+}

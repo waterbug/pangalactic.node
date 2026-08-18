@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The DigitalProduct (usually a model or a document) that a representation file is related to.",
+    "domain": "RepresentationFile",
+    "functional": true,
+    "id": "of_object",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "of_object",
+    "oid": "pgef:of_object",
+    "range": "DigitalProduct"
+}

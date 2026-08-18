@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The middle element in a performance Requirement RDF-style \"triple\", composed of a verb phrase \"shall [be]\" and some form of constraint expression (e.g., \"less than\", etc.).",
+    "domain": "Requirement",
+    "functional": true,
+    "id": "rqt_predicate",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "rqt_predicate",
+    "oid": "pgef:rqt_predicate",
+    "range": "str"
+}

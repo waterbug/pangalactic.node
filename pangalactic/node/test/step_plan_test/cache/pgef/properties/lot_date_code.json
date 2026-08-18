@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "An alphanumeric string used by a manufacturer to identify the collection (lot) of part instances of which a specific part instance was a member.",
+    "domain": "ProductInstance",
+    "functional": true,
+    "id": "lot_date_code",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "lot_date_code",
+    "oid": "pgef:lot_date_code",
+    "range": "str"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Relation to which a ParameterRelation relationship points.",
+    "domain": "ParameterRelation",
+    "functional": true,
+    "id": "referenced_relation",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "referenced_relation",
+    "oid": "pgef:referenced_relation",
+    "range": "Relation"
+}

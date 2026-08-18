@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "For a Requirement whose constraint has a maximum, the value of the maximum.",
+    "domain": "Requirement",
+    "functional": true,
+    "id": "rqt_maximum_value",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "rqt_maximum_value",
+    "oid": "pgef:rqt_maximum_value",
+    "range": "float"
+}

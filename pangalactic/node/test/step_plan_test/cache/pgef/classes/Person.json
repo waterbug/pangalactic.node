@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Actor"
+    ],
+    "comment": "",
+    "definition": "A human being.",
+    "id": "Person",
+    "id_ns": "pgef",
+    "name": "Person",
+    "oid": "pgef:Person"
+}

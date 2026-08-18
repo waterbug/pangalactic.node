@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The slots or roles (assembly component usages [Acu]) of the products used to assemble this product.",
+    "domain": "Product",
+    "functional": false,
+    "id": "components",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "assembly",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "components",
+    "oid": "pgef:components",
+    "range": "Acu"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Document referenced by a DocumentReference relationship.",
+    "domain": "DocumentReference",
+    "functional": true,
+    "id": "document",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "document",
+    "oid": "pgef:document",
+    "range": "Document"
+}

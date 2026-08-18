@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The middle initial or middle name of a person.",
+    "domain": "Person",
+    "functional": true,
+    "id": "mi_or_name",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "mi_or_name",
+    "oid": "pgef:mi_or_name",
+    "range": "str"
+}

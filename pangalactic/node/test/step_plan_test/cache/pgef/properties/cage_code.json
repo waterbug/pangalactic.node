@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "Identifier for an organization in the DoD Commercial And Government Entity (CAGE) database.",
+    "domain": "Organization",
+    "functional": true,
+    "id": "cage_code",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "cage_code",
+    "oid": "pgef:cage_code",
+    "range": "str"
+}

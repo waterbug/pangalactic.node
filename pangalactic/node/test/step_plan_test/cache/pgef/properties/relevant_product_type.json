@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The ProductType to which a DisciplineProductType relationship points.",
+    "domain": "DisciplineProductType",
+    "functional": true,
+    "id": "relevant_product_type",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "relevant_product_type",
+    "oid": "pgef:relevant_product_type",
+    "range": "ProductType"
+}

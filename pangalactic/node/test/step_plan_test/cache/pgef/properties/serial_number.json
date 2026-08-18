@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "An identifier assigned by a manufacturer to a specific part instance.",
+    "domain": "ProductInstance",
+    "functional": true,
+    "id": "serial_number",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "serial_number",
+    "oid": "pgef:serial_number",
+    "range": "str"
+}

@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "HardwareProduct"
+    ],
+    "comment": "",
+    "definition": "A hardware product that is continuous in nature (e.g., fuel, coating, paint, etc.), as opposed to discrete hardware products such as electronics boxes, spacecraft, etc.  A primary characteristic of continuous products is that they are purchased and used in bulk quantities such as volumes or areas, so their quantities are specified in non-integer measures with units, in contrast to quantities of discrete products, which are always integers.\n",
+    "id": "ContinuousProduct",
+    "id_ns": "pgef",
+    "name": "ContinuousProduct",
+    "oid": "pgef:ContinuousProduct"
+}

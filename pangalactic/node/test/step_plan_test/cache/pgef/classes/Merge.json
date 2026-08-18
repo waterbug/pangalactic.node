@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "ActivityControl"
+    ],
+    "comment": "",
+    "definition": "A point in a sequence of activities in which the preceding activity (antecedent) was the last activity in an alternative set of activities that resulted from a Decision.",
+    "id": "Merge",
+    "id_ns": "pgef",
+    "name": "Merge",
+    "oid": "pgef:Merge"
+}

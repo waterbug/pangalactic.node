@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "ManagedObject"
+    ],
+    "comment": "",
+    "definition": "A named, structured procedural concept which is realized and applied systematically to achieve an objective.",
+    "id": "Activity",
+    "id_ns": "pgef",
+    "name": "Activity",
+    "oid": "pgef:Activity"
+}

@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The system or component usage of which this is an Activity.",
+    "domain": "Activity",
+    "functional": true,
+    "id": "of_system",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "of_system",
+    "oid": "pgef:of_system",
+    "range": "Modelable"
+}

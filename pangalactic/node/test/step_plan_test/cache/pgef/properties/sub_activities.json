@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Activities which are sub-activities of an Activity.",
+    "domain": "Activity",
+    "functional": false,
+    "id": "sub_activities",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "sub_activity_of",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "sub_activities",
+    "oid": "pgef:sub_activities",
+    "range": "Activity"
+}

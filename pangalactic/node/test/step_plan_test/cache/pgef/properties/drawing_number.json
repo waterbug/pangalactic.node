@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "Identifier for a drawing (a type of specification).",
+    "domain": "HardwareProduct",
+    "functional": true,
+    "id": "drawing_number",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "drawing_number",
+    "oid": "pgef:drawing_number",
+    "range": "str"
+}

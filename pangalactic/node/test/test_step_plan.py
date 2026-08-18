@@ -282,18 +282,66 @@ class StepPlanTest(unittest.TestCase):
                  any(i.kind == ACU for i in result.skipped)]
         self.assertEqual(expected, value)
 
+    def test_12a_shared_prototype_structure_is_planned_once(self):
+        """
+        CASE:  a sub-assembly used twice yields one set of components, not
+        one per use.
+
+        The reader expands the tree by descending into a prototype at every
+        use of it, so the children of a prototype used twice appear twice.
+        They are one product with one set of components:  planning an Acu per
+        occurrence would hang two copies of every child off the one product,
+        and a later PLACE import would then report the surplus as missing
+        from the file.
+        """
+        inner = [occ('N', 'nut', 'Nut'), occ('B', 'bolt', 'Bolt')]
+        root = occ('root', prototype_key='asm', prototype_name='Rig',
+                   children=[occ('P1', 'pair', 'Pair', inner),
+                             occ('P2', 'pair', 'Pair', inner)])
+        items = plan_creation(root, reuse_products=False)
+        acus = [i for i in items if i.kind == ACU]
+        # two uses of "Pair", plus the two components Pair is made of
+        expected = 4
+        value = len(acus)
+        self.assertEqual(expected, value)
+
+    def test_12b_shared_prototype_matches_once_when_placing(self):
+        """
+        CASE:  the same, for a PLACE import -- the components of a shared
+        sub-assembly are paired once, not once per use
+        """
+        inner = [occ('N', 'nut', 'Nut'), occ('B', 'bolt', 'Bolt')]
+        root = occ('root', prototype_key='asm', prototype_name='Rig2',
+                   children=[occ('P1', 'pair', 'Pair2', inner),
+                             occ('P2', 'pair', 'Pair2', inner)])
+        result = apply_creation(plan_creation(root, reuse_products=False))
+        orb.db.commit()
+        top = [o for o in result.created
+               if type(o).__name__ == 'HardwareProduct'
+               and o.name == 'Rig2'][0]
+        items = plan_placements(root, top)
+        expected = [4, 0]
+        value = [len([i for i in items if i.status == MATCHED]),
+                 len([i for i in items if i.status == UNPLACED])]
+        self.assertEqual(expected, value)
+
     def test_13_plans_a_real_step_file(self):
         """
-        CASE:  a create plan for the AS1 test assembly proposes its distinct
-        products and all of its usages
+        CASE:  a create plan for the AS1 test assembly proposes one product
+        per distinct prototype and one usage per component of each.
+
+        AS1 is 9 prototypes assembled as 4 + 4 + 2 + 3 = 13 usages.  That is
+        fewer than its 27 occurrences, because "l-bracket assy" is used twice
+        and "nut-bolt assy" six times, and each is one product with one set
+        of components however often it is used.
         """
         from pangalactic.node.step_import import read_assembly
         root = read_assembly(AS1)
         items = plan_creation(root, reuse_products=False)
         products = [i for i in items if i.kind == PRODUCT]
         acus = [i for i in items if i.kind == ACU]
-        expected = [len(root.prototypes()), len(list(root.walk())) - 1]
-        value = [len(products), len(acus)]
+        expected = [9, 13, 27]
+        value = [len(products), len(acus), len(list(root.walk())) - 1]
         self.assertEqual(expected, value)
 
     # ---- the stored correspondence ---------------------------------------

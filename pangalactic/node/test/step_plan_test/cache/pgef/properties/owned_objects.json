@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The objects whose information or specification is managed by an organization.",
+    "domain": "Organization",
+    "functional": false,
+    "id": "owned_objects",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "owner",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "owned_objects",
+    "oid": "pgef:owned_objects",
+    "range": "ManagedObject"
+}

@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Identifiable"
+    ],
+    "comment": "",
+    "definition": "A DocumentReference is the relationship between a Document and a Modelable instance. DocumentReference is a many-to-many relationship in that a Document may be associated with multiple Modelables and a Modelable may have several Documents related to it.",
+    "id": "DocumentReference",
+    "id_ns": "pgef",
+    "name": "DocumentReference",
+    "oid": "pgef:DocumentReference"
+}

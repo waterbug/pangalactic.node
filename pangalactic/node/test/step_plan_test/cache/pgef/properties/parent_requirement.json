@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The parent Requirement in a RequirementAncestry relationship.",
+    "domain": "RequirementAncestry",
+    "functional": true,
+    "id": "parent_requirement",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "parent_requirement",
+    "oid": "pgef:parent_requirement",
+    "range": "Requirement"
+}

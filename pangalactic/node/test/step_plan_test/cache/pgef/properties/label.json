@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "A label for display, for example as a header when the data element occurs as a column in a table.",
+    "domain": "DataElementDefinition",
+    "functional": true,
+    "id": "label",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "label",
+    "oid": "pgef:label",
+    "range": "str"
+}

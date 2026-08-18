@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Modelable instance referenced by a DocumentReference relationship.",
+    "domain": "DocumentReference",
+    "functional": true,
+    "id": "related_item",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "related_item",
+    "oid": "pgef:related_item",
+    "range": "Modelable"
+}

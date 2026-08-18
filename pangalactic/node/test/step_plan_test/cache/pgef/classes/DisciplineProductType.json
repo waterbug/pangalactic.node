@@ -1,0 +1,13 @@
+{
+    "_meta_id": "Class",
+    "abbreviation": "",
+    "bases": [
+        "Identifiable"
+    ],
+    "comment": "",
+    "definition": "A Discipline ProductType is a relationship between a Discipline and a type of Product that is used by practitioners of that Discipline.  The two classes have a many-to-many relationship:  one Discipline will typically use many ProductTypes, and one ProductType can be used by many Disciplines.",
+    "id": "DisciplineProductType",
+    "id_ns": "pgef",
+    "name": "DisciplineProductType",
+    "oid": "pgef:DisciplineProductType"
+}

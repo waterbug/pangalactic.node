@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The CheckOut claims on an object (at most one un-expired claim at a time).",
+    "domain": "Identifiable",
+    "functional": false,
+    "id": "check_outs",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "checked_out_item",
+    "is_datatype": false,
+    "is_inverse": true,
+    "name": "check_outs",
+    "oid": "pgef:check_outs",
+    "range": "CheckOut"
+}

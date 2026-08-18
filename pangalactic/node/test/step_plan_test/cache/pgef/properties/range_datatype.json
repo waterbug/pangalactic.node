@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The name of the range datatype of a DataElementDefinition.",
+    "domain": "DataElementDefinition",
+    "functional": true,
+    "id": "range_datatype",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "range_datatype",
+    "oid": "pgef:range_datatype",
+    "range": "str"
+}

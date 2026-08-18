@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The date and time of last modification of an object.",
+    "domain": "Identifiable",
+    "functional": true,
+    "id": "mod_datetime",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "mod_datetime",
+    "oid": "pgef:mod_datetime",
+    "range": "datetime"
+}

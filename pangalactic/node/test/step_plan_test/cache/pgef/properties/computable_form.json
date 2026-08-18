@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The computable_form of a requirement is a Relation, which can usually be thought of as a mathematical constraint applied to a parameter or a set of parameters.",
+    "domain": "Requirement",
+    "functional": true,
+    "id": "computable_form",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "computable_form",
+    "oid": "pgef:computable_form",
+    "range": "Relation"
+}

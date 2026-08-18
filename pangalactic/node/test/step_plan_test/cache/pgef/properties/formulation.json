@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The mathematical expression(s) (e.g. inequality, equation, set of simultaneous equations, etc.) that define the Relation.",
+    "domain": "Relation",
+    "functional": true,
+    "id": "formulation",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "formulation",
+    "oid": "pgef:formulation",
+    "range": "str"
+}

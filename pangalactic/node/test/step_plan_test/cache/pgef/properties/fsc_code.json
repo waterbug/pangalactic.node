@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The Federal Supply Classification (FSC) code for a product (this is also the first four digits of the National Stock Number or NSN).",
+    "domain": "Product",
+    "functional": true,
+    "id": "fsc_code",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": true,
+    "is_inverse": false,
+    "name": "fsc_code",
+    "oid": "pgef:fsc_code",
+    "range": "str"
+}

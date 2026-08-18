@@ -1,0 +1,17 @@
+{
+    "_meta_id": "Property",
+    "abbreviation": "",
+    "comment": "",
+    "definition": "The context in which a role is assigned, usually an organization or project.",
+    "domain": "RoleAssignment",
+    "functional": true,
+    "id": "role_assignment_context",
+    "id_ns": "pgef",
+    "inverse_functional": false,
+    "inverse_of": "",
+    "is_datatype": false,
+    "is_inverse": false,
+    "name": "role_assignment_context",
+    "oid": "pgef:role_assignment_context",
+    "range": "Organization"
+}

@@ -124,13 +124,23 @@ def plan_placements(root, assembly):
         occurrence, in tree order
     """
     items = []
-    _plan_level(root.children, assembly, '', items)
+    _plan_level(root.children, assembly, '', items, set())
     return items
 
 
-def _plan_level(occurrences, assembly, path, items):
+def _plan_level(occurrences, assembly, path, items, seen):
     """
     Pair one assembly's components with one occurrence list, then recurse.
+
+    `seen` holds the prototypes whose contents have already been planned.  It
+    starts empty:  the root's own prototype never needs to be in it, since an
+    assembly cannot contain itself, and seeding it would suppress a child
+    that happened to share the root's prototype key.  A
+    prototype used twice is one product with one set of components, and its
+    contents are the same wherever it is used -- a nut sits in the same place
+    within a nut-bolt assembly however many of those the design contains --
+    so planning it once per use would pair the same Acus repeatedly and
+    report the surplus as missing.
     """
     acus = list(getattr(assembly, 'components', None) or [])
     by_ref = {}
@@ -156,8 +166,9 @@ def _plan_level(occurrences, assembly, path, items):
                               acu=acu,
                               note=f'reference designator '
                                    f'"{acu.reference_designator}"'))
-        if occ.children:
-            _plan_level(occ.children, acu.component, here, items)
+        if occ.children and occ.prototype_key not in seen:
+            seen.add(occ.prototype_key)
+            _plan_level(occ.children, acu.component, here, items, seen)
     for acu in acus:
         if acu.oid not in used:
             here = (f'{path}/{acu.reference_designator}' if path
@@ -196,18 +207,29 @@ def plan_creation(root, reuse_products=True):
                             note='no existing product with this name')
         product_items[key] = item
     acu_items = []
-    _plan_acus(root, root.children, '', acu_items)
+    _plan_acus(root, root.children, '', acu_items, set())
     return list(product_items.values()) + acu_items
 
 
-def _plan_acus(parent_occ, occurrences, path, items):
+def _plan_acus(parent_occ, occurrences, path, items, seen):
+    """
+    Propose an Acu per occurrence, once per distinct prototype.
+
+    The reader expands the tree by descending into a prototype at every use
+    of it, so the children of a prototype used six times appear six times.
+    They are one product with one set of components, though:  planning an Acu
+    per occurrence would hang six copies of "nut" off the one nut-bolt
+    assembly.  `seen` holds the prototypes already accounted for.
+    """
     for occ in occurrences:
         here = f'{path}/{occ.ref_des}' if path else occ.ref_des
         items.append(PlanItem(ACU, NEW, path=here, occurrence=occ,
                               parent_occurrence=parent_occ,
                               note=f'{occ.ref_des} of '
                                    f'"{occ.prototype_name}"'))
-        _plan_acus(occ, occ.children, here, items)
+        if occ.children and occ.prototype_key not in seen:
+            seen.add(occ.prototype_key)
+            _plan_acus(occ, occ.children, here, items, seen)
 
 
 def _find_product(name):
