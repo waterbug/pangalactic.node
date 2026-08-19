@@ -107,7 +107,9 @@ from pangalactic.core                  import (deletion_queue,
                                                write_deletion_queue)
 from pangalactic.core                  import (parm_del_queue,
                                                write_parm_del_queue)
-from pangalactic.core.access           import get_perms, is_global_admin
+from pangalactic.core.access           import (get_perms,
+                                               is_global_admin,
+                                               is_reference_data)
 from pangalactic.core.clone            import clone
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.meta             import asciify
@@ -1213,9 +1215,18 @@ class Main(QMainWindow):
         # NOTE: exclusion of "SANDBOX" PSUs here is IMPORTANT: without it, the
         # sync process will HANG for non-admin users (unclear why)
         # ********************************************************************
+        # NOTE: reference data is excluded because it is not authored by
+        # anyone:  load_reference_data() creates it on the client and on the
+        # server independently, from refdata.py, stamping "admin" as its
+        # creator.  For a user logged in as admin it therefore turns up in
+        # created_objects and gets pushed -- where the repository rejects it,
+        # since get_perms() gives reference data "view only".  Harmless but
+        # confusing, and it recurs on every sync for every refdata addition
+        # until both ends have the same refdata.py.
         oids = [o.oid for o in self.local_user.created_objects
                 if not (isinstance(o, orb.classes['ProjectSystemUsage'])
-                        and o.project.oid == 'pgefobjects:SANDBOX')]
+                        and o.project.oid == 'pgefobjects:SANDBOX')
+                and not is_reference_data(o)]
         data = orb.get_mod_dts(oids=oids)
         orb.log.debug('       -> rpc: vger.sync_objects()')
         try:
