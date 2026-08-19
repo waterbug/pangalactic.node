@@ -443,6 +443,10 @@ def apply_creation(items, owner=None, project=None, NOW=None):
                                                             component):
             result.skipped.append(item)
             continue
+        # NOTE: creator/modifier are stamped by new_thing() from the local
+        # user, matching what clone() does for the Acus it creates.  An Acu
+        # without a creator cannot appear in local_user.created_objects, so
+        # the sync would never pick it up if the direct push were missed.
         acu = new_thing('Acu', NOW=NOW,
                         id=get_acu_id(assembly.id, occ.ref_des),
                         name=get_acu_name(assembly.name, occ.ref_des),
