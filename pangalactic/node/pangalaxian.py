@@ -6538,8 +6538,7 @@ class Main(QMainWindow):
         """
         Handle "add update model" signal: call rpc to add or update Model and
         RepresentationFile objects related to a specified item, and add
-        callbacks to upload_file() to upload associated file(s) file if
-        appropriate.
+        callbacks to upload_file() to upload associated file(s) if appropriate.
         """
         orb.log.debug('* "add update model" signal received ...')
         if mtype_oid and fpath and parms:
@@ -6581,9 +6580,43 @@ class Main(QMainWindow):
             if so['_cname'] == "RepresentationFile":
                 oid = so['oid']
         if oid:
+            self.store_step_correspondence(oid, fpath)
             self.read_and_upload_file(fpath=fpath, rep_file_oid=oid)
         else:
             orb.log.debug('  - RepresentationFile oid not found; no upload.')
+
+    def store_step_correspondence(self, rep_file_oid, fpath):
+        """
+        Write the correspondence a STEP import left pending, now that the
+        RepresentationFile it hangs off exists.
+
+        A STEP import records which occurrence of the file became which
+        object, so that a later export can write changes back to the right
+        place and a re-import of a changed file can be recognised as such.
+        That correspondence is stored on the RepresentationFile, which
+        vger.add_update_model() creates -- so it cannot be written when the
+        import runs, only when the rpc returns here.
+
+        Args:
+            rep_file_oid (str):  oid of the new RepresentationFile
+            fpath (str):  the file it represents
+        """
+        pending = state.get('step_pending_correspondence') or {}
+        if not pending:
+            return
+        if pending.get('fpath') != fpath:
+            # this model was not the one the import registered
+            return
+        state['step_pending_correspondence'] = {}
+        rep_file = orb.get(rep_file_oid)
+        if rep_file is None:
+            orb.log.debug('  - step correspondence: no RepresentationFile.')
+            return
+        from pangalactic.node.step_plan import store_correspondence_map
+        store_correspondence_map(rep_file, pending)
+        orb.log.info(f'  - step correspondence stored on "{rep_file.id}"')
+        if state.get('connected'):
+            dispatcher.send(signal='modified object', obj=rep_file)
 
     def on_add_update_doc(self, fpath='', parms=None):
         """

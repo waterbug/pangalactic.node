@@ -462,8 +462,85 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
         dispatcher.send(signal='modified objects', objs=result.modified)
     if rep_file is not None:
         set_correspondence(rep_file, result, mode, checksum=_checksum(path))
+    elif mode == CREATE:
+        _register_step_model(path, items, result, parent=parent)
     orb.log.info(f'* step import: {result!r}')
     return result
+
+
+# the ModelType a STEP file is a representation of
+MCAD_MODEL_TYPE_OID = 'pgefobjects:ModelType.MCAD'
+
+# STEP AP203/214/242 part 21 files
+STEP_MIME_TYPE = 'application/step'
+
+
+def _register_step_model(path, items, result, parent=None):
+    """
+    Give the imported assembly an MCAD Model of it, with a
+    RepresentationFile for the STEP file, and upload the file.
+
+    Rather than building those objects here, this sends the same
+    "add update model" signal that `ModelImportDialog` sends, so an imported
+    STEP model is created by exactly the path that a hand-attached one is:
+    `vger.add_update_model()` makes the Model and the RepresentationFile,
+    assigns the vault file name, publishes them on the owner's channel, and
+    the client then uploads the file.  Duplicating that here would mean a
+    second implementation of the vault naming, which belongs on the server.
+
+    The correspondence cannot be stored yet:  it hangs off the
+    RepresentationFile, which does not exist until the rpc returns.  It is
+    left in `state` for `on_model_added()` to write once the object arrives.
+
+    Args:
+        path (str):  the STEP file that was imported
+        items (list of PlanItem):  the plan, for finding the root assembly
+        result (ImportResult):  what the import did
+
+    Keyword Args:
+        parent (QWidget):  parent widget, for any error dialog
+    """
+    root_items = [i for i in items
+                  if i.kind == PRODUCT and getattr(i, 'is_root', False)]
+    assembly = None
+    for item in root_items:
+        oid = result.mapping.get(item.path)
+        assembly = orb.get(oid) if oid else None
+        if assembly is not None:
+            break
+    if assembly is None:
+        orb.log.debug('  - step: no root assembly; no model registered.')
+        return
+    if not state.get('connected'):
+        # add_update_model is an rpc; offline there is nothing to call.  The
+        # assembly and its placements are already saved and will sync, but
+        # the STEP file itself will not be attached.
+        orb.log.info('  - step: not connected; model/file not registered.')
+        return
+    fname = os.path.basename(path)
+    try:
+        fsize = os.path.getsize(path)
+    except OSError:
+        orb.log.error(f'  - step: cannot size "{path}"; not registering.')
+        return
+    parms = {'file name': fname,
+             'file size': str(fsize),
+             'mime_type': STEP_MIME_TYPE,
+             'name': assembly.name,
+             'description': f'STEP model imported from "{fname}"',
+             'of_thing_oid': assembly.oid,
+             'owner_oid': getattr(assembly.owner, 'oid', '') or '',
+             'project_oid': state.get('project') or ''}
+    # left for on_model_added(), which is where the RepresentationFile
+    # first exists
+    state['step_pending_correspondence'] = {
+                                'fpath': path,
+                                'checksum': _checksum(path),
+                                'mode': CREATE,
+                                'map': dict(result.mapping)}
+    orb.log.info(f'  - step: registering MCAD model of "{assembly.id}"')
+    dispatcher.send(signal='add update model',
+                    mtype_oid=MCAD_MODEL_TYPE_OID, fpath=path, parms=parms)
 
 
 def _checksum(path):

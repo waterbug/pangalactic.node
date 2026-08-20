@@ -391,3 +391,107 @@ def test_21_no_project_means_no_option(qtbot):
     dlg = StepPlanDialog(_create_plan(), CREATE, project=None)
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is None
+
+
+# ---- registering the STEP file as an MCAD model --------------------------
+
+def test_19_create_import_registers_an_mcad_model(qtbot, monkeypatch,
+                                                  tmp_path):
+    """
+    A CREATE import asks for a Model of the imported assembly, with the STEP
+    file as its RepresentationFile, by sending the same "add update model"
+    signal that ModelImportDialog sends.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from pangalactic.core import state
+    step_file = tmp_path / 'rover.stp'
+    step_file.write_text('ISO-10303-21;')
+    root = occ('root', children=[occ('A')])
+    root.prototype_key = 'rk'
+    root.prototype_name = 'Rover Assembly'
+    root.children[0].prototype_key = 'wk'
+    root.children[0].prototype_name = 'Rover Wheel'
+
+    sent = {}
+    def fake_send(signal=None, **kw):
+        if signal == 'add update model':
+            sent.update(kw)
+    monkeypatch.setattr(sd.dispatcher, 'send', fake_send)
+    # NOTE: file_path must be set on the *instance* from exec_, because
+    # __init__ assigns self.file_path = '' and would shadow a class attribute
+    monkeypatch.setattr(sd.StepImportModeDialog, 'exec_',
+                        lambda self: (setattr(self, 'file_path',
+                                              str(step_file)) or 1))
+    monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
+                        raising=False)
+    monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
+                        lambda *a, **k: root)
+    monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 1)
+    was = state.get('connected')
+    state['connected'] = True
+    try:
+        result = sd.run_step_import(assembly=None)
+    finally:
+        state['connected'] = was
+    assert result is not None
+    assert sent.get('mtype_oid') == sd.MCAD_MODEL_TYPE_OID
+    assert sent.get('fpath') == str(step_file)
+    parms = sent.get('parms') or {}
+    assert parms.get('file name') == 'rover.stp'
+    assert parms.get('mime_type') == sd.STEP_MIME_TYPE
+    assert parms.get('file size') == str(step_file.stat().st_size)
+    # of_thing is the imported *assembly*, not one of its components
+    assert orb.get(parms['of_thing_oid']).name == 'Rover Assembly'
+
+
+def test_20_correspondence_waits_for_the_representation_file(qtbot,
+                                                             monkeypatch,
+                                                             tmp_path):
+    """
+    The correspondence cannot be written when the import runs -- the
+    RepresentationFile does not exist yet -- so it is left in state, and
+    written once the rpc returns.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from pangalactic.node.step_plan import (store_correspondence_map,
+                                            get_correspondence)
+    from pangalactic.core import state
+    from pangalactic.core.placements import new_thing
+    step_file = tmp_path / 'sled.stp'
+    step_file.write_text('ISO-10303-21;')
+    root = occ('root', children=[occ('A')])
+    root.prototype_key = 'sk'
+    root.prototype_name = 'Sled Assembly'
+    root.children[0].prototype_key = 'swk'
+    root.children[0].prototype_name = 'Sled Wheel'
+    monkeypatch.setattr(sd.dispatcher, 'send', lambda *a, **k: None)
+    # NOTE: file_path must be set on the *instance* from exec_, because
+    # __init__ assigns self.file_path = '' and would shadow a class attribute
+    monkeypatch.setattr(sd.StepImportModeDialog, 'exec_',
+                        lambda self: (setattr(self, 'file_path',
+                                              str(step_file)) or 1))
+    monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
+                        raising=False)
+    monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
+                        lambda *a, **k: root)
+    monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 1)
+    was = state.get('connected')
+    state['connected'] = True
+    try:
+        sd.run_step_import(assembly=None)
+    finally:
+        state['connected'] = was
+    pending = state.get('step_pending_correspondence') or {}
+    assert pending.get('fpath') == str(step_file)
+    assert pending.get('map')            # non-empty
+    assert pending.get('checksum')       # a real file was hashed
+    # now the RepresentationFile arrives, as it would from the rpc
+    rep_file = new_thing('RepresentationFile', id='sled-rf', name='sled rf',
+                         user_file_name='sled.stp')
+    orb.db.commit()
+    store_correspondence_map(rep_file, pending)
+    orb.db.commit()
+    stored = get_correspondence(rep_file)
+    assert stored['mode'] == sd.CREATE
+    assert stored['checksum'] == pending['checksum']
+    assert stored['map'] == pending['map']

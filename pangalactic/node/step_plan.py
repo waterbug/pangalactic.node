@@ -510,6 +510,34 @@ def get_correspondence(rep_file):
     return stored if isinstance(stored, dict) else {}
 
 
+def store_correspondence_map(rep_file, pending):
+    """
+    Write a correspondence that was built earlier than the
+    RepresentationFile it belongs on.
+
+    A STEP import knows its correspondence as soon as it has applied the
+    plan, but the RepresentationFile is created by
+    `vger.add_update_model()` and does not exist until that rpc returns.
+    The import therefore leaves the map in `state` and the rpc callback
+    writes it here.
+
+    Args:
+        rep_file (RepresentationFile):  the stored STEP file
+        pending (dict):  keys "map", "mode" and "checksum", as left by the
+            import
+
+    Returns:
+        dict:  the structure that was stored
+    """
+    stored = {'version': CORRESPONDENCE_VERSION,
+              'mode': pending.get('mode', ''),
+              'imported': str(dtstamp()),
+              'checksum': pending.get('checksum', ''),
+              'map': dict(pending.get('map') or {})}
+    set_dval(rep_file.oid, CORRESPONDENCE_DEID, json.dumps(stored))
+    return stored
+
+
 def set_correspondence(rep_file, result, mode, checksum='', NOW=None):
     """
     Store the correspondence produced by an import.

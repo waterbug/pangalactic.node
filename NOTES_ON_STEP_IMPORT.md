@@ -321,6 +321,56 @@ P as a system*. Three details worth stating:
 Declining the checkbox still creates the assembly; it just stays in the
 library until someone puts it on a project deliberately.
 
+## 3c. Attaching the STEP file to the assembly
+
+A CREATE import now also gives the imported assembly an **MCAD `Model` of
+it**, with the STEP file as that model's **`RepresentationFile`**, and
+uploads the file. Without this the import produced an assembly whose
+geometry had come from a file the repository knew nothing about — and the
+correspondence of §3a had nowhere to live, since it hangs off the
+`RepresentationFile`.
+
+**It reuses the existing path rather than duplicating it.** `run_step_import`
+sends the same `"add update model"` signal that `ModelImportDialog` sends, so
+`vger.add_update_model()` creates both objects, assigns the vault file name
+and publishes them, and the client then uploads the file through
+`read_and_upload_file()`. An imported STEP model is therefore
+indistinguishable from a hand-attached one, and the vault naming stays on the
+server where it already lives. Building the objects client-side instead would
+have meant a second implementation of `get_vault_fname()`.
+
+What the import supplies:
+
+| | |
+|---|---|
+| `type_of_model` | `pgefobjects:ModelType.MCAD` |
+| `of_thing` | the imported top-level assembly (the `is_root` product item) |
+| `user_file_name` | the STEP file's own name |
+| `file_size` | its size on disk |
+| `mime_type` | `application/step` |
+
+`mime_type` needed a fix in `vger.add_update_model()`, which never set it —
+so **every `RepresentationFile` in the repository had a null one**, not only
+those from imports. Callers that do not supply one now get `''` rather than a
+`KeyError`.
+
+### The correspondence has to wait
+
+It cannot be written when the import runs, because the `RepresentationFile`
+does not exist until the rpc returns. The import leaves it in
+`state['step_pending_correspondence']` and `on_model_added()` writes it with
+`store_correspondence_map()`. The pending entry records the file path and is
+matched on it, so a model added by some other route in the meantime cannot
+claim it.
+
+### Offline
+
+Registration is skipped, with a log line. `add_update_model` is an rpc and
+there is nothing to call. The assembly and its placements are still saved and
+will sync — only the file attachment is lost, and re-importing the file while
+connected is the remedy. Queuing the upload for reconnect is a larger piece
+of work and is not attempted.
+
 ## 4. Running the spikes
 
 They take a STEP file path; neither is wired into the app and neither is a
