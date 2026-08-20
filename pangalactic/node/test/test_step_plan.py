@@ -502,6 +502,48 @@ class StepPlanTest(unittest.TestCase):
         finally:
             state['local_user_oid'] = was
 
+    def test_12d_prototypes_sharing_a_name_are_mapped_separately(self):
+        """
+        CASE:  two prototypes with the same name get separate entries in the
+        correspondence.
+
+        A PRODUCT item's path is the prototype *name*, which is what a
+        reviewer reads, but names are not unique:  Pro/ENGINEER emits eight
+        prototypes named "SOLID" or "COMPOUND" in AS1 alone.  Keying the map
+        on the name collapsed them -- an import that created 19 products
+        recorded 11 -- which is exactly the confusion the correspondence is
+        supposed to prevent.
+        """
+        root = occ('root', prototype_key='dk', prototype_name='Dup Rig',
+                   children=[occ('A', 'k1', 'SOLID'),
+                             occ('B', 'k2', 'SOLID')])
+        items = plan_creation(root, reuse_products=False)
+        result = apply_creation(items)
+        orb.db.commit()
+        products = [i for i in items if i.kind == PRODUCT]
+        prod_entries = [k for k in result.mapping if k.startswith('prototype:')]
+        # three distinct prototypes, two of them sharing the name "SOLID"
+        expected = [3, 3, 2]
+        value = [len(products), len(prod_entries),
+                 len([i for i in products if i.path == 'SOLID'])]
+        self.assertEqual(expected, value)
+
+    def test_12e_product_and_usage_keys_cannot_collide(self):
+        """
+        CASE:  a product entry and a usage entry are distinguishable in the
+        map even if a prototype is named like an occurrence path
+        """
+        root = occ('root', prototype_key='ck', prototype_name='Coll Rig',
+                   children=[occ('WIDGET', 'wk', 'WIDGET')])
+        items = plan_creation(root, reuse_products=False)
+        result = apply_creation(items)
+        orb.db.commit()
+        keys = sorted(result.mapping)
+        expected = [True, True]
+        value = [any(k.startswith('prototype:') for k in keys),
+                 'WIDGET' in keys]     # the usage path, unprefixed
+        self.assertEqual(expected, value)
+
     def test_13_plans_a_real_step_file(self):
         """
         CASE:  a create plan for the AS1 test assembly proposes one product

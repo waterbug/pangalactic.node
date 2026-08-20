@@ -260,6 +260,30 @@ def _find_product(name):
     return found[0] if len(found) == 1 else None
 
 
+def product_key(item):
+    """
+    The correspondence key for a PRODUCT plan item.
+
+    A PRODUCT item's `path` is the prototype's *name*, which is what a
+    reviewer wants to read -- but names are not unique.  Pro/ENGINEER emits
+    eight prototypes named "SOLID" or "COMPOUND" in the AS1 assembly alone,
+    and keying the map on the name silently collapsed them:  an import that
+    created 19 products recorded 11.  That is exactly the confusion the
+    correspondence exists to prevent, so products are keyed on the prototype
+    itself.
+
+    The prefix distinguishes a product entry from a usage entry, whose key is
+    an occurrence path, and would otherwise be free to collide with it.
+
+    Args:
+        item (PlanItem):  a PRODUCT item
+
+    Returns:
+        str:  its key in ImportResult.mapping
+    """
+    return f'prototype:{item.key}'
+
+
 class ImportResult:
     """
     What an import did.
@@ -417,7 +441,7 @@ def apply_creation(items, owner=None, project=None, NOW=None):
             continue
         if item.status == REUSED:
             products[item.key] = item.product
-            result.mapping[item.path] = item.product.oid
+            result.mapping[product_key(item)] = item.product.oid
             continue
         # public=False is set explicitly rather than left to default:  an
         # unset "public" reads as cloaked only by falling through the last
@@ -432,7 +456,7 @@ def apply_creation(items, owner=None, project=None, NOW=None):
         product = clone('HardwareProduct', **kw)
         products[item.key] = product
         result.created.append(product)
-        result.mapping[item.path] = product.oid
+        result.mapping[product_key(item)] = product.oid
     for item in items:
         if item.kind != ACU:
             continue

@@ -31,7 +31,8 @@ from pangalactic.node.step_plan import (ACU, CREATE, MATCHED, NEW, PLACE,
                                         UNPLACED, apply_creation,
                                         apply_placements, file_has_changed,
                                         get_correspondence, plan_creation,
-                                        plan_placements, set_correspondence)
+                                        plan_placements, product_key,
+                                        set_correspondence)
 
 # how each status reads to a user, and how it is coloured.  UNMATCHED and
 # UNPLACED are informational:  they say what the import will *not* cover,
@@ -504,7 +505,10 @@ def _register_step_model(path, items, result, parent=None):
                   if i.kind == PRODUCT and getattr(i, 'is_root', False)]
     assembly = None
     for item in root_items:
-        oid = result.mapping.get(item.path)
+        # NOTE: product entries are keyed on the prototype, not on the
+        # display path -- prototype names are not unique.  See
+        # step_plan.product_key().
+        oid = result.mapping.get(product_key(item))
         assembly = orb.get(oid) if oid else None
         if assembly is not None:
             break
