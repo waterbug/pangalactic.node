@@ -14,14 +14,15 @@ dialog; nothing here should acquire logic about matching or creating.
 """
 import os
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QEventLoop, Qt
 from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
                              QDialogButtonBox, QFileDialog, QFormLayout,
                              QHBoxLayout, QLabel, QPushButton, QRadioButton,
                              QTableWidget, QTableWidgetItem, QVBoxLayout)
 
-from pangalactic.node.dialogs import OptionNotification
+from pangalactic.node.dialogs import OptionNotification, ProgressDialog
+from pangalactic.node.threads import Worker, threadpool
 
 from pydispatch import dispatcher
 
@@ -54,6 +55,122 @@ STATUS_COLOR = {
     }
 
 KIND_TEXT = {PLACEMENT: 'placement', PRODUCT: 'product', ACU: 'usage'}
+
+
+# ---------------------------------------------------------------------------
+# Progress reporting.
+#
+# A STEP import takes long enough on a real assembly to look like a hang:
+# reading the file is a single blocking call into OCC that can run for many
+# seconds, and applying the plan creates a few objects per component.  So the
+# work is reported in two ways, according to what can be known about it:
+#
+#   * reading -- a busy indicator, driven from a worker thread.  OCC gives no
+#     way to ask how far through the file it is, and running it on the GUI
+#     thread would freeze even an animated bar, so it goes to the threadpool
+#     and a nested event loop waits for it.  This keeps run_step_import()
+#     synchronous, which is what its callers expect.
+#   * applying -- a real progress bar.  Here the work is a loop over known
+#     items, so the fraction done is honest.  This stays on the GUI thread:
+#     it creates objects, and the orb's SQLAlchemy session belongs to the
+#     thread that made it.
+# ---------------------------------------------------------------------------
+
+def _busy_dialog(title, label, parent=None):
+    """
+    A modal dialog with an indeterminate ("busy") progress bar.
+
+    Args:
+        title (str):  window title
+        label (str):  what is being waited for
+
+    Keyword Args:
+        parent (QWidget):  parent widget
+
+    Returns:
+        ProgressDialog
+    """
+    # NOTE: constructed with maximum=1, not 0.  ProgressDialog sets the value
+    # to 0 in its constructor, and a QProgressDialog whose value has reached
+    # its maximum closes itself -- so a maximum of 0 would close the dialog
+    # as it was built.  The range is made indeterminate afterwards, with
+    # auto-close and auto-reset off.
+    dlg = ProgressDialog(title=title, label=label, maximum=1, parent=parent)
+    dlg.setAutoClose(False)
+    dlg.setAutoReset(False)
+    dlg.setRange(0, 0)
+    dlg.show()
+    return dlg
+
+
+def _run_busy(fn, *args, title='Working', label='working ...', parent=None):
+    """
+    Run `fn` on the threadpool while a busy dialog is shown, and wait for it.
+
+    The wait is a nested event loop rather than a blocking join, so the dialog
+    paints and its bar animates while the work runs.
+
+    Args:
+        fn (callable):  the function to run.  It must not touch the orb --
+            the database session belongs to the GUI thread.
+        args:  positional arguments for `fn`
+
+    Keyword Args:
+        title (str):  window title for the dialog
+        label (str):  what is being waited for
+        parent (QWidget):  parent widget
+
+    Returns:
+        tuple:  (result, error), where error is the (exctype, value,
+        traceback) tuple emitted by the Worker, or None if `fn` returned.
+    """
+    dlg = _busy_dialog(title, label, parent=parent)
+    out = {}
+    loop = QEventLoop()
+    worker = Worker(fn, *args)
+    worker.signals.result.connect(lambda r: out.__setitem__('result', r))
+    worker.signals.error.connect(lambda e: out.__setitem__('error', e))
+    worker.signals.progress.connect(
+                    lambda what, n: what and dlg.setLabelText(what))
+    worker.signals.finished.connect(loop.quit)
+    threadpool.start(worker)
+    loop.exec_()
+    dlg.close()
+    return out.get('result'), out.get('error')
+
+
+def _read_step_file(path, progress_signal=None):
+    """
+    Check a STEP file's external references and read its assembly.
+
+    Run on a worker thread by `_run_busy`, so it touches only the file and
+    OCC -- no orb, no Qt widgets.  The two steps are done together because
+    the first decides whether the second is worth doing.
+
+    Args:
+        path (str):  path to the STEP file
+
+    Keyword Args:
+        progress_signal (pyqtSignal):  supplied by Worker; used to say which
+            step is running
+
+    Returns:
+        tuple:  (missing, root), where `missing` is the list of unresolved
+        external references -- if it is non-empty, `root` is None and the
+        file was not read.
+    """
+    # already imported by run_step_import on the GUI thread, so this is a
+    # dict lookup rather than a first import of pythonocc in a worker thread
+    from pangalactic.node.step_import import (missing_references,
+                                              read_assembly)
+    if progress_signal is not None:
+        progress_signal.emit('checking for referenced files ...', 0)
+    missing = missing_references(path)
+    if missing:
+        return missing, None
+    if progress_signal is not None:
+        progress_signal.emit('reading assembly ...', 0)
+    return [], read_assembly(path)
 
 
 class StepImportModeDialog(QDialog):
@@ -397,9 +514,11 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
         the file could not be read.
     """
     # imported here rather than at module scope so that importing the
-    # dialogs does not pull in pythonocc
-    from pangalactic.node.step_import import (missing_references,
-                                               read_assembly)
+    # dialogs does not pull in pythonocc.  Imported for its side effect, and
+    # on the GUI thread:  _read_step_file is what actually calls into it, and
+    # that runs on a worker thread -- pythonocc's first import should not
+    # happen there.
+    from pangalactic.node import step_import       # noqa: F401
 
     mode_dlg = StepImportModeDialog(assembly=assembly, parent=parent)
     if not mode_dlg.exec_():
@@ -426,7 +545,22 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     # well have received it -- so the message says where the missing files
     # come from and what they must be called, rather than implying they
     # should already have them.  See NOTES_ON_STEP_EXTERNAL_REFS.md.
-    missing = missing_references(path)
+    (read_result, read_error) = _run_busy(
+                        _read_step_file, path,
+                        title='Reading STEP File',
+                        label=f'reading "{file_name}" ...',
+                        parent=parent)
+    if read_error is not None:
+        exctype, value, tb = read_error
+        orb.log.error(f'* step import: could not read "{path}": {value}')
+        orb.error_log.info(tb)
+        dlg = OptionNotification('STEP import failed',
+                                 f'"{file_name}" could not be read:'
+                                 f'<br>{value}',
+                                 parent=parent)
+        dlg.exec_()
+        return None
+    missing, root = read_result
     if missing:
         orb.log.info(f'  - step: {len(missing)} referenced file(s) missing.')
         lines = ''.join(
@@ -444,16 +578,6 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
                 'under exactly these names -- that is how a STEP reader '
                 'finds them.',
                 parent=parent)
-        dlg.exec_()
-        return None
-
-    try:
-        root = read_assembly(path)
-    except Exception as e:
-        orb.log.error(f'* step import: could not read "{path}": {e}')
-        dlg = OptionNotification('STEP import failed',
-                                 f'"{file_name}" could not be read:<br>{e}',
-                                 parent=parent)
         dlg.exec_()
         return None
 
@@ -475,8 +599,20 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     if not plan_dlg.exec_():
         return None
 
+    apply_progress = ProgressDialog(title='Importing',
+                                    label=f'importing "{file_name}" ...',
+                                    maximum=1, parent=parent)
+    apply_progress.setAttribute(Qt.WA_DeleteOnClose)
+
+    def on_progress(done, total):
+        # setMaximum before setValue, and one more than the total:  a
+        # QProgressDialog whose value reaches its maximum closes itself, and
+        # there is still saving to do after the last item
+        apply_progress.setMaximum(total + 1)
+        apply_progress.setValue(done)
+
     if mode == PLACE:
-        result = apply_placements(items)
+        result = apply_placements(items, progress=on_progress)
     else:
         # NOTE: deliberately not passing an owner.  clone() defaults it to
         # the current project, which is what a newly imported specification
@@ -486,7 +622,9 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
         add_system = (plan_dlg.add_system_checkbox is not None and
                       plan_dlg.add_system_checkbox.isChecked())
         result = apply_creation(items,
-                                project=project if add_system else None)
+                                project=project if add_system else None,
+                                progress=on_progress)
+    apply_progress.setLabelText('saving ...')
     if result.objects:
         orb.save(result.objects)
     if result.created:
@@ -496,7 +634,9 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     if rep_file is not None:
         set_correspondence(rep_file, result, mode, checksum=_checksum(path))
     elif mode == CREATE:
+        apply_progress.setLabelText('storing the STEP file ...')
         _register_step_model(path, items, result, parent=parent)
+    apply_progress.close()
     orb.log.info(f'* step import: {result!r}')
     return result
 

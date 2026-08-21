@@ -244,6 +244,61 @@ class StepPlanTest(unittest.TestCase):
         value = [len(dupes) > 1, statuses]
         self.assertEqual(expected, value)
 
+    def test_10a_creation_reports_progress(self):
+        """
+        CASE:  apply_creation() is given a progress callback.  It is called
+        with a monotonically increasing count that ends at the total, and the
+        total is fixed from the first call -- a progress bar cannot cope with
+        a maximum that moves backwards.
+        """
+        root = occ('root', prototype_key='pr', prototype_name='Progress Rig',
+                   children=[occ('A', 'pa', 'Progress Widget A'),
+                             occ('B', 'pb', 'Progress Widget B')])
+        items = plan_creation(root, reuse_products=False)
+        calls = []
+        apply_creation(items, progress=lambda d, t: calls.append((d, t)))
+        orb.db.commit()
+        self.assertTrue(calls)
+        totals = {t for d, t in calls}
+        self.assertEqual(1, len(totals))
+        total = totals.pop()
+        # the items are walked twice:  products, then usages
+        self.assertEqual(2 * len(items), total)
+        counts = [d for d, t in calls]
+        self.assertEqual(sorted(counts), counts)
+        self.assertEqual(list(range(1, total + 1)), counts)
+
+    def test_10b_placement_reports_progress(self):
+        """
+        CASE:  apply_placements() is given a progress callback.  Same
+        contract, over one walk of the items.
+        """
+        acu = orb.get(self.ACU_OID)
+        p = Placement((0.1, 0.2, 0.3), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0))
+        root = occ('root', children=[occ(acu.reference_designator,
+                                         placement=p)])
+        items = plan_placements(root, self._assembly())
+        calls = []
+        apply_placements(items, progress=lambda d, t: calls.append((d, t)))
+        orb.db.commit()
+        self.assertTrue(calls)
+        totals = {t for d, t in calls}
+        self.assertEqual(1, len(totals))
+        total = totals.pop()
+        self.assertEqual(len(items), total)
+        self.assertEqual(list(range(1, total + 1)), [d for d, t in calls])
+
+    def test_10c_progress_is_optional(self):
+        """
+        CASE:  no progress callback.  step_plan has no Qt in it and must not
+        require a caller that can draw one.
+        """
+        root = occ('root', prototype_key='np', prototype_name='No Progress',
+                   children=[occ('A', 'npa', 'No Progress Widget')])
+        result = apply_creation(plan_creation(root, reuse_products=False))
+        orb.db.commit()
+        self.assertTrue(result.created)
+
     def test_11_applying_creation_builds_the_assembly(self):
         """
         CASE:  applying a create plan makes the products, the Acus that

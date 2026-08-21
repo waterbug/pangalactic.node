@@ -562,3 +562,133 @@ def test_22_import_proceeds_when_the_set_is_complete(qtbot, monkeypatch,
     # cancelled at the plan dialog, but never refused for missing files
     assert 'Referenced files are missing' not in shown
 
+
+
+# ---------------------------------------------------------------------------
+# Progress reporting.
+#
+# A STEP import is slow enough to look like a hang, so the reading is done on
+# a worker thread under a busy indicator and the applying under a real
+# progress bar.  What is worth testing here is that the threading works --
+# that OCC can be driven off the GUI thread and gives the same answer -- and
+# that the dialogs behave (a QProgressDialog closes itself when its value
+# reaches its maximum, which is easy to trigger by accident).
+# ---------------------------------------------------------------------------
+
+from pangalactic.core.test import data as test_data_module
+
+from pangalactic.node.step_dialogs import (_busy_dialog, _read_step_file,
+                                           _run_busy)
+from pangalactic.node.step_import import read_assembly
+
+DATA = test_data_module.__path__[0]
+AS1_IDEAS = os.path.join(DATA, 'as1-id-203.stp')
+S1_PE = os.path.join(DATA, 's1-pe-214.stp')
+
+
+def flatten(occ, path=''):
+    """
+    Flatten an occurrence tree to (path, ref_des, prototype_name) triples, so
+    two reads can be compared without comparing object identities.
+    """
+    here = f'{path}/{occ.ref_des}'
+    out = [(here, occ.ref_des, occ.prototype_name)]
+    for child in occ.children:
+        out += flatten(child, here)
+    return out
+
+
+def test_20_busy_dialog_does_not_close_itself(qtbot):
+    """
+    CASE:  the busy dialog is built.  A QProgressDialog whose value reaches
+    its maximum closes itself, and ProgressDialog sets the value to 0 in its
+    constructor -- so a maximum of 0, the obvious way to ask for a busy
+    indicator, would close the dialog as it was built.
+    """
+    dlg = _busy_dialog('Reading', 'reading ...')
+    qtbot.addWidget(dlg)
+    assert dlg.isVisible()
+    assert dlg.minimum() == 0 and dlg.maximum() == 0   # indeterminate
+    assert not dlg.autoClose()
+    assert not dlg.autoReset()
+    dlg.close()
+
+
+def test_21_run_busy_returns_the_result(qtbot):
+    """
+    CASE:  a function that returns.  Its value comes back and no error does.
+    """
+    def work(progress_signal=None):
+        return 'the answer'
+
+    result, error = _run_busy(work, title='Working', label='working ...')
+    assert result == 'the answer'
+    assert error is None
+
+
+def test_22_run_busy_reports_an_exception(qtbot):
+    """
+    CASE:  a function that raises.  The exception comes back rather than
+    escaping into the worker thread, where nothing would see it.
+    """
+    def work(progress_signal=None):
+        raise ValueError('nope')
+
+    result, error = _run_busy(work, title='Working', label='working ...')
+    assert result is None
+    assert error is not None
+    exctype, value, tb = error
+    assert exctype is ValueError
+    assert 'nope' in str(value)
+    assert 'ValueError' in tb
+
+
+def test_23_run_busy_takes_arguments(qtbot):
+    """
+    CASE:  positional arguments reach the function.
+    """
+    def work(a, b, progress_signal=None):
+        return a + b
+
+    result, error = _run_busy(work, 2, 3, title='W', label='w')
+    assert error is None
+    assert result == 5
+
+
+def test_24_step_file_read_on_a_worker_thread(qtbot):
+    """
+    CASE:  a real STEP file, read through the worker thread the import uses.
+    OCC is a C++ library called through a binding, so that it can be driven
+    off the GUI thread at all is worth establishing; that it gives the same
+    tree as a direct read is the point of doing it.
+    """
+    expected = flatten(read_assembly(AS1_IDEAS))
+    result, error = _run_busy(_read_step_file, AS1_IDEAS,
+                              title='Reading', label='reading ...')
+    assert error is None
+    missing, root = result
+    assert missing == []
+    assert root is not None
+    assert flatten(root) == expected
+
+
+def test_25_missing_references_stop_the_read(qtbot):
+    """
+    CASE:  a file that refers to files not beside it.  _read_step_file gives
+    back the missing names and does not read the assembly -- reading it would
+    silently produce an assembly with empty subassemblies.
+    """
+    import shutil as _shutil
+    import tempfile
+    tmp = tempfile.mkdtemp()
+    try:
+        lonely = os.path.join(tmp, os.path.basename(S1_PE))
+        _shutil.copy(S1_PE, lonely)     # copied without its component files
+        result, error = _run_busy(_read_step_file, lonely,
+                                  title='Reading', label='reading ...')
+        assert error is None
+        missing, root = result
+        assert missing            # the component files were not copied
+        assert root is None       # ... so the assembly was not read
+    finally:
+        _shutil.rmtree(tmp, ignore_errors=True)

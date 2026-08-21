@@ -361,7 +361,7 @@ class ImportResult:
                 f'{len(self.mapping)} mapped, {len(self.skipped)} skipped>')
 
 
-def apply_placements(items, NOW=None):
+def apply_placements(items, NOW=None, progress=None):
     """
     Apply the confirmed items of a PLACE plan.
 
@@ -370,13 +370,20 @@ def apply_placements(items, NOW=None):
 
     Keyword Args:
         NOW (datetime):  timestamp for the new or modified objects
+        progress (callable):  called as progress(done, total) after each item
+            is handled, so a caller can drive a progress bar.  Optional:  this
+            module has no Qt dependency and does not acquire one here.
 
     Returns:
         ImportResult
     """
     NOW = NOW or dtstamp()
     result = ImportResult()
+    done, total = 0, len(items)
     for item in items:
+        done += 1
+        if progress is not None:
+            progress(done, total)
         if not (item.confirmed and item.actionable) or item.kind != PLACEMENT:
             result.skipped.append(item)
             continue
@@ -434,7 +441,8 @@ def add_project_system(product, project, NOW=None):
                  project=project, system=product)
 
 
-def apply_creation(items, owner=None, project=None, NOW=None):
+def apply_creation(items, owner=None, project=None, NOW=None,
+                   progress=None):
     """
     Apply the confirmed items of a CREATE plan:  create the products that do
     not exist, then the Acus that assemble them, then place them.
@@ -456,6 +464,11 @@ def apply_creation(items, owner=None, project=None, NOW=None):
             Tree.  Without it the assembly is created but is reachable only
             through the Hardware Library.
         NOW (datetime):  timestamp for the new objects
+        progress (callable):  called as progress(done, total) after each item
+            is handled, so a caller can drive a progress bar.  The items are
+            walked twice -- once for products, once for usages -- so `total`
+            is twice their number.  Optional:  this module has no Qt
+            dependency and does not acquire one here.
 
     Returns:
         ImportResult
@@ -466,7 +479,13 @@ def apply_creation(items, owner=None, project=None, NOW=None):
     NOW = NOW or dtstamp()
     result = ImportResult()
     products = {}
+    # the items are walked twice:  products must all exist before the usages
+    # that assemble them can be created
+    done, total = 0, 2 * len(items)
     for item in items:
+        done += 1
+        if progress is not None:
+            progress(done, total)
         if item.kind != PRODUCT:
             continue
         if not (item.confirmed and item.actionable):
@@ -491,6 +510,9 @@ def apply_creation(items, owner=None, project=None, NOW=None):
         result.created.append(product)
         result.mapping[product_key(item)] = product.oid
     for item in items:
+        done += 1
+        if progress is not None:
+            progress(done, total)
         if item.kind != ACU:
             continue
         occ, parent = item.occurrence, item.parent_occurrence
