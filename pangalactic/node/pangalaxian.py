@@ -466,6 +466,8 @@ class Main(QMainWindow):
         # "modified objects"
         # dispatcher.connect(self.on_updated_object_signal, 'updated objects')
         dispatcher.connect(self.on_act_mods_signal, 'act mods')
+        dispatcher.connect(self.on_unresolved_activity_parents,
+                           'unresolved activity parents')
         dispatcher.connect(self.on_new_objects_signal, 'new objects')
         dispatcher.connect(self.on_mod_objects_signal, 'modified objects')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
@@ -4047,6 +4049,42 @@ class Main(QMainWindow):
     def on_vger_set_properties_result(self, msg):
         if msg:
             orb.log.info(f'* vger: {msg}.')
+
+    def on_unresolved_activity_parents(self, activities=None):
+        """
+        Handle local dispatcher signal for "unresolved activity parents" --
+        deserialization received one or more Activity objects whose named
+        parent activity could not be found.
+
+        Sub-activities are created exclusively within the ConOps / timeline
+        modeler, in the context of their parent, and are never re-parented, so
+        a parent should always accompany its children.  If one is missing, the
+        data received was incomplete and the affected activities cannot be
+        placed in their timeline -- so say so rather than failing silently.
+
+        Args:
+            activities (list of Activity):  the activities whose parent could
+                not be found
+        """
+        if not activities:
+            return
+        names = [(getattr(a, 'name', '') or a.oid) for a in activities]
+        orb.log.info(f'* unresolved activity parents: {names}')
+        n = len(names)
+        s = 'activity' if n == 1 else 'activities'
+        html = '<p><b><font color="red">Incomplete data received.</font>'
+        html += '</b></p>'
+        html += f'<p>The parent activity of the following {s} could not be '
+        html += 'found, so they cannot be shown in their timeline:</p>'
+        html += '<ul>'
+        for name in names:
+            html += f'<li><b>{name}</b></li>'
+        html += '</ul>'
+        html += '<p>This should not happen -- a sub-activity is always created '
+        html += 'within its parent.  Please report it, and note which project '
+        html += 'and timeline you were working in.</p>'
+        dlg = NotificationDialog(html, news=False, parent=self)
+        dlg.show()
 
     def on_new_objects_signal(self, objs=None):
         """
