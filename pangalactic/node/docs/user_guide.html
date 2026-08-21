@@ -75,6 +75,14 @@
 <li><a href="#define-sub-activities-in-a-cycle-timeline">Define Sub-Activities in a Cycle Timeline</a></li>
 <li><a href="#graph-system-power-modes-vs.-time">Graph System Power Modes vs. Time</a></li>
 </ul></li>
+<li><a href="#work-while-disconnected-from-the-repository">Work While Disconnected from the Repository</a>
+<ul>
+<li><a href="#what-you-may-edit-offline">What You May Edit Offline</a></li>
+<li><a href="#check-out-the-items-you-intend-to-work-on">Check Out the Items You Intend to Work On</a></li>
+<li><a href="#a-claim-is-exclusive">A Claim Is Exclusive</a></li>
+<li><a href="#claims-expire">Claims Expire</a></li>
+<li><a href="#when-you-reconnect">When You Reconnect</a></li>
+</ul></li>
 <li><a href="#use-local-db-mode-to-display-tables-and-export-to-files">Use Local DB Mode to Display Tables and Export to Files</a></li>
 <li><a href="#set-preferred-units">Set Preferred Units</a></li>
 </ul></li>
@@ -421,6 +429,37 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 </figure>
 <p>The graph can be saved as either a “.png” or “.pdf” file.</p>
 <p>Note that when one of the activities in the <strong>Timeline</strong> is a <strong>Cyclic Activity</strong>, only one cycle will be shown in the graph. The graph will show the <strong>Peak Power</strong> and <strong>Average Power</strong> values for the cycle. The <strong>ConOps Tool</strong> is also capable of defining cycles within cycles and graphing them, if a mission <strong>Timeline</strong> contains them.</p>
+<h2 id="work-while-disconnected-from-the-repository">Work While Disconnected from the Repository</h2>
+<p><strong>Pangalaxian</strong> keeps a local database, so it runs perfectly well with no connection to the repository. What changes when you are disconnected is not what you can <em>see</em> but what you may <em>edit</em>.</p>
+<h3 id="what-you-may-edit-offline">What You May Edit Offline</h3>
+<p>While disconnected, you may edit:</p>
+<ul>
+<li>objects <strong>you created on this machine</strong> that the repository has not yet seen; and</li>
+<li>objects you have <strong>checked out</strong>.</li>
+</ul>
+<p>Everything else is view-only until you reconnect. This is deliberate. The repository decides which version of an object wins by its modification time, and an edit you make offline carries the time you made it – so if a colleague changes the same object while you are away, your work is the older version when you reconnect, and it is discarded. Checking an object out first means no one else can change it, so the situation cannot arise.</p>
+<h3 id="check-out-the-items-you-intend-to-work-on">Check Out the Items You Intend to Work On</h3>
+<p>Do this <em>before</em> you disconnect – claims are granted by the repository, so you must be connected to make them, and a project must be selected. Select the <strong>Prepare for Offline Work …</strong> item in the <strong>Tools</strong> menu.</p>
+<!-- SCREENSHOT: Tools menu with "Prepare for Offline Work ..." highlighted -->
+<!-- SCREENSHOT: the "Prepare for Offline Work" dialog -->
+<p>The dialog asks for two things and then lists what you can claim:</p>
+<ul>
+<li><strong>Purpose</strong> – free text, shown to your collaborators. It is worth filling in: it is what someone else sees when they find an item claimed, and it is the difference between “checked out by you” and “checked out by you <em>for the thermal rework</em>”.</li>
+<li><strong>Claim expires after</strong> – between 1 and 90 days, 7 by default. See <strong>Claims Expire</strong> below before choosing.</li>
+</ul>
+<p><strong>Available to check out</strong> lists the items you may claim, each with a checkbox, all checked initially; use <strong>Select All</strong> and <strong>Select None</strong> to set them together. <strong>Not available</strong> lists the ones you cannot, each with the reason: <em>already checked out by you</em>, <em>checked out by “someone”</em>, <em>frozen</em>, or <em>no permission to modify</em>.</p>
+<p>Some kinds of object are not offered at all, because they have no independent existence: <strong>Ports</strong>, <strong>Flows</strong>, <strong>Representation Files</strong>, and the objects that reify relationships. These are always created and edited as part of work on the thing that owns them, so claiming the owner covers them – checking out a <strong>Product</strong> covers its ports. <strong>Projects</strong> and the <strong>Person</strong> and <strong>Role</strong> objects are not work items and are not offered either. <strong>Activities</strong> <em>are</em> offered: editing a timeline offline is useful in its own right.</p>
+<p>Click <strong>OK</strong> and the claims are made. The repository decides authoritatively, applying the same permission rules, so occasionally an item the dialog offered comes back refused.</p>
+<h3 id="a-claim-is-exclusive">A Claim Is Exclusive</h3>
+<p>While an object is checked out, <strong>only the holder may modify it</strong> – online or offline, and including a <strong>Global Administrator</strong>. This is the same principle as a <strong>frozen</strong> object, where even an administrator gets no <strong>Edit</strong> button: the point of the claim is that the holder can rely on it.</p>
+<p>An administrator who genuinely needs a claimed object can force-release it, just as they would thaw a frozen object first.</p>
+<p>An object that is checked out shows a <strong>Checked Out</strong> indicator in the <strong><a href="#use-the-object-viewereditor">Object Viewer/Editor</a></strong>, reading <strong>Checked Out (you)</strong> if the claim is yours. Hovering over it names the holder, when the claim expires, and the purpose that was given for it.</p>
+<!-- SCREENSHOT: the Object Viewer/Editor showing the Checked Out indicator -->
+<h3 id="claims-expire">Claims Expire</h3>
+<p>A claim lapses by itself when its expiry passes, and the object becomes editable by others again.</p>
+<p><strong>Note that there is currently no way to check items back in from the interface.</strong> A claim ends when it expires, or when an administrator releases it. So choose the expiry with some care: long enough to cover the work, but not so long that a forgotten claim blocks a colleague for weeks. If you finish early, or find you need longer, ask an administrator to release the claim.</p>
+<h3 id="when-you-reconnect">When You Reconnect</h3>
+<p>Reconnecting syncs the current project: your offline edits are sent to the repository and anything that changed while you were away is fetched. Your claims are not released by reconnecting – they run until they expire.</p>
 <h2 id="use-local-db-mode-to-display-tables-and-export-to-files">Use Local DB Mode to Display Tables and Export to Files</h2>
 <p>Any row in the <strong>Objects</strong> table can be double-clicked to display that object in the <strong><a href="#access-the-object-viewereditor">Object Viewer/Editor</a></strong>. The <strong>Objects</strong> table can be sorted on any column by clicking on that column’s heading. Columns can be rearranged by drag/drop, and you can select which columns you want displayed for a given object type by right-clicking on the headers, which displays a context menu, and choosing the <strong>select columns</strong> option, which will display all the attributes of the current object type and you can just check the attributes you want to see and uncheck the ones to hide. <strong>Pangalaxian</strong> will remember your choices and will use them the next time you go into <strong>Local DB</strong> mode.</p>
 <h2 id="set-preferred-units">Set Preferred Units</h2>

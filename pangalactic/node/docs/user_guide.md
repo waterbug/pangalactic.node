@@ -722,6 +722,100 @@ is also capable of defining cycles within cycles and graphing them, if a
 mission **Timeline** contains them.
 
 
+## Work While Disconnected from the Repository
+
+**Pangalaxian** keeps a local database, so it runs perfectly well with no
+connection to the repository.  What changes when you are disconnected is not
+what you can *see* but what you may *edit*.
+
+### What You May Edit Offline
+
+While disconnected, you may edit:
+
+* objects **you created on this machine** that the repository has not yet
+  seen; and
+* objects you have **checked out**.
+
+Everything else is view-only until you reconnect.  This is deliberate.  The
+repository decides which version of an object wins by its modification time,
+and an edit you make offline carries the time you made it -- so if a
+colleague changes the same object while you are away, your work is the older
+version when you reconnect, and it is discarded.  Checking an object out
+first means no one else can change it, so the situation cannot arise.
+
+### Check Out the Items You Intend to Work On
+
+Do this *before* you disconnect -- claims are granted by the repository, so
+you must be connected to make them, and a project must be selected.  Select
+the **Prepare for Offline Work ...** item in the **Tools** menu.
+
+<!-- SCREENSHOT: Tools menu with "Prepare for Offline Work ..." highlighted -->
+
+<!-- SCREENSHOT: the "Prepare for Offline Work" dialog -->
+
+The dialog asks for two things and then lists what you can claim:
+
+* **Purpose** -- free text, shown to your collaborators.  It is worth
+  filling in:  it is what someone else sees when they find an item claimed,
+  and it is the difference between "checked out by you" and "checked out by
+  you *for the thermal rework*".
+* **Claim expires after** -- between 1 and 90 days, 7 by default.  See
+  **Claims Expire** below before choosing.
+
+**Available to check out** lists the items you may claim, each with a
+checkbox, all checked initially; use **Select All** and **Select None** to
+set them together.  **Not available** lists the ones you cannot, each with
+the reason:  *already checked out by you*, *checked out by "someone"*,
+*frozen*, or *no permission to modify*.
+
+Some kinds of object are not offered at all, because they have no
+independent existence:  **Ports**, **Flows**, **Representation Files**, and
+the objects that reify relationships.  These are always created and edited as
+part of work on the thing that owns them, so claiming the owner covers them
+-- checking out a **Product** covers its ports.  **Projects** and the
+**Person** and **Role** objects are not work items and are not offered
+either.  **Activities** *are* offered:  editing a timeline offline is useful
+in its own right.
+
+Click **OK** and the claims are made.  The repository decides
+authoritatively, applying the same permission rules, so occasionally an item
+the dialog offered comes back refused.
+
+### A Claim Is Exclusive
+
+While an object is checked out, **only the holder may modify it** -- online
+or offline, and including a **Global Administrator**.  This is the same
+principle as a **frozen** object, where even an administrator gets no
+**Edit** button:  the point of the claim is that the holder can rely on it.
+
+An administrator who genuinely needs a claimed object can force-release it,
+just as they would thaw a frozen object first.
+
+An object that is checked out shows a **Checked Out** indicator in the
+**[Object Viewer/Editor](#use-the-object-viewereditor)**, reading **Checked
+Out (you)** if the claim is yours.  Hovering over it names the holder, when
+the claim expires, and the purpose that was given for it.
+
+<!-- SCREENSHOT: the Object Viewer/Editor showing the Checked Out indicator -->
+
+### Claims Expire
+
+A claim lapses by itself when its expiry passes, and the object becomes
+editable by others again.
+
+**Note that there is currently no way to check items back in from the
+interface.**  A claim ends when it expires, or when an administrator releases
+it.  So choose the expiry with some care:  long enough to cover the work, but
+not so long that a forgotten claim blocks a colleague for weeks.  If you
+finish early, or find you need longer, ask an administrator to release the
+claim.
+
+### When You Reconnect
+
+Reconnecting syncs the current project:  your offline edits are sent to the
+repository and anything that changed while you were away is fetched.  Your
+claims are not released by reconnecting -- they run until they expire.
+
 ## Use Local DB Mode to Display Tables and Export to Files
 
 Any row in the **Objects** table can be double-clicked to display that object
