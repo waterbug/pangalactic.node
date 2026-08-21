@@ -9,6 +9,9 @@ test_step_plan.py's business, and it settles that without any Qt.
 
 Run headless with QT_QPA_PLATFORM=offscreen.
 """
+import os
+import shutil
+
 import pytest
 
 from PyQt5.QtCore import Qt
@@ -495,3 +498,67 @@ def test_20_correspondence_waits_for_the_representation_file(qtbot,
     assert stored['mode'] == sd.CREATE
     assert stored['checksum'] == pending['checksum']
     assert stored['map'] == pending['map']
+
+
+def test_21_import_stops_when_a_referenced_file_is_missing(qtbot, monkeypatch,
+                                                           tmp_path):
+    """
+    A STEP file that names other files is refused unless they are beside it.
+
+    OCC does not follow external references, so importing anyway would give
+    an assembly whose subassemblies are empty, with nothing to say so.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from pangalactic.core.test import data as test_data_module
+    src = os.path.join(test_data_module.__path__[0], 's1-pe-214.stp')
+    alone = tmp_path / 's1-pe-214.stp'
+    shutil.copy(src, alone)          # deliberately without its companions
+    monkeypatch.setattr(sd.StepImportModeDialog, 'exec_',
+                        lambda self: (setattr(self, 'file_path',
+                                              str(alone)) or 1))
+    monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
+                        raising=False)
+    read = []
+    monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
+                        lambda *a, **k: read.append(1))
+    shown = []
+    monkeypatch.setattr(sd.OptionNotification, 'exec_',
+                        lambda self: shown.append(self.windowTitle()))
+    result = sd.run_step_import(assembly=None)
+    assert result is None
+    assert shown == ['Referenced files are missing']
+    # it stopped before reading anything
+    assert read == []
+
+
+def test_22_import_proceeds_when_the_set_is_complete(qtbot, monkeypatch,
+                                                     tmp_path):
+    """
+    The same file, with its companions beside it, is not refused -- the check
+    must not block a legitimate set.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from pangalactic.core.test import data as test_data_module
+    d = test_data_module.__path__[0]
+    src = os.path.join(d, 's1-pe-214.stp')
+    top = tmp_path / 's1-pe-214.stp'
+    shutil.copy(src, top)
+    from pangalactic.node.step_import import missing_references
+    for name, _ in missing_references(str(top)):
+        shutil.copy(os.path.join(d, name), tmp_path)
+    for name, _ in missing_references(str(top)):      # second level
+        shutil.copy(os.path.join(d, name), tmp_path)
+    assert missing_references(str(top)) == []
+    monkeypatch.setattr(sd.StepImportModeDialog, 'exec_',
+                        lambda self: (setattr(self, 'file_path',
+                                              str(top)) or 1))
+    monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
+                        raising=False)
+    monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 0)
+    shown = []
+    monkeypatch.setattr(sd.OptionNotification, 'exec_',
+                        lambda self: shown.append(self.windowTitle()))
+    sd.run_step_import(assembly=None)
+    # cancelled at the plan dialog, but never refused for missing files
+    assert 'Referenced files are missing' not in shown
+

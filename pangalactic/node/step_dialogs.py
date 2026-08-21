@@ -398,7 +398,8 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     """
     # imported here rather than at module scope so that importing the
     # dialogs does not pull in pythonocc
-    from pangalactic.node.step_import import read_assembly
+    from pangalactic.node.step_import import (missing_references,
+                                               read_assembly)
 
     mode_dlg = StepImportModeDialog(assembly=assembly, parent=parent)
     if not mode_dlg.exec_():
@@ -414,6 +415,37 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
                                         parent=parent)
         if not changed.exec_():
             return None
+
+    # A file that names other files needs them beside it:  a STEP reader
+    # resolves each reference relative to the file that makes it.  Stop
+    # rather than import, because the alternative is silent -- OCC does not
+    # follow the references, so the assembly would arrive with its
+    # subassemblies empty and nothing would say so.
+    #
+    # NOTE: the user is not assumed to have exported the file -- they may
+    # well have received it -- so the message says where the missing files
+    # come from and what they must be called, rather than implying they
+    # should already have them.  See NOTES_ON_STEP_EXTERNAL_REFS.md.
+    missing = missing_references(path)
+    if missing:
+        orb.log.info(f'  - step: {len(missing)} referenced file(s) missing.')
+        lines = ''.join(
+            f'<br>&nbsp;&nbsp;<b>{name}</b>, referenced by '
+            f'{os.path.basename(referrer)}'
+            for name, referrer in missing[:10])
+        more = ('<br>&nbsp;&nbsp;... and %d more'
+                % (len(missing) - 10)) if len(missing) > 10 else ''
+        dlg = OptionNotification(
+                'Referenced files are missing',
+                f'"{file_name}" is part of a set:  it refers to files '
+                f'that are not beside it.{lines}{more}<br><br>The import '
+                'cannot continue without them.  They come from wherever this '
+                'file came from, and must be placed in the same directory '
+                'under exactly these names -- that is how a STEP reader '
+                'finds them.',
+                parent=parent)
+        dlg.exec_()
+        return None
 
     try:
         root = read_assembly(path)

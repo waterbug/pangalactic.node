@@ -15,6 +15,8 @@ See pangalactic.node/NOTES_ON_STEP_IMPORT.md for the design, and
 pangalactic.core/NOTES_ON_ONTOLOGY_AND_DB.md ("Component placement") for what
 the objects mean.
 """
+import os
+import re
 from collections import namedtuple
 
 from OCC.Core.BRepGProp    import brepgprop
@@ -114,6 +116,78 @@ class Occurrence:
         """
         return {occ.prototype_key: occ.prototype_name
                 for occ in self.walk() if occ.prototype_key}
+
+
+# A STEP assembly may be exported as a set of files, the assembly naming its
+# subassembly and part files.  In AP214 each reference is written as
+#
+#     #89=EXTERNAL_SOURCE(IDENTIFIER('mainbody_asm.stp'));
+#
+# and the identifier is the referenced file's own name, resolved relative to
+# the referencing file.  Entity keywords are upper case by the standard, but
+# the pattern is tolerant, and STEP entities may be wrapped across lines.
+EXTERNAL_SOURCE_RE = re.compile(
+    r"EXTERNAL_SOURCE\s*\(\s*IDENTIFIER\s*\(\s*'([^']*)'", re.IGNORECASE)
+
+
+def external_references(path):
+    """
+    Get the names of the files a STEP file references directly.
+
+    Args:
+        path (str):  path to the STEP file
+
+    Returns:
+        list of str:  referenced file names, in the order first seen, without
+        duplicates.  Empty if the file references nothing or cannot be read.
+    """
+    try:
+        with open(path, errors='replace') as f:
+            text = f.read()
+    except OSError:
+        return []
+    seen, names = set(), []
+    for name in EXTERNAL_SOURCE_RE.findall(text):
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names
+
+
+def missing_references(path):
+    """
+    Find the files a STEP file needs, transitively, that are not beside it.
+
+    A reference is resolved relative to the directory of the file that makes
+    it, which is how a STEP reader will resolve it.  Files that do resolve are
+    followed, so a reference missing two levels down is still reported.
+
+    Args:
+        path (str):  path to the STEP file
+
+    Returns:
+        list of tuple:  (missing file name, path of the file referencing it),
+        in the order encountered.  Empty if everything resolves -- which is
+        also the answer for a file that references nothing.
+    """
+    missing, visited = [], set()
+
+    def walk(fpath):
+        real = os.path.realpath(fpath)
+        if real in visited:
+            # a cycle, or a file reached by two routes
+            return
+        visited.add(real)
+        directory = os.path.dirname(os.path.abspath(fpath))
+        for name in external_references(fpath):
+            child = os.path.join(directory, name)
+            if os.path.exists(child):
+                walk(child)
+            else:
+                missing.append((name, fpath))
+
+    walk(path)
+    return missing
 
 
 def scale_to_m():

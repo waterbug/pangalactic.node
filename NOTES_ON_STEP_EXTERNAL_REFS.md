@@ -151,6 +151,31 @@ the fix for 2.3, and it is why 3.1 needs no new attribute.
   `component_file_of` forbids -- or two records of the same physical file.
   The second is the simpler reading and is probably right:  a
   `RepresentationFile` is a file in an export set, not a file in the abstract.
-* Whether to detect this case at all when it is *not* supported:  an import
-  that silently drops twelve files is the failure this note exists to
-  describe, and refusing, or warning, would be better than appearing to work.
+*(The third question here -- whether to detect the case at all before
+supporting it -- is answered:  see section 5.)*
+
+## 5. What is built:  refuse rather than pretend
+
+The importer now stops before reading anything if any referenced file is
+missing, naming each one and the file that refers to it.
+`step_import.missing_references()` walks the closure, resolving each
+reference against the directory of the file that makes it -- which is how a
+reader resolves them -- following those that resolve, so a reference missing
+two levels down is still reported. It guards against cycles.
+
+This does **not** make such files importable. It converts a silent, delayed
+failure into an immediate and specific one, which is worth having on its own:
+the alternative was an assembly with empty subassemblies and a vault copy
+that would not render, discovered later by someone else.
+
+Two points of care in the message:
+
+* **The user is not assumed to have exported the file.** They may well have
+  received it (author, 2026-08-20). The message says the file is part of a
+  set, names what is missing, and says the files come from wherever the file
+  itself came from and must be placed alongside it under exactly those names
+  -- rather than implying the user should already have them.
+* **It names the referrer, not just the missing file.** With only the
+  subassemblies present, the eight missing parts are named by the
+  subassemblies, not by the top-level file, and saying so is the difference
+  between an actionable message and a puzzling one.

@@ -10,10 +10,13 @@ translators, not between application protocols.  See
 NOTES_ON_STEP_IMPORT.md section 1.3.
 """
 import os
+import shutil
+import tempfile
 import unittest
 
 from pangalactic.core.test import data as test_data_module
-from pangalactic.node.step_import import (Occurrence, read_assembly,
+from pangalactic.node.step_import import (Occurrence, external_references,
+                                          missing_references, read_assembly,
                                           scale_to_m, _ref_designators)
 
 DATA = test_data_module.__path__[0]
@@ -23,6 +26,10 @@ AS1_IDEAS = os.path.join(DATA, 'as1-id-203.stp')      # I-DEAS, AP203
 AS1_DATAKIT = os.path.join(DATA, 'as1-oc-214.stp')    # Datakit/OCC, AP214
 AS1_PROE = os.path.join(DATA, 'as1_pe_203.stp')       # Pro/ENGINEER, AP203
 ALL_AS1 = (AS1_IDEAS, AS1_DATAKIT, AS1_PROE)
+
+# exported as a set of thirteen files:  the assembly names four subassembly
+# files, each of which names two part files
+S1_PE = os.path.join(DATA, 's1-pe-214.stp')
 
 
 class StepImportTest(unittest.TestCase):
@@ -188,6 +195,84 @@ class StepImportTest(unittest.TestCase):
         self.assertRaises(IOError, read_assembly,
                           os.path.join(DATA, 'no_such_file.stp'))
 
+    # ---- external references ---------------------------------------------
+
+    def test_13_finds_direct_external_references(self):
+        """
+        CASE:  the files a STEP assembly names are found.
+
+        s1-pe-214.stp is exported as a set:  the assembly file names its four
+        subassembly files through the AP214 external reference mechanism.
+        """
+        expected = ['foot_asm.stp', 'head_asm.stp', 'mainbody_asm.stp',
+                    'tail_asm.stp']
+        value = sorted(external_references(S1_PE))
+        self.assertEqual(expected, value)
+
+    def test_14_a_file_without_references_has_none(self):
+        """
+        CASE:  a self-contained file reports no references
+        """
+        expected = []
+        value = external_references(AS1_IDEAS)
+        self.assertEqual(expected, value)
+
+    def test_15_nothing_missing_when_the_set_is_complete(self):
+        """
+        CASE:  with all thirteen files present, nothing is missing
+        """
+        expected = []
+        value = missing_references(S1_PE)
+        self.assertEqual(expected, value)
+
+    def test_16_missing_references_are_reported_with_their_referrer(self):
+        """
+        CASE:  a file on its own reports what it needs, and which file needs
+        it -- so the message can name both
+        """
+        with tempfile.TemporaryDirectory() as d:
+            alone = os.path.join(d, os.path.basename(S1_PE))
+            shutil.copy(S1_PE, alone)
+            missing = missing_references(alone)
+        expected = [4, ['foot_asm.stp', 'head_asm.stp', 'mainbody_asm.stp',
+                        'tail_asm.stp']]
+        value = [len(missing), sorted(n for n, _ in missing)]
+        self.assertEqual(expected, value)
+        self.assertTrue(all(r == alone for _, r in missing))
+
+    def test_17_missing_references_are_transitive(self):
+        """
+        CASE:  a reference missing two levels down is still reported.
+
+        With only the four subassemblies beside the top file, the eight part
+        files they name are missing -- and they are named by the
+        subassemblies, not by the top file.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            top = os.path.join(d, os.path.basename(S1_PE))
+            shutil.copy(S1_PE, top)
+            for name in ('mainbody_asm.stp', 'head_asm.stp', 'tail_asm.stp',
+                         'foot_asm.stp'):
+                shutil.copy(os.path.join(DATA, name), d)
+            missing = missing_references(top)
+        referrers = {os.path.basename(r) for _, r in missing}
+        expected = [8, True]
+        value = [len(missing), top not in {r for _, r in missing}]
+        self.assertEqual(expected, value)
+        self.assertNotIn(os.path.basename(S1_PE), referrers)
+
+    def test_18_a_reference_cycle_terminates(self):
+        """
+        CASE:  files that reference each other do not loop for ever
+        """
+        with tempfile.TemporaryDirectory() as d:
+            a = os.path.join(d, 'a.stp')
+            b = os.path.join(d, 'b.stp')
+            open(a, 'w').write("EXTERNAL_SOURCE(IDENTIFIER('b.stp'));")
+            open(b, 'w').write("EXTERNAL_SOURCE(IDENTIFIER('a.stp'));")
+            expected = []
+            value = missing_references(a)
+            self.assertEqual(expected, value)
 
 if __name__ == '__main__':
     unittest.main()
