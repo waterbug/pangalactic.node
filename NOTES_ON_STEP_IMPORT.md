@@ -421,6 +421,23 @@ It was a real defect: before this rule, importing the AS1 file into FireSat
 proposed reusing the cloaked `plate`, `nut` and `bolt` specs that an earlier
 import had created **and left owned by H2G2**.
 
+## 3e. Files that reference other files -- a known gap
+
+A STEP assembly may be exported as a *set* of files, the assembly naming its
+subassembly and part files through the AP214 external reference mechanism.
+`s1-pe-214.stp` in the corpus is thirteen files.
+
+**The importer does not handle this, and does not say so.**  OCC does not
+follow external references, so such a file imports as a shell:  the
+subassemblies arrive as products with correct placements and no contents.
+Only the file itself is uploaded, so the repository's copy cannot be rendered
+by a reader that *does* follow the references.
+
+See `NOTES_ON_STEP_EXTERNAL_REFS.md` for the evidence and the smallest design
+that would fix it -- one self-referential property pair on
+`RepresentationFile`, an importer that builds the closure itself, and a
+download that writes each file under its `user_file_name`.
+
 ## 4. Running the spikes
 
 They take a STEP file path; neither is wired into the app and neither is a
