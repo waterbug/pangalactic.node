@@ -31,7 +31,7 @@ from pangalactic.node.step_import import Occurrence, Placement
 from pangalactic.node.step_dialogs import (StepFileChangedDialog,
                                            StepImportModeDialog,
                                            StepPlanDialog)
-from pangalactic.node.step_plan import (CREATE, PLACE, PRODUCT,
+from pangalactic.node.step_plan import (CREATE, NEW, PLACE, PRODUCT, REUSED,
                                         plan_creation, plan_placements)
 
 ASSEMBLY_OID = 'test:spacecraft0'
@@ -692,3 +692,130 @@ def test_25_missing_references_stop_the_read(qtbot):
         assert root is None       # ... so the assembly was not read
     finally:
         _shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Bulk product-type assignment.
+#
+# STEP carries nothing that implies a product type, so every new product
+# arrives "unclassified" and the whole column has to be set by hand.  Doing
+# that one combo box at a time is unworkable on a real assembly -- the
+# author hit exactly this importing s1-pe-214.stp.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def bulk_plan():
+    """
+    A CREATE plan with three new products and one reused one, so that "all"
+    and "selected" can be told apart.
+    """
+    existing = orb.search_exact(cname='HardwareProduct',
+                                name='Honeywell HR04')[0]
+    root = occ('root', prototype_key='br', prototype_name='Bulk Rig',
+               children=[occ('A', 'ba', 'Bulk Widget A'),
+                         occ('B', 'bb', 'Bulk Widget B'),
+                         occ('C', 'bc', existing.name)])
+    return plan_creation(root)
+
+
+@pytest.fixture
+def bulk_dialog(qtbot, bulk_plan):
+    dlg = StepPlanDialog(bulk_plan, CREATE, file_name='bulk.stp')
+    qtbot.addWidget(dlg)
+    return dlg
+
+
+def test_26_bulk_row_is_absent_in_place_mode(qtbot, plan):
+    """
+    CASE:  a PLACE plan.  Nothing is created, so there is no type to set and
+    the bulk row is not built.
+    """
+    dlg = StepPlanDialog(plan, PLACE, file_name='rover.stp')
+    qtbot.addWidget(dlg)
+    assert dlg.type_combo is None
+    assert dlg.type_combos == {}
+
+
+def test_27_bulk_row_is_present_for_new_products(bulk_dialog):
+    """
+    CASE:  a CREATE plan with new products.  The bulk row exists, and knows
+    exactly the rows whose type can be set -- the new products, not the
+    reused one and not the usages.
+    """
+    dlg = bulk_dialog
+    assert dlg.type_combo is not None
+    settable = [dlg.items[row] for row in dlg.type_combos]
+    assert settable, 'no settable rows'
+    assert all(i.kind == PRODUCT and i.status == NEW for i in settable)
+    # the reused product is not among them
+    reused = [i for i in dlg.items if i.status == REUSED]
+    assert reused, 'fixture should include a reused product'
+    assert not any(i in settable for i in reused)
+
+
+def test_28_apply_to_all_sets_every_new_product(bulk_dialog):
+    """
+    CASE:  a type is chosen and applied to all.  Every new product gets it,
+    in the plan as well as in the table -- what apply_creation() reads is the
+    PlanItem, so setting only the widget would look right and do nothing.
+    """
+    dlg = bulk_dialog
+    target = dlg.product_types[1]
+    dlg.type_combo.setCurrentIndex(1)
+    dlg.on_apply_type_to_all()
+    for row, combo in dlg.type_combos.items():
+        assert combo.currentIndex() == 1
+        assert dlg.items[row].product_type is target
+
+
+def test_29_apply_to_selected_sets_only_those(bulk_dialog):
+    """
+    CASE:  one row is selected and the type applied to the selection.  The
+    other new products keep the type they had.
+    """
+    dlg = bulk_dialog
+    rows = sorted(dlg.type_combos)
+    assert len(rows) >= 2, 'need at least two new products'
+    chosen, other = rows[0], rows[1]
+    before = dlg.items[other].product_type
+    target = dlg.product_types[1]
+    dlg.type_combo.setCurrentIndex(1)
+    dlg.table.selectRow(chosen)
+    dlg.on_apply_type_to_selected()
+    assert dlg.items[chosen].product_type is target
+    assert dlg.items[other].product_type is before
+
+
+def test_30_selection_may_include_rows_with_no_type(bulk_dialog):
+    """
+    CASE:  a selection dragged across the table takes in usages and reused
+    products as well.  Those are skipped rather than refused, so the
+    selection does what the user means by it.
+    """
+    dlg = bulk_dialog
+    target = dlg.product_types[1]
+    dlg.type_combo.setCurrentIndex(1)
+    # everything, including the rows that have no type to set
+    dlg.table.selectAll()
+    assert len(dlg.selected_rows()) == len(dlg.items)
+    assert len(dlg.selected_rows()) > len(dlg.type_combos)
+    dlg.on_apply_type_to_selected()
+    for row, item in enumerate(dlg.items):
+        if row in dlg.type_combos:
+            assert item.product_type is target
+        else:
+            assert item.product_type is not target or item.status != NEW
+
+
+def test_31_apply_to_selected_follows_the_selection(bulk_dialog):
+    """
+    CASE:  "Apply to selected" is enabled only while the selection contains a
+    row whose type can be set -- otherwise it is a button that would do
+    nothing when pressed.
+    """
+    dlg = bulk_dialog
+    assert not dlg.apply_selected_button.isEnabled()
+    dlg.table.selectRow(sorted(dlg.type_combos)[0])
+    assert dlg.apply_selected_button.isEnabled()
+    dlg.table.clearSelection()
+    assert not dlg.apply_selected_button.isEnabled()

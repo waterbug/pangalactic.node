@@ -311,6 +311,12 @@ class StepPlanDialog(QDialog):
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        # rows are selected in groups so that a type can be set on many at
+        # once -- see the bulk assignment row below
+        self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        # {row: combo} for the rows that have a product type to set; only
+        # new products do, so this is also the test for "is this such a row"
+        self.type_combos = {}
         for row, item in enumerate(items):
             self._fill_row(row, item)
         self.table.resizeColumnsToContents()
@@ -335,6 +341,38 @@ class StepPlanDialog(QDialog):
                     'created, but is reachable only through the Hardware '
                     'Library.')
                 layout.addWidget(self.add_system_checkbox)
+
+        # CREATE only:  setting the type one row at a time is unworkable on
+        # a real assembly -- a file with fifty new parts means fifty trips
+        # through a combo box.  STEP says nothing about product types, so
+        # every new product arrives "unclassified" and the whole column has
+        # to be set by hand.
+        self.type_combo = None
+        if self.type_combos:
+            type_row = QHBoxLayout()
+            type_row.addWidget(QLabel('Set product type:', self))
+            self.type_combo = QComboBox(self)
+            for pt in self.product_types:
+                self.type_combo.addItem(pt.name or pt.id, pt)
+            type_row.addWidget(self.type_combo)
+            self.apply_selected_button = QPushButton('Apply to selected',
+                                                     self)
+            self.apply_selected_button.setToolTip(
+                'Set the type of the selected rows.  Select rows by '
+                'clicking, and extend the selection with Shift or Ctrl.')
+            self.apply_selected_button.clicked.connect(
+                                            self.on_apply_type_to_selected)
+            self.apply_selected_button.setEnabled(False)
+            type_row.addWidget(self.apply_selected_button)
+            apply_all_button = QPushButton('Apply to all', self)
+            apply_all_button.setToolTip(
+                'Set the type of every new product in this import.')
+            apply_all_button.clicked.connect(self.on_apply_type_to_all)
+            type_row.addWidget(apply_all_button)
+            type_row.addStretch(1)
+            layout.addLayout(type_row)
+            self.table.itemSelectionChanged.connect(
+                                            self.on_table_selection_changed)
 
         button_row = QHBoxLayout()
         accept_all = QPushButton('Accept all', self)
@@ -371,16 +409,29 @@ class StepPlanDialog(QDialog):
             text += f'; {skipped} item(s) this import does not cover'
         return text
 
+    # NOTE: cells are selectable but not editable.  Selectable because rows
+    # are how a type is applied to more than one product at a time; the
+    # values themselves are set through the checkbox and the combo box, not
+    # by typing into the table, which is what NoEditTriggers enforces.
+    #
+    # This was worth making explicit.  Without ItemIsSelectable the only
+    # selectable rows were the new products -- not by intent, but because
+    # their type cell holds a combo box and therefore no item at all, and a
+    # cell with no item takes the model's default flags, which include
+    # selectable.  Right answer, entirely by accident, and it would have
+    # stopped being right the moment anyone gave that cell an item.
+    CELL_FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled
+
     def _fill_row(self, row, item):
         confirm = QTableWidgetItem()
         if item.actionable:
-            confirm.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            confirm.setFlags(self.CELL_FLAGS | Qt.ItemIsUserCheckable)
             confirm.setCheckState(Qt.Checked if item.confirmed
                                   else Qt.Unchecked)
         else:
             # nothing to confirm:  this row is telling the user what the
             # import leaves alone
-            confirm.setFlags(Qt.ItemIsEnabled)
+            confirm.setFlags(self.CELL_FLAGS)
         self.table.setItem(row, self.CONFIRM, confirm)
         for col, text in ((self.KIND, KIND_TEXT.get(item.kind, item.kind)),
                           (self.STATUS, STATUS_TEXT.get(item.status,
@@ -388,7 +439,7 @@ class StepPlanDialog(QDialog):
                           (self.PATH, item.path),
                           (self.NOTE, item.note)):
             cell = QTableWidgetItem(text)
-            cell.setFlags(Qt.ItemIsEnabled)
+            cell.setFlags(self.CELL_FLAGS)
             if col == self.STATUS and item.status in STATUS_COLOR:
                 cell.setForeground(QBrush(QColor(STATUS_COLOR[item.status])))
             self.table.setItem(row, col, cell)
@@ -417,12 +468,70 @@ class StepPlanDialog(QDialog):
                 lambda idx, item=item, combo=combo:
                     setattr(item, 'product_type', combo.itemData(idx)))
             self.table.setCellWidget(row, self.TYPE, combo)
+            self.type_combos[row] = combo
         else:
             text = (getattr(item.product, 'product_type', None) and
                    item.product.product_type.name) or ''
             cell = QTableWidgetItem(text)
-            cell.setFlags(Qt.ItemIsEnabled)
+            cell.setFlags(self.CELL_FLAGS)
             self.table.setItem(row, self.TYPE, cell)
+
+    def selected_rows(self):
+        """
+        The rows the user has selected, as a sorted list of row numbers.
+        """
+        return sorted({idx.row() for idx in self.table.selectedIndexes()})
+
+    def on_table_selection_changed(self):
+        """
+        "Apply to selected" means nothing without a selection that contains
+        a row whose type can be set, so it is enabled only then.
+        """
+        button = getattr(self, 'apply_selected_button', None)
+        if button is None:
+            return
+        button.setEnabled(any(row in self.type_combos
+                              for row in self.selected_rows()))
+
+    def apply_type_to_rows(self, rows):
+        """
+        Set the product type of the given rows to the one now chosen in the
+        bulk combo box.
+
+        Rows without a type to set -- usages, placements, reused products --
+        are skipped rather than refused, so that a selection dragged across
+        the table does what the user means by it.
+
+        The row combo is what is changed, not the PlanItem directly:  it is
+        what the user sees, and changing it fires the signal that carries the
+        value to the item, so the two cannot drift apart.
+
+        Args:
+            rows (list of int):  row numbers
+
+        Returns:
+            int:  how many rows were set
+        """
+        if self.type_combo is None:
+            return 0
+        index = self.type_combo.currentIndex()
+        n = 0
+        for row in rows:
+            combo = self.type_combos.get(row)
+            # both combos are built from self.product_types in the same
+            # order, so the index carries across
+            if combo is not None and 0 <= index < combo.count():
+                combo.setCurrentIndex(index)
+                n += 1
+        return n
+
+    def on_apply_type_to_selected(self):
+        n = self.apply_type_to_rows(self.selected_rows())
+        orb.log.debug(f'* step plan: type applied to {n} selected row(s).')
+
+    def on_apply_type_to_all(self):
+        n = self.apply_type_to_rows(sorted(self.type_combos))
+        orb.log.debug(f'* step plan: type applied to all {n} new product(s).')
 
     def on_item_changed(self, cell):
         """
