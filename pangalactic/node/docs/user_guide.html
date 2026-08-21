@@ -80,6 +80,7 @@
 <li><a href="#what-you-may-edit-offline">What You May Edit Offline</a></li>
 <li><a href="#check-out-the-items-you-intend-to-work-on">Check Out the Items You Intend to Work On</a></li>
 <li><a href="#a-claim-is-exclusive">A Claim Is Exclusive</a></li>
+<li><a href="#check-items-back-in-when-you-are-done">Check Items Back In When You Are Done</a></li>
 <li><a href="#claims-expire">Claims Expire</a></li>
 <li><a href="#when-you-reconnect">When You Reconnect</a></li>
 </ul></li>
@@ -292,8 +293,8 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <!-- SCREENSHOT: the plan dialog for a "create" import, showing several rows -->
 <p>Each row is one thing the import proposes to do, and each has a checkbox. The columns are:</p>
 <ul>
-<li><strong>kind</strong> – what the item is: a <strong>product</strong> (a specification), a <strong>usage</strong> (a component in an assembly, at a particular reference designator), or a <strong>placement</strong> (where a component sits within its assembly).</li>
-<li><strong>status</strong> – what will happen to it:
+<li><p><strong>kind</strong> – what the item is: a <strong>product</strong> (a specification), a <strong>usage</strong> (a component in an assembly, at a particular reference designator), or a <strong>placement</strong> (where a component sits within its assembly).</p></li>
+<li><p><strong>status</strong> – what will happen to it:</p>
 <ul>
 <li><strong>create</strong> – a new product will be created for it.</li>
 <li><strong>use existing</strong> – a product already here will be used instead of creating another (see <strong>Reuse</strong> below).</li>
@@ -301,9 +302,11 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <li><strong>no such component</strong> – the file has an occurrence at a reference designator this assembly does not have. Nothing will happen to it.</li>
 <li><strong>not in the file</strong> – the assembly has a component that the file does not, so there is nothing to place it by. Nothing will happen to it.</li>
 </ul></li>
-<li><strong>in the assembly</strong> – the reference designator, or the path within the file.</li>
-<li><strong>product type</strong> – for a newly created product, what kind of thing it is. <strong>STEP</strong> carries no notion of a product type, so every new product starts as <strong>unclassified</strong>; you can set a type on any row from the list of known product types. Leaving them <strong>unclassified</strong> is perfectly workable and can be corrected later.</li>
-<li><strong>note</strong> – anything else worth knowing about the item.</li>
+<li><p><strong>in the assembly</strong> – the reference designator, or the path within the file.</p></li>
+<li><p><strong>product type</strong> – for a newly created product, what kind of thing it is. <strong>STEP</strong> carries no notion of a product type, so every new product starts as <strong>unclassified</strong>; you can set a type on any row from the list of known product types. Leaving them <strong>unclassified</strong> is perfectly workable and can be corrected later.</p>
+<p>Setting them one row at a time gets tedious quickly on a real assembly, so the row below the table sets several at once: choose a type there, then <strong>Apply to all</strong> to give it to every new product in the import, or <strong>Apply to selected</strong> to give it only to the rows you have selected. Select rows by clicking, and extend the selection with <strong>Shift</strong> or <strong>Ctrl</strong> as you would anywhere else. Rows with no type to set – usages, placements, and products that will be reused – are simply skipped, so it does not matter if the selection takes some in.</p>
+<p>A sensible way to work through a large import is <strong>Apply to all</strong> with the commonest type first, then select the exceptions and apply the right type to those.</p></li>
+<li><p><strong>note</strong> – anything else worth knowing about the item.</p></li>
 </ul>
 <p>The last two statuses are informational, and are worth reading: they say what the import will <em>not</em> cover, which usually matters as much as what it will. A run of <strong>no such component</strong> rows generally means the file is a different design from the assembly, or that the reference designators do not agree.</p>
 <p>Use <strong>Accept all</strong> and <strong>Reject all</strong> to set every checkbox at once, or click individual checkboxes. An unconfirmed product also drops the usages that depend on it – a usage cannot be created with one end missing – so rejecting a product rejects everything below it.</p>
@@ -445,7 +448,7 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <p>The dialog asks for two things and then lists what you can claim:</p>
 <ul>
 <li><strong>Purpose</strong> – free text, shown to your collaborators. It is worth filling in: it is what someone else sees when they find an item claimed, and it is the difference between “checked out by you” and “checked out by you <em>for the thermal rework</em>”.</li>
-<li><strong>Claim expires after</strong> – between 1 and 90 days, 7 by default. See <strong>Claims Expire</strong> below before choosing.</li>
+<li><strong>Claim expires after</strong> – between 1 and 90 days, 7 by default. This is a backstop for a claim you forget to release; see <strong>Check Items Back In When You Are Done</strong> below.</li>
 </ul>
 <p><strong>Available to check out</strong> lists the items you may claim, each with a checkbox, all checked initially; use <strong>Select All</strong> and <strong>Select None</strong> to set them together. <strong>Not available</strong> lists the ones you cannot, each with the reason: <em>already checked out by you</em>, <em>checked out by “someone”</em>, <em>frozen</em>, or <em>no permission to modify</em>.</p>
 <p>Some kinds of object are not offered at all, because they have no independent existence: <strong>Ports</strong>, <strong>Flows</strong>, <strong>Representation Files</strong>, and the objects that reify relationships. These are always created and edited as part of work on the thing that owns them, so claiming the owner covers them – checking out a <strong>Product</strong> covers its ports. <strong>Projects</strong> and the <strong>Person</strong> and <strong>Role</strong> objects are not work items and are not offered either. <strong>Activities</strong> <em>are</em> offered: editing a timeline offline is useful in its own right.</p>
@@ -455,11 +458,19 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <p>An administrator who genuinely needs a claimed object can force-release it, just as they would thaw a frozen object first.</p>
 <p>An object that is checked out shows a <strong>Checked Out</strong> indicator in the <strong><a href="#use-the-object-viewereditor">Object Viewer/Editor</a></strong>, reading <strong>Checked Out (you)</strong> if the claim is yours. Hovering over it names the holder, when the claim expires, and the purpose that was given for it.</p>
 <!-- SCREENSHOT: the Object Viewer/Editor showing the Checked Out indicator -->
+<h3 id="check-items-back-in-when-you-are-done">Check Items Back In When You Are Done</h3>
+<p>A claim is not meant to outlive the work it was made for. When you have finished with an item and are connected again, check it in, so that your colleagues can edit it.</p>
+<p>There are two ways to do it, and both need a connection – the repository is what records the release:</p>
+<ul>
+<li><p><strong>The Check In button</strong> in the <strong><a href="#use-the-object-viewereditor">Object Viewer/Editor</a></strong>, beside the <strong>Checked Out (you)</strong> indicator. It appears only on items you hold and only while you are connected.</p></li>
+<li><p><strong>When you save.</strong> If you save an item you have checked out, <strong>Pangalaxian</strong> asks whether to check it in as well. Saving and checking in are different things – a save records your edit, a check-in gives up the claim – but it is an easy assumption that saving does both, so you are asked rather than left to remember. If you would rather not be asked, the question has a <strong>Do not ask again</strong> box.</p></li>
+</ul>
+<!-- SCREENSHOT: the Object Viewer/Editor showing Checked Out (you) and Check In -->
+<p>Note that the indicator and the <strong>Check In</strong> button appear on <strong>Hardware Products</strong>. Claims on other kinds of item – <strong>Activities</strong>, for instance – are made in the same way but have no indicator of their own yet.</p>
 <h3 id="claims-expire">Claims Expire</h3>
-<p>A claim lapses by itself when its expiry passes, and the object becomes editable by others again.</p>
-<p><strong>Note that there is currently no way to check items back in from the interface.</strong> A claim ends when it expires, or when an administrator releases it. So choose the expiry with some care: long enough to cover the work, but not so long that a forgotten claim blocks a colleague for weeks. If you finish early, or find you need longer, ask an administrator to release the claim.</p>
+<p>A claim also lapses by itself when its expiry passes, and the item becomes editable by others again. Expiry is the backstop rather than the intended way to end a claim: choose it long enough to cover the work, check the item in when you are done, and if a claim is forgotten it will not block a colleague indefinitely. An administrator can also force-release a claim.</p>
 <h3 id="when-you-reconnect">When You Reconnect</h3>
-<p>Reconnecting syncs the current project: your offline edits are sent to the repository and anything that changed while you were away is fetched. Your claims are not released by reconnecting – they run until they expire.</p>
+<p>Reconnecting syncs the current project: your offline edits are sent to the repository and anything that changed while you were away is fetched. Reconnecting does not release your claims – check them in, or let them expire.</p>
 <h2 id="use-local-db-mode-to-display-tables-and-export-to-files">Use Local DB Mode to Display Tables and Export to Files</h2>
 <p>Any row in the <strong>Objects</strong> table can be double-clicked to display that object in the <strong><a href="#access-the-object-viewereditor">Object Viewer/Editor</a></strong>. The <strong>Objects</strong> table can be sorted on any column by clicking on that column’s heading. Columns can be rearranged by drag/drop, and you can select which columns you want displayed for a given object type by right-clicking on the headers, which displays a context menu, and choosing the <strong>select columns</strong> option, which will display all the attributes of the current object type and you can just check the attributes you want to see and uncheck the ones to hide. <strong>Pangalaxian</strong> will remember your choices and will use them the next time you go into <strong>Local DB</strong> mode.</p>
 <h2 id="set-preferred-units">Set Preferred Units</h2>

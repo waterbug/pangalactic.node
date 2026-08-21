@@ -476,6 +476,19 @@ columns are:
   **unclassified**; you can set a type on any row from the list of known
   product types.  Leaving them **unclassified** is perfectly workable and can
   be corrected later.
+
+  Setting them one row at a time gets tedious quickly on a real assembly, so
+  the row below the table sets several at once:  choose a type there, then
+  **Apply to all** to give it to every new product in the import, or
+  **Apply to selected** to give it only to the rows you have selected.
+  Select rows by clicking, and extend the selection with **Shift** or
+  **Ctrl** as you would anywhere else.  Rows with no type to set -- usages,
+  placements, and products that will be reused -- are simply skipped, so it
+  does not matter if the selection takes some in.
+
+  A sensible way to work through a large import is **Apply to all** with the
+  commonest type first, then select the exceptions and apply the right type
+  to those.
 * **note** -- anything else worth knowing about the item.
 
 The last two statuses are informational, and are worth reading:  they say what
@@ -759,8 +772,9 @@ The dialog asks for two things and then lists what you can claim:
   filling in:  it is what someone else sees when they find an item claimed,
   and it is the difference between "checked out by you" and "checked out by
   you *for the thermal rework*".
-* **Claim expires after** -- between 1 and 90 days, 7 by default.  See
-  **Claims Expire** below before choosing.
+* **Claim expires after** -- between 1 and 90 days, 7 by default.  This is a
+  backstop for a claim you forget to release; see **Check Items Back In When
+  You Are Done** below.
 
 **Available to check out** lists the items you may claim, each with a
 checkbox, all checked initially; use **Select All** and **Select None** to
@@ -798,23 +812,46 @@ the claim expires, and the purpose that was given for it.
 
 <!-- SCREENSHOT: the Object Viewer/Editor showing the Checked Out indicator -->
 
+### Check Items Back In When You Are Done
+
+A claim is not meant to outlive the work it was made for.  When you have
+finished with an item and are connected again, check it in, so that your
+colleagues can edit it.
+
+There are two ways to do it, and both need a connection -- the repository is
+what records the release:
+
+* **The Check In button** in the **[Object Viewer/Editor](#use-the-object-viewereditor)**,
+  beside the **Checked Out (you)** indicator.  It appears only on items you
+  hold and only while you are connected.
+
+* **When you save.**  If you save an item you have checked out,
+  **Pangalaxian** asks whether to check it in as well.  Saving and checking
+  in are different things -- a save records your edit, a check-in gives up
+  the claim -- but it is an easy assumption that saving does both, so you are
+  asked rather than left to remember.  If you would rather not be asked, the
+  question has a **Do not ask again** box.
+
+<!-- SCREENSHOT: the Object Viewer/Editor showing Checked Out (you) and Check In -->
+
+Note that the indicator and the **Check In** button appear on **Hardware
+Products**.  Claims on other kinds of item -- **Activities**, for instance --
+are made in the same way but have no indicator of their own yet.
+
 ### Claims Expire
 
-A claim lapses by itself when its expiry passes, and the object becomes
-editable by others again.
-
-**Note that there is currently no way to check items back in from the
-interface.**  A claim ends when it expires, or when an administrator releases
-it.  So choose the expiry with some care:  long enough to cover the work, but
-not so long that a forgotten claim blocks a colleague for weeks.  If you
-finish early, or find you need longer, ask an administrator to release the
-claim.
+A claim also lapses by itself when its expiry passes, and the item becomes
+editable by others again.  Expiry is the backstop rather than the intended
+way to end a claim:  choose it long enough to cover the work, check the item
+in when you are done, and if a claim is forgotten it will not block a
+colleague indefinitely.  An administrator can also force-release a claim.
 
 ### When You Reconnect
 
 Reconnecting syncs the current project:  your offline edits are sent to the
-repository and anything that changed while you were away is fetched.  Your
-claims are not released by reconnecting -- they run until they expire.
+repository and anything that changed while you were away is fetched.
+Reconnecting does not release your claims -- check them in, or let them
+expire.
 
 ## Use Local DB Mode to Display Tables and Export to Files
 
