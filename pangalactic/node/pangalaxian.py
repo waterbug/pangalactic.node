@@ -44,7 +44,7 @@ if sys.stderr is None:
 
 import argparse, atexit, json, math, shutil
 import time, webbrowser
-# import traceback
+import traceback
 import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
 from functools import partial
@@ -7985,11 +7985,36 @@ class Main(QMainWindow):
         orb.save_caches()
         if orb.db.dirty:
             orb.db.commit()
-        mods = False
-        if mods:
-            self.statusbar.showMessage('* backing up db...')
-            orb.dump_db()
+        # Dump the database to "db.yaml" in the home directory.  This is the
+        # file the schema migration in orb.start() reloads from after it drops
+        # and recreates the database, so it must exist and be current *before*
+        # an upgrade that changes the schema -- i.e. it has to be written by
+        # the version being replaced, at shutdown, which is here.
+        #
+        # NOTE: this was previously guarded by a hardcoded "mods = False",
+        # which made the call dead code, so db.yaml was never written.  The
+        # migration then reloaded from a file that did not exist and, since
+        # load_and_transform_data() treats an absent file as "no data",
+        # emptied the database instead of migrating it -- silently.  The
+        # bare orb.dump_db() would not have helped either:  with no fpath it
+        # writes backup/db-dump-<dts>.yaml, which is not the path the
+        # migration reads.
+        #
+        # The dump is unconditional.  There is no reliable "was anything
+        # modified" flag to consult, and a stale dump is exactly as
+        # destructive as a missing one -- the migration cannot tell the
+        # difference, and neither can the user until the data is gone.
+        self.statusbar.showMessage('* backing up db...')
+        try:
+            orb.dump_db(fpath=os.path.join(orb.home, 'db.yaml'))
             self.statusbar.showMessage('* db backed up.')
+        except Exception as e:
+            # a failed dump must not prevent shutdown, but it does mean the
+            # next schema migration would find nothing, so say so loudly
+            orb.log.error(f'* db dump for migration FAILED: {e}')
+            orb.error_log.info('* cleanup_and_save: db dump failed')
+            orb.error_log.info(traceback.format_exc())
+            self.statusbar.showMessage('* db backup FAILED (see error log).')
         if state.get('connected'):
             self.mbus.session = None
             self.mbus = None
