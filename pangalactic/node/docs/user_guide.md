@@ -404,6 +404,155 @@ parameters.
 Note that in either case, whether a **white box** or **black box** clone is
 created, the clone will receive *all parameters* of the original object.
 
+## Import an Assembly from a STEP File
+
+A **STEP** file (**ISO 10303**, usually with a *.stp* or *.step* extension) is
+the standard interchange format that **CAD** systems export.  If a design
+exists in **CAD**, **Pangalaxian** can read the assembly structure and the
+component placements out of it, so that the structure does not have to be
+built by hand and so that the position of each component within its assembly
+is known.
+
+Component placements matter beyond simply recording them:  the position and
+orientation of each component within its assembly is what allows the mass
+distribution of a system to be computed, which is the input an attitude
+control simulation needs.
+
+To begin, select the **Import STEP Assembly** item in the **Tools** menu.  It
+is available in both **System Modeler** and **Component Modeler** modes.
+
+<!-- SCREENSHOT: Tools menu with "Import STEP Assembly" highlighted -->
+
+### Choose the File and What the Import Should Do
+
+The first dialog asks for the file and for what should be done with it.
+
+<!-- SCREENSHOT: the "Import a STEP Assembly" dialog, both options visible -->
+
+Click **Select STEP file ...** to choose the file, then choose one of two
+options.  They are quite different, and which one is right depends on whether
+the assembly already exists in **Pangalaxian**:
+
+* **Place the components of "..."** -- the assembly already exists here, and
+  the file is the same design as it exists in **CAD**.  Each occurrence in the
+  file is matched to a component the assembly already has, by **reference
+  designator**, and the position of each is recorded.  *No products are
+  created and no structure is changed* -- only placements are added.  This
+  option is available only when an assembly is selected; if none is, it is
+  disabled and says so.
+
+* **Create products and assembly structure from the file** -- the design
+  exists only in **CAD**.  A product is proposed for each distinct part in the
+  file, and a usage for each occurrence of one, together with its placement.
+  Use this to bring a design in for the first time.
+
+### Review the Plan
+
+Nothing is created until you have seen what would be created.  The second
+dialog lists the import item by item:
+
+<!-- SCREENSHOT: the plan dialog for a "create" import, showing several rows -->
+
+Each row is one thing the import proposes to do, and each has a checkbox.  The
+columns are:
+
+* **kind** -- what the item is:  a **product** (a specification), a **usage**
+  (a component in an assembly, at a particular reference designator), or a
+  **placement** (where a component sits within its assembly).
+* **status** -- what will happen to it:
+    * **create** -- a new product will be created for it.
+    * **use existing** -- a product already here will be used instead of
+      creating another (see **Reuse** below).
+    * **matched** -- the occurrence was matched to a component the assembly
+      already has, and will be placed.
+    * **no such component** -- the file has an occurrence at a reference
+      designator this assembly does not have.  Nothing will happen to it.
+    * **not in the file** -- the assembly has a component that the file does
+      not, so there is nothing to place it by.  Nothing will happen to it.
+* **in the assembly** -- the reference designator, or the path within the
+  file.
+* **product type** -- for a newly created product, what kind of thing it is.
+  **STEP** carries no notion of a product type, so every new product starts as
+  **unclassified**; you can set a type on any row from the list of known
+  product types.  Leaving them **unclassified** is perfectly workable and can
+  be corrected later.
+* **note** -- anything else worth knowing about the item.
+
+The last two statuses are informational, and are worth reading:  they say what
+the import will *not* cover, which usually matters as much as what it will.  A
+run of **no such component** rows generally means the file is a different
+design from the assembly, or that the reference designators do not agree.
+
+Use **Accept all** and **Reject all** to set every checkbox at once, or click
+individual checkboxes.  An unconfirmed product also drops the usages that
+depend on it -- a usage cannot be created with one end missing -- so rejecting
+a product rejects everything below it.
+
+When creating products and structure with a project selected, the dialog also
+offers to add the file's top-level assembly to the project as a system:
+
+> **Add "..." to project ... as a system**
+
+Leave this checked and the assembly will appear in the **System Tree**.
+Unchecked, the assembly is still created, but is reachable only through the
+**[Systems and Components (Hardware Products)
+Library](#systems-and-components-hardware-products-library)**.
+
+Click **OK** and the import runs.  Reading the file and creating the objects
+each show progress:  a large assembly takes a noticeable amount of time, most
+of it in reading the file.
+
+### Reuse
+
+A **Product** in **Pangalaxian** is a *specification*, not a piece of
+hardware, and the owner of a specification controls it.  So the import will
+only offer to reuse a product that you are entitled to reuse:  one that is
+**public**, or one belonging to the project you are working in.  A
+similarly-named specification belonging to another project is never proposed
+for reuse; a new one is created instead.
+
+Note also that a **STEP** file carries no provenance -- a part in it says
+nothing about who specified it -- so matching is by name, and it is worth
+checking the **use existing** rows before accepting them.
+
+### The File Is Kept
+
+When products and structure are created from a file, the file itself is
+stored:  it is attached to the new assembly as an **MCAD Model**, and
+uploaded to the repository so that others on the project can get it.
+
+The correspondence between the file and the objects created from it is also
+stored, so that a later import of the same file knows what it produced the
+first time.  If you import a file that has changed since it was last
+imported, **Pangalaxian** notices and asks before going on.
+
+<!-- SCREENSHOT: the "file has changed" dialog -->
+
+### Files That Come as a Set
+
+A **CAD** system may export an assembly as a *set* of files rather than as
+one:  the assembly file names its subassembly and part files, and refers to
+them by name.  Such a file cannot be read on its own -- and the failure is a
+quiet one, in that the assembly would appear to import successfully but with
+its subassemblies empty.
+
+**Pangalaxian** therefore checks first, and refuses the import if any
+referenced file is missing, naming the files it could not find:
+
+<!-- SCREENSHOT: the "Referenced files are missing" dialog -->
+
+To proceed, get the missing files from wherever the assembly file came from,
+and put them in the same directory as it, under exactly the names the message
+gives.  Those are the names the file refers to them by, and a **STEP** reader
+finds them no other way.
+
+### Units
+
+**STEP** files record their own units, and a file exported in inches is as
+common as one exported in millimetres.  The units are read from the file and
+all lengths are converted, so placements are recorded in metres regardless of
+what the file used.
+
 ## Define a Concept of Operations ("ConOps") and Power Modes
 
 A **ConOps** defines the sequence of activities that constitute a **Mission**.
