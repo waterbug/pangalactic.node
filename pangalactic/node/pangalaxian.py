@@ -468,6 +468,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_act_mods_signal, 'act mods')
         dispatcher.connect(self.on_unresolved_activity_parents,
                            'unresolved activity parents')
+        dispatcher.connect(self.on_check_in_signal, 'check in')
         dispatcher.connect(self.on_new_objects_signal, 'new objects')
         dispatcher.connect(self.on_mod_objects_signal, 'modified objects')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
@@ -2331,9 +2332,17 @@ class Main(QMainWindow):
                     'userid': rec.get('userid', ''),
                     'expiry_datetime': rec.get('expiry_datetime', ''),
                     'purpose': rec.get('purpose', '')}
+        # NOTE: the signal must name every oid whose claim may have
+        # *changed*, which includes the ones that just went away -- receivers
+        # filter on it.  Sending only the current keys meant a released claim
+        # named nothing, so nothing refreshed and the indicator went on
+        # showing a claim that no longer existed.  This is the wholesale
+        # refresh path, which is the one a check-in goes through.
+        previous = state.get('checkouts') or {}
+        affected = set(previous) | set(checkouts)
         state['checkouts'] = checkouts
         orb.log.info(f'* {len(checkouts)} active check-out(s) in repository.')
-        dispatcher.send(signal='checkouts changed', oids=list(checkouts))
+        dispatcher.send(signal='checkouts changed', oids=list(affected))
 
     def check_out_objects(self, oids, days=None, purpose=''):
         """
@@ -2379,6 +2388,27 @@ class Main(QMainWindow):
                    f'{len(denied)} refused (see log)')
             QTimer.singleShot(0, lambda: self.statusbar.showMessage(msg))
 
+    def on_check_in_signal(self, oids=None):
+        """
+        Handle the local "check in" dispatcher signal, sent by PgxnObject
+        when the holder releases a claim.
+
+        Args:
+            oids (list of str):  oids of the objects to check in
+        """
+        if not oids:
+            return
+        if not state.get('connected'):
+            # the repository records the release, so there is nothing to do
+            # offline -- and saying so beats appearing to have worked
+            notice = QMessageBox(QMessageBox.Warning,
+                    'Not Connected',
+                    'You must be connected to the repository to check items '
+                    'in.', QMessageBox.Ok, self)
+            notice.exec_()
+            return
+        self.check_in_objects(oids)
+
     def check_in_objects(self, oids):
         """
         Release the user's own claims (rpc "vger.check_in").
@@ -2408,6 +2438,10 @@ class Main(QMainWindow):
             return
         orb.log.info(f'* check-in: {len(checked_in)} released, '
                      f'{len(not_held)} not held by this user.')
+        if checked_in:
+            n = len(checked_in)
+            s = '' if n == 1 else 's'
+            self.statusbar.showMessage(f'{n} item{s} checked in.', 5000)
         self.get_checkouts()
 
     def prepare_for_offline_work(self):

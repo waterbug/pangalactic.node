@@ -8,10 +8,10 @@ from functools import partial, reduce
 
 from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QAction, QComboBox, QDialog, QDialogButtonBox,
-                             QFormLayout, QHBoxLayout, QLabel, QMessageBox,
-                             QSizePolicy, QSpacerItem, QTabWidget, QToolBar,
-                             QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QAction, QCheckBox, QComboBox, QDialog,
+                             QDialogButtonBox, QFormLayout, QHBoxLayout,
+                             QLabel, QMessageBox, QSizePolicy, QSpacerItem,
+                             QTabWidget, QToolBar, QVBoxLayout, QWidget)
 
 from pydispatch import dispatcher
 from sqlalchemy.orm.collections import InstrumentedList
@@ -1368,22 +1368,42 @@ class PgxnObject(QDialog):
                 # only a global admin can "thaw"
                 self.thaw_action.setVisible(True)
             # ------------------------------------------------------------
-            # CHECK-OUT indicator (phase 1: advisory -- display only).
-            # Shows whether the repository has an active CheckOut claim on
-            # this object and who holds it. Nothing here affects what the
-            # user may edit: access.py does not consult check-outs yet, so
-            # this is purely informational. See
+            # CHECK-OUT indicator.  Shows whether the repository has an
+            # active CheckOut claim on this object and who holds it.
+            #
+            # This was written when claims were advisory;  they are not any
+            # more.  Since phase 2 (core cece2d5) access.py consults them,
+            # and a claim is exclusive:  while an object is checked out only
+            # the holder may modify it, online or offline, including a global
+            # administrator.  So the indicator now reports something that
+            # actually constrains the user.  See
             # pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md.
+            #
+            # NOTE: this whole block is inside the HardwareProduct branch, so
+            # the indicator and the Check In action appear only for products.
+            # Claims can be held on other kinds of object -- Activities are
+            # offered by PrepareForOfflineDialog -- and those have no
+            # indicator here.
             # ------------------------------------------------------------
             self.checkout_action = self.create_action('Checked\nOut',
                                     slot=self.show_checkout_info,
-                                    # 'info' rather than a lock/snowflake:
-                                    # phase 1 is advisory, so the indicator
-                                    # informs, it does not signal a block
                                     icon='info',
                                     tip='Check-out status of this object',
                                     modes=['edit', 'view'])
             self.toolbar.addAction(self.checkout_action)
+            # ------------------------------------------------------------
+            # CHECK IN:  shown only when the claim on this object is the
+            # local user's and there is a connection to release it through.
+            # Until this existed a claim could only be ended by waiting for
+            # it to expire or by asking an administrator to force-release it.
+            # ------------------------------------------------------------
+            self.checkin_action = self.create_action('Check\nIn',
+                                    slot=self.on_check_in,
+                                    icon='commit_16',
+                                    tip='Release your check-out claim on '
+                                        'this object',
+                                    modes=['edit', 'view'])
+            self.toolbar.addAction(self.checkin_action)
             self.refresh_checkout_indicator()
             self.clone_action = self.create_action('Clone',
                                     slot=self.on_clone, icon='clone_16',
@@ -1802,20 +1822,35 @@ class PgxnObject(QDialog):
         return (state.get('checkouts') or {}).get(
                                         getattr(self.obj, 'oid', None))
 
+    def holds_checkout(self):
+        """
+        Is the active claim on this object held by the local user?
+        """
+        co = self.get_checkout()
+        if not co:
+            return False
+        me = getattr(orb.get(state.get('local_user_oid')), 'id', None)
+        return bool(me) and co.get('userid') == me
+
     def refresh_checkout_indicator(self):
         """
-        Show or hide the check-out indicator to match state['checkouts'].
+        Show or hide the check-out indicator, and the Check In action with
+        it, to match state['checkouts'].
         """
         action = getattr(self, 'checkout_action', None)
+        checkin = getattr(self, 'checkin_action', None)
         if action is None:
             return
         co = self.get_checkout()
         if not co:
             action.setVisible(False)
+            if checkin is not None:
+                checkin.setVisible(False)
             return
         holder = co.get('userid') or '?'
         me = getattr(orb.get(state.get('local_user_oid')), 'id', None)
-        if holder == me:
+        mine = bool(me) and holder == me
+        if mine:
             action.setText('Checked\nOut (you)')
             tip = 'You have this object checked out'
         else:
@@ -1829,6 +1864,10 @@ class PgxnObject(QDialog):
             tip += f' -- {purpose}'
         action.setToolTip(tip)
         action.setVisible(True)
+        if checkin is not None:
+            # only the holder can release a claim, and only the repository
+            # can record the release -- so both conditions must hold
+            checkin.setVisible(mine and bool(state.get('connected')))
 
     def on_checkouts_changed(self, oids=None):
         """
@@ -1860,6 +1899,62 @@ class PgxnObject(QDialog):
         notice = QMessageBox(QMessageBox.Information, 'Check-Out Status',
                              html, QMessageBox.Ok, self)
         notice.exec_()
+
+    def on_check_in(self):
+        """
+        Release the local user's check-out claim on this object.
+
+        The release itself is the repository's to make, so this only asks
+        for it:  pangalaxian calls vger.check_in and the refreshed mirror
+        comes back as a "checkouts changed" signal, which clears the
+        indicator.
+        """
+        if not self.holds_checkout():
+            return
+        oid = getattr(self.obj, 'oid', '')
+        if not oid:
+            return
+        obj_id = getattr(self.obj, 'id', '') or oid
+        confirm = QMessageBox(QMessageBox.Question, 'Check In',
+                f'Check in <b>{obj_id}</b>?<br><br>Others will be able to '
+                'modify it again, and you will not be able to modify it '
+                'while disconnected.',
+                QMessageBox.Yes | QMessageBox.No, self)
+        if confirm.exec_() != QMessageBox.Yes:
+            return
+        orb.log.info(f'* [pgxo] checking in {obj_id} ...')
+        dispatcher.send(signal='check in', oids=[oid])
+
+    def offer_check_in(self):
+        """
+        After a save, offer to check the object in.
+
+        Saving and checking in are different things -- a save records the
+        edit, a check-in gives up the claim -- but they are easily conflated,
+        so a holder who has just saved is asked rather than left to find the
+        Check In action.  Asking on every save would be its own nuisance, so
+        the question carries a "do not ask again" box, kept in prefs.
+        """
+        if not self.holds_checkout():
+            return
+        if not state.get('connected'):
+            return
+        if not prefs.get('ask_check_in_on_save', True):
+            return
+        oid = getattr(self.obj, 'oid', '')
+        obj_id = getattr(self.obj, 'id', '') or oid
+        box = QMessageBox(QMessageBox.Question, 'Check In?',
+                f'<b>{obj_id}</b> is saved, and is still checked out to '
+                'you.<br><br>Check it in now, so that others can modify it?',
+                QMessageBox.Yes | QMessageBox.No, self)
+        dont_ask = QCheckBox('Do not ask again', box)
+        box.setCheckBox(dont_ask)
+        answer = box.exec_()
+        if dont_ask.isChecked():
+            prefs['ask_check_in_on_save'] = False
+        if answer == QMessageBox.Yes and oid:
+            orb.log.info(f'* [pgxo] checking in {obj_id} after save ...')
+            dispatcher.send(signal='check in', oids=[oid])
 
     def thaw(self):
         """
@@ -2517,12 +2612,14 @@ class PgxnObject(QDialog):
                 # reset 'closing'
                 self.closing = False
                 dispatcher.send("parms set", parms=pdict)
+                self.offer_check_in()
                 self.close()
                 return
             else:
                 orb.log.debug('  [pgxo] saved -- rebuilding ...')
                 self.build_from_object()
                 dispatcher.send("parms set", parms=pdict)
+                self.offer_check_in()
                 return
         fields_dict = {}
         for name in self.editable_widgets:
@@ -2639,10 +2736,12 @@ class PgxnObject(QDialog):
             orb.log.debug('  [pgxo] saving and closing ...')
             # reset 'closing'
             self.closing = False
+            self.offer_check_in()
             self.close()
         else:
             orb.log.debug('  [pgxo] saved -- rebuilding ...')
             self.build_from_object()
+            self.offer_check_in()
         # if state.get('mode') in ['system', 'component']:
             # dispatcher.send(signal='update product modeler', obj=self.obj)
 
