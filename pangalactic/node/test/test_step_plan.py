@@ -544,6 +544,89 @@ class StepPlanTest(unittest.TestCase):
                  'WIDGET' in keys]     # the usage path, unprefixed
         self.assertEqual(expected, value)
 
+    def test_12f_another_projects_spec_is_not_reused(self):
+        """
+        CASE:  a cloaked specification owned by a different project is not
+        offered for reuse.
+
+        In PGEF a spec's owner controls it, CM included, and one project does
+        not use another's spec -- the way to take one up is to clone it.  An
+        importer that silently reused one would also reference a spec the
+        importing project's members may not be able to see.
+        """
+        from pangalactic.core import state
+        from pangalactic.core.clone import clone
+        was = state.get('project')
+        state['project'] = 'H2G2'
+        try:
+            other = clone('HardwareProduct', name='Bespoke Bracket',
+                          owner=orb.get('test:yoyodyne'), public=False,
+                          save_hw=False)
+            orb.db.commit()
+            root = occ('root', prototype_key='bk', prototype_name='Bracket Rig',
+                       children=[occ('A', 'bbk', 'Bespoke Bracket')])
+            items = plan_creation(root)
+            bracket = [i for i in items
+                       if i.kind == PRODUCT and i.path == 'Bespoke Bracket'][0]
+            expected = [NEW, None, 'YOYODYNE']
+            value = [bracket.status, bracket.product,
+                     getattr(other.owner, 'id', None)]
+            self.assertEqual(expected, value)
+        finally:
+            state['project'] = was
+
+    def test_12g_a_public_spec_is_reused(self):
+        """
+        CASE:  a public specification -- the standard library, a vendor's
+        COTS spec, a public standard governing a piece part -- is reused
+        rather than duplicated.
+        """
+        from pangalactic.core import state
+        from pangalactic.core.clone import clone
+        was = state.get('project')
+        state['project'] = 'H2G2'
+        try:
+            shared = clone('HardwareProduct', name='MS35338-42 Washer',
+                           owner=orb.get('test:yoyodyne'), public=True,
+                           save_hw=False)
+            orb.db.commit()
+            root = occ('root', prototype_key='wk', prototype_name='Washer Rig',
+                       children=[occ('A', 'wwk', 'MS35338-42 Washer')])
+            items = plan_creation(root)
+            washer = [i for i in items
+                      if i.kind == PRODUCT
+                      and i.path == 'MS35338-42 Washer'][0]
+            expected = [REUSED, shared.oid]
+            value = [washer.status, getattr(washer.product, 'oid', None)]
+            self.assertEqual(expected, value)
+        finally:
+            state['project'] = was
+
+    def test_12h_the_projects_own_spec_is_reused(self):
+        """
+        CASE:  a spec the importing project already owns is reused, cloaked
+        or not -- it is the project's to use.
+        """
+        from pangalactic.core import state
+        from pangalactic.core.clone import clone
+        was = state.get('project')
+        state['project'] = 'H2G2'
+        try:
+            mine = clone('HardwareProduct', name='H2G2 Custom Strut',
+                         owner=orb.get('H2G2'), public=False, save_hw=False)
+            orb.db.commit()
+            root = occ('root', prototype_key='sk', prototype_name='Strut Rig',
+                       children=[occ('A', 'ssk', 'H2G2 Custom Strut')])
+            items = plan_creation(root)
+            strut = [i for i in items
+                     if i.kind == PRODUCT
+                     and i.path == 'H2G2 Custom Strut'][0]
+            expected = [REUSED, mine.oid]
+            value = [strut.status, getattr(strut.product, 'oid', None)]
+            self.assertEqual(expected, value)
+        finally:
+            state['project'] = was
+
     def test_13_plans_a_real_step_file(self):
         """
         CASE:  a create plan for the AS1 test assembly proposes one product

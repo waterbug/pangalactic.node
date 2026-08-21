@@ -371,6 +371,56 @@ will sync — only the file attachment is lost, and re-importing the file while
 connected is the remedy. Queuing the upload for reconnect is a larger piece
 of work and is not attempted.
 
+## 3d. Specification reuse, and why it is not a general question
+
+An import that finds an existing product with a prototype's name may reuse it
+rather than creating a duplicate. *Which* products are legitimate to reuse is
+a question about product data ownership, and the answer is not uniform across
+an assembly.
+
+The author's account of it (2026-08-20), which is the reasoning behind the
+rule:
+
+* **A spec's owner controls it**, configuration management included. The
+  standing assumption in PGEF is that a specification owned by one project is
+  **not** used by another. The way for a second project to take one up is to
+  *clone* it — fork, in the git sense — producing a new spec that project
+  owns and may modify against its own requirements and CM process. In the
+  NASA-centre context PGEF was built for, projects were friendly and willing
+  to share intellectual property; what differed was requirements and process,
+  which is exactly what cloning separates.
+* **Level determines provenance.** Assemblies and subsystems (ACS, Comm,
+  Avionics) are usually project-controlled. Boxes — a transponder, say — are
+  often COTS, owned by a manufacturer or vendor, and genuinely reused across
+  projects, though a project may hold a customised variant of its own. Piece
+  parts (nuts, bolts, capacitors, resistors) are governed by public,
+  standardised specs, possibly owned by a body such as SAE or by MIL-SPEC.
+
+**A STEP file carries none of this.** Whoever exports one generally regards
+the provenance of the specs it contains as out of scope, so the importer
+cannot tell a standardised bolt from a bespoke bracket, and the level — which
+is the real discriminator — is not inferable either. There is therefore no
+good general answer to "what may be reused" for imported STEP data.
+
+What the importer does instead is take visibility as a proxy and read it
+conservatively:
+
+| candidate | reused? |
+|---|---|
+| `public` — the standard library, vendor COTS specs, public standards | yes |
+| owned by the importing project | yes |
+| owned by another project and cloaked | **no** — a new project-owned spec is proposed |
+| name matched by more than one candidate | no — ambiguity is left to the user |
+
+That errs toward creating project-owned specs, which is correctable later
+when better information appears, rather than toward silently adopting another
+project's controlled spec — which would also reference something the
+importing project's members may not be able to see.
+
+It was a real defect: before this rule, importing the AS1 file into FireSat
+proposed reusing the cloaked `plate`, `nut` and `bolt` specs that an earlier
+import had created **and left owned by H2G2**.
+
 ## 4. Running the spikes
 
 They take a STEP file path; neither is wired into the app and neither is a

@@ -250,14 +250,47 @@ def _plan_acus(parent_occ, occurrences, path, items, seen):
 
 def _find_product(name):
     """
-    Find the one existing HardwareProduct with this name, or None if there is
-    no such product or more than one -- an ambiguous name is not a match, and
-    is left for the user to resolve.
+    Find an existing HardwareProduct this prototype may reuse, or None.
+
+    A specification controlled by another project is **not** a candidate.  In
+    PGEF a spec's owner controls it, including its configuration management,
+    and the standing assumption is that one project does not use another
+    project's spec:  the way to take one up is to clone it, producing a new
+    spec the second project owns and may modify.  So reuse is offered only
+    for specs that are genuinely shareable --
+
+    * `public` ones:  the standard library, vendor-owned COTS specs, and the
+      public standards (SAE, MIL-SPEC and the like) that piece parts such as
+      nuts and bolts are governed by;
+    * the current project's own specs.
+
+    **Visibility is a proxy for provenance, because a STEP file carries no
+    provenance at all.**  Whoever exports one generally regards the ownership
+    of the specs it contains as out of scope, so an importer cannot tell a
+    standardised bolt from a bespoke bracket.  The level would be the real
+    discriminator -- piece parts are public, boxes are often COTS, subsystems
+    and assemblies are usually project-controlled -- and it is not inferable
+    from the file.  The conservative reading is therefore taken:  anything
+    that is not already shareable becomes a new spec owned by the importing
+    project, to be corrected later when better information appears.
+
+    An ambiguous name is still not a match, and is left for the user.
+
+    Args:
+        name (str):  the prototype name
+
+    Returns:
+        HardwareProduct or None
     """
     if not name:
         return None
     found = orb.search_exact(cname='HardwareProduct', name=name)
-    return found[0] if len(found) == 1 else None
+    project_oid = state.get('project') or ''
+    reusable = [p for p in found
+                if getattr(p, 'public', False)
+                or (project_oid
+                    and getattr(p.owner, 'oid', '') == project_oid)]
+    return reusable[0] if len(reusable) == 1 else None
 
 
 def product_key(item):
