@@ -611,32 +611,38 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
         apply_progress.setMaximum(total + 1)
         apply_progress.setValue(done)
 
-    if mode == PLACE:
-        result = apply_placements(items, progress=on_progress)
-    else:
-        # NOTE: deliberately not passing an owner.  clone() defaults it to
-        # the current project, which is what a newly imported specification
-        # should belong to; taking it from the selected assembly would put
-        # the new specs wherever that happened to live -- PGANA, for a
-        # library item -- which is the opposite of project-owned by default.
-        add_system = (plan_dlg.add_system_checkbox is not None and
-                      plan_dlg.add_system_checkbox.isChecked())
-        result = apply_creation(items,
-                                project=project if add_system else None,
-                                progress=on_progress)
-    apply_progress.setLabelText('saving ...')
-    if result.objects:
-        orb.save(result.objects)
-    if result.created:
-        dispatcher.send(signal='new objects', objs=result.created)
-    if result.modified:
-        dispatcher.send(signal='modified objects', objs=result.modified)
-    if rep_file is not None:
-        set_correspondence(rep_file, result, mode, checksum=_checksum(path))
-    elif mode == CREATE:
-        apply_progress.setLabelText('storing the STEP file ...')
-        _register_step_model(path, items, result, parent=parent)
-    apply_progress.close()
+    # try/finally because the dialog is modal and has no cancel button:  left
+    # open by an exception on the way through, it would lock the window
+    try:
+        if mode == PLACE:
+            result = apply_placements(items, progress=on_progress)
+        else:
+            # NOTE: deliberately not passing an owner.  clone() defaults it
+            # to the current project, which is what a newly imported
+            # specification should belong to; taking it from the selected
+            # assembly would put the new specs wherever that happened to
+            # live -- PGANA, for a library item -- which is the opposite of
+            # project-owned by default.
+            add_system = (plan_dlg.add_system_checkbox is not None and
+                          plan_dlg.add_system_checkbox.isChecked())
+            result = apply_creation(items,
+                                    project=project if add_system else None,
+                                    progress=on_progress)
+        apply_progress.setLabelText('saving ...')
+        if result.objects:
+            orb.save(result.objects)
+        if result.created:
+            dispatcher.send(signal='new objects', objs=result.created)
+        if result.modified:
+            dispatcher.send(signal='modified objects', objs=result.modified)
+        if rep_file is not None:
+            set_correspondence(rep_file, result, mode,
+                               checksum=_checksum(path))
+        elif mode == CREATE:
+            apply_progress.setLabelText('storing the STEP file ...')
+            _register_step_model(path, items, result, parent=parent)
+    finally:
+        apply_progress.close()
     orb.log.info(f'* step import: {result!r}')
     return result
 
