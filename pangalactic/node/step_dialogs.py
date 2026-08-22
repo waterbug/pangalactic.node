@@ -791,6 +791,20 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
         apply_progress.setLabelText('saving ...')
         if result.objects:
             orb.save(result.objects)
+        # The local half of the import ends here;  the repository's half is
+        # only starting.  Say so before handing the objects over, because
+        # dispatching them calls vger.save() synchronously from here -- the
+        # indicator has to exist before the answer can arrive.
+        n = len(result.objects)
+        if n:
+            plural = '' if n == 1 else 's'
+            dispatcher.send(signal='repo save pending',
+                            oids=[o.oid for o in result.objects],
+                            msg=f'The import is saved on this computer.\n\n'
+                                f'Sending {n} item{plural} to the repository '
+                                '-- '
+                                'this continues on the server, and you will '
+                                'be told when it is done.')
         if result.created:
             dispatcher.send(signal='new objects', objs=result.created)
         if result.modified:
