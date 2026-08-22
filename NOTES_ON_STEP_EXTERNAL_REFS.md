@@ -179,3 +179,132 @@ Two points of care in the message:
   subassemblies present, the eight missing parts are named by the
   subassemblies, not by the top-level file, and saying so is the difference
   between an actionable message and a puzzling one.
+
+## 6. Synthesis:  writing an assembly file rather than reading one (2026-08-22)
+
+The author found, by editing `mainbody_asm.stp` by hand, that **substituting
+a different file name in a reference substitutes a different component into
+the assembly** -- the assembly still calls it by the original name, and the
+geometry that arrives is whatever the named file contains.
+
+That is not a quirk.  It follows from what an assembly file actually holds
+for a referenced component:  a *stub*.  The child's `SHAPE_REPRESENTATION`
+sits in a context explicitly marked `'external'` --
+
+    #106=(GEOMETRIC_REPRESENTATION_CONTEXT(3)...
+          REPRESENTATION_CONTEXT('ID2','external'));
+    #111=SHAPE_REPRESENTATION('',(#110),#106);
+
+-- so the assembly file carries the component's *identity, placement and
+usage* but none of its geometry.  The file name is the only thing binding
+that stub to any actual shape.  Name and content are therefore independent,
+which is the opportunity below and also a hazard worth stating: an assembly
+can name a part `MAIN_BODY_BACK` and be given something else entirely, with
+nothing in the file disagreeing.
+
+### 6.1 What one referenced component consists of
+
+From `mainbody_asm.stp`, the entities for a single component, in four groups:
+
+**Identity** -- `PRODUCT` / `PRODUCT_DEFINITION_FORMATION` /
+`PRODUCT_DEFINITION` (#40, #41, #42).
+
+**Usage** -- `NEXT_ASSEMBLY_USAGE_OCCURRENCE('0', ..., 'MAIN_BODY_BACK',
+#187, #42, $)`:  reference designator, parent definition, child definition.
+
+**Placement** -- `AXIS2_PLACEMENT_3D` (#75), `ITEM_DEFINED_TRANSFORMATION`
+from the child's own frame to it (#76), the
+`(REPRESENTATION_RELATIONSHIP ... WITH_TRANSFORMATION ...)` complex (#81),
+`PRODUCT_DEFINITION_SHAPE('Placement #0', ...)` (#67) and
+`CONTEXT_DEPENDENT_SHAPE_REPRESENTATION(#81, #67)` (#82).
+
+**External reference** -- `DOCUMENT_FILE` naming the file (#84),
+`DOCUMENT_REPRESENTATION_TYPE`, a `PROPERTY_DEFINITION('external
+definition')` tying the document to the stub shape rep, the document-format
+representation (`DESCRIPTIVE_REPRESENTATION_ITEM('data format','STEP
+AP214')`), `EXTERNAL_SOURCE(IDENTIFIER(<file name>))` (#93),
+`APPLIED_EXTERNAL_IDENTIFICATION_ASSIGNMENT` (#95),
+`APPLIED_DOCUMENT_REFERENCE(#84,'',(#42))` binding it to the child's product
+definition (#96), and `OBJECT_ROLE('mandatory','')` + `ROLE_ASSOCIATION`.
+
+Plus the `'external'` representation context and stub `SHAPE_REPRESENTATION`
+quoted above.
+
+### 6.2 Why this is worth keeping on the roadmap
+
+**PGEF already holds every input.**  This is the striking part, and it fell
+out of the import work rather than being designed for:
+
+| needed in the file | where it already is |
+| --- | --- |
+| product identity, name | `HardwareProduct.id`, `.name` |
+| reference designator | `Acu.reference_designator` |
+| parent/child structure | `Acu.assembly`, `Acu.component` |
+| placement | `Axis2Placement3D` + `ContextDependentShapeRepresentation` |
+| file to reference | `RepresentationFile.user_file_name` |
+| the component files themselves | the vault, via `component_files` (3.7.0) |
+
+So a "STEP assembly template" -- a parent file with the boilerplate, to which
+component references are appended -- is a matter of *emitting* what the
+ontology already carries, not of acquiring anything new.  It is the exact
+inverse of `step_import.read_assembly()`, over the same entities.
+
+This also makes the roadmap item in the sandbox TODO -- "provide STEP models
+of library components" -- more valuable than it looks:  a library of
+per-component STEP files plus this synthesis is a route from a PGEF assembly
+to a CAD-readable one without a CAD system in the loop, which is the same
+direction as generating 42 input.
+
+### 6.3 Where the placements would come from
+
+Reading an assembly gives placements;  synthesizing one has to *decide*
+them, which is a harder problem and the one that decides how far this can go.
+
+An imported assembly has a placement per usage already, so re-emitting it is
+straightforward.  A *synthesized* assembly -- components picked from the
+library and assembled -- has no placements to re-emit, and the interesting
+half is where they come from.
+
+**Orientation is often implied by interfaces** (author, 2026-08-22):  a
+component's orientation is frequently not free, but fixed by what it has to
+mate with, point at, or radiate away from -- a connector's mating direction,
+a radiator facing deep space, a thruster's line of action, a sensor
+boresight.  That is a constraint the component itself carries, not something
+the person assembling it should have to supply each time.
+
+PGEF has somewhere to put it.  `Port` and `PortType` already describe a
+component's interfaces, and `Flow` describes what connects to what;  an
+orientation attached to a port -- a direction in the component's own frame --
+would let a placement be *derived* from a connection rather than entered.
+Whether that belongs on `Port`, on `PortType` (so it is a property of the
+kind of interface), or on a `PortTemplate` is exactly the sort of question
+the placement classes needed answering, and the answer there was to follow
+STEP's own model.  Worth asking whether STEP has a corresponding notion
+before inventing one -- it has kinematics and assembly constraint schemas
+(AP242 in particular), which is where to look first.
+
+Note this is the same question the 42 work runs into from the other side:  an
+ACS simulation needs to know where things point, not only where they sit.
+The two would share whatever answer this gets.
+
+### 6.4 Not yet identified
+
+* **Entity numbering.**  Ids are file-local and every appended component
+  needs a fresh block;  a template plus text substitution needs a renumbering
+  pass, or generation from a model rather than by concatenation.
+* **Units.**  Each file declares its own (`mainbody_asm.stp` is in
+  centimetres).  A synthesized parent has to agree with, or convert for, the
+  files it references -- and `scale_to_m()` shows how easily this is got
+  wrong in the other direction.
+* **What else a reader requires** to accept the file:  the header
+  (`FILE_DESCRIPTION`, `FILE_SCHEMA`), application context, and the
+  validation properties Pro/E writes (centroid, area, volume) -- which are
+  presumably optional, but that is an assumption, not a finding.
+* **Whether OCC will read a synthesized file at all.**  It does not follow
+  these references (section 2.1), so any test of a synthesized assembly needs
+  a reader that does, or a check against a real CAD system.
+* Whether this belongs in `pangalactic.node` beside the importer, or in
+  `pangalactic.core` as a serializer.  It needs no Qt and no OCC, which
+  argues for core.
+
+**Priority:  roadmap, not now** (author, 2026-08-22).
