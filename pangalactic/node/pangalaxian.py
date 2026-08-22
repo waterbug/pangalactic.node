@@ -342,9 +342,24 @@ class Main(QMainWindow):
     # back that stops being a migration and becomes a quiet, partial one,
     # which is worse than an honest reset.
     #
-    # SET THIS PER RELEASE.  It should be the oldest version whose data this
-    # release can still make sense of;  4.0 is a conservative starting point
-    # rather than a researched one.
+    # Set per release:  the oldest version whose data this release can still
+    # make sense of.
+    #
+    # 4.0 is the author's call (2026-08-22), and the reasoning is worth
+    # keeping because it is what makes the floor safe rather than merely
+    # conservative:
+    #
+    #   * a home older than 4.0 cannot be holding unsynced local work.
+    #     Check-out did not exist then, so there were no claimed objects
+    #     edited offline, and nothing else kept local modifications back
+    #     from the repository.  Emptying such a home therefore discards a
+    #     cache of the repository's data, not the user's work.
+    #   * users of those releases were already accustomed to the
+    #     wipe-and-rebuild that every incompatible release triggered, so it
+    #     is the behaviour they expect rather than a surprise.
+    #
+    # Both stop being true above 4.0, which is why the floor is here and not
+    # higher.
     min_migratable_version = Version('4.0')
     # signals
     # remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
