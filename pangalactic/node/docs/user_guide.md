@@ -790,8 +790,9 @@ part of work on the thing that owns them, so claiming the owner covers them
 **Person** and **Role** objects are not work items and are not offered
 either.
 
-**Activities** are not offered, for a different reason:  they cannot be
-edited offline at all.  See **Activities and Timelines** below.
+The objects a **timeline** is made of are not offered either, for a
+different reason:  they cannot be edited offline at all.  See **Activities
+and Timelines** below.
 
 Click **OK** and the claims are made.  The repository decides
 authoritatively, applying the same permission rules, so occasionally an item
@@ -843,14 +844,16 @@ no indicator of their own yet.
 ### Activities and Timelines
 
 **Activities** cannot be edited while disconnected, and cannot be checked
-out.
+out.  Neither can the **Decisions** and **Merges** that branch and rejoin a
+sequence of them.
 
 This is not an oversight.  An **Activity** is not an independent thing:  its
 *duration* and its start and stop times are bound up with those of every
 other **Activity** in its timeline, and the **ConOps Modeler** adjusts the
 others as you change one.  So a claim on a single activity would not cover
 the work -- the whole timeline would have to be claimed, which is a
-different and larger idea than checking out an object.
+different and larger idea than checking out an object.  The same goes for
+the objects that sequence the activities.
 
 Rather than support that badly, **Pangalaxian** keeps timeline work online:
 the **Mission Details** table is read-only while you are disconnected, and
