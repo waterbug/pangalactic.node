@@ -44,7 +44,9 @@ if sys.stderr is None:
 
 import argparse, atexit, json, math, shutil
 import time, webbrowser
-import traceback
+# NOTE: kept out of the import list -- the one use (the shutdown db dump)
+# moved to orb.start(); re-enable it if another handler needs a traceback
+# import traceback
 import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
 from functools import partial
@@ -469,6 +471,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_unresolved_activity_parents,
                            'unresolved activity parents')
         dispatcher.connect(self.on_check_in_signal, 'check in')
+        dispatcher.connect(self.on_repo_save_pending, 'repo save pending')
         dispatcher.connect(self.on_new_objects_signal, 'new objects')
         dispatcher.connect(self.on_mod_objects_signal, 'modified objects')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
@@ -2387,6 +2390,110 @@ class Main(QMainWindow):
             msg = (f'{len(granted)} item(s) checked out, '
                    f'{len(denied)} refused (see log)')
             QTimer.singleShot(0, lambda: self.statusbar.showMessage(msg))
+
+    # ------------------------------------------------------------------
+    # REPOSITORY ACTIVITY INDICATOR
+    #
+    # Some local operations are only half the work:  a STEP import, for one,
+    # finishes locally and then hands its objects to vger.save(), which runs
+    # on the server and answers later.  Without something on screen the
+    # client looks finished while the import is still going, and the result
+    # arrives with no explanation.
+    #
+    # The wait is pinned to *oids* rather than to a count of outstanding
+    # rpcs:  vger.save's result names the objects it saved, and
+    # on_vger_save_result is called for every save the client makes, not just
+    # the one being waited on -- so counting would let an unrelated save
+    # dismiss this one's indicator.
+    # ------------------------------------------------------------------
+
+    # give up waiting after this many milliseconds, so a server that never
+    # answers leaves a message rather than a dialog that cannot be dismissed
+    REPO_ACTIVITY_TIMEOUT = 300000      # 5 minutes
+
+    def on_repo_save_pending(self, oids=None, msg=''):
+        """
+        Handle the local "repo save pending" signal:  an operation has handed
+        objects to the repository and wants the wait shown.
+
+        Keyword Args:
+            oids (list of str):  oids whose save is being waited for
+            msg (str):  what to tell the user is happening
+        """
+        if not oids:
+            return
+        if not state.get('connected'):
+            # nothing is pending on a server we are not talking to;  the
+            # objects are saved locally and will go up at the next sync
+            return
+        self.repo_pending_oids = set(getattr(self, 'repo_pending_oids',
+                                             set())) | set(oids)
+        label = msg or 'saving to the repository ...'
+        dlg = getattr(self, 'repo_activity_dlg', None)
+        if dlg is None:
+            dlg = ProgressDialog(title='Repository', label=label,
+                                 maximum=1, parent=self)
+            dlg.setAutoClose(False)
+            dlg.setAutoReset(False)
+            dlg.setRange(0, 0)
+            # modeless:  the server is working, the client is not, and there
+            # is no reason to stop the user getting on with something else
+            dlg.setModal(False)
+            dlg.setAttribute(Qt.WA_DeleteOnClose)
+            self.repo_activity_dlg = dlg
+        dlg.setLabelText(label)
+        dlg.show()
+        QTimer.singleShot(self.REPO_ACTIVITY_TIMEOUT,
+                          self.on_repo_activity_timeout)
+
+    def repo_save_returned(self, oids):
+        """
+        Note that the repository has answered for some oids, and take the
+        indicator down once nothing is outstanding.
+
+        Args:
+            oids (iterable of str):  oids the repository reported on
+        """
+        pending = getattr(self, 'repo_pending_oids', None)
+        if not pending:
+            return
+        pending -= set(oids or [])
+        if not pending:
+            self.close_repo_activity('saved to the repository.')
+
+    def close_repo_activity(self, message=''):
+        """
+        Take the indicator down, and say what became of the wait.
+        """
+        self.repo_pending_oids = set()
+        dlg = getattr(self, 'repo_activity_dlg', None)
+        if dlg is not None:
+            self.repo_activity_dlg = None
+            try:
+                dlg.close()
+            except:
+                # the C++ object may already be gone
+                pass
+        if message:
+            # deferred:  this runs from inside an rpc callback, and painting
+            # there while further rpcs are pending raises
+            # "QBackingStore::endPaint() called ..."
+            QTimer.singleShot(0, lambda: self.statusbar.showMessage(message,
+                                                                    5000))
+
+    def on_repo_activity_timeout(self):
+        """
+        Stop waiting.  A server that has not answered in five minutes is not
+        about to, and an indicator that cannot be dismissed is worse than no
+        indicator.
+        """
+        if getattr(self, 'repo_pending_oids', None):
+            n = len(self.repo_pending_oids)
+            orb.log.info(f'* repo activity: still waiting on {n} object(s) '
+                         'after the timeout; giving up on the indicator.')
+            self.close_repo_activity(
+                f'still waiting on the repository for {n} item(s) -- they '
+                'will be synced at the next login.')
 
     def on_check_in_signal(self, oids=None):
         """
@@ -4662,8 +4769,16 @@ class Main(QMainWindow):
             # anything the repository accepted is no longer "locally created"
             # -- it now exists there, so offline editability must come from a
             # check-out claim rather than from rule [4]
-            self.clear_locally_created(list(stuff.get('new_obj_dts') or {})
-                                       + list(stuff.get('mod_obj_dts') or {}))
+            saved_oids = (list(stuff.get('new_obj_dts') or {})
+                          + list(stuff.get('mod_obj_dts') or {}))
+            self.clear_locally_created(saved_oids)
+            # anything refused is not coming, so stop waiting on it too --
+            # otherwise the indicator would hang until the timeout on a batch
+            # that was partly rejected
+            refused = []
+            for key in ('unauth', 'no_owners'):
+                refused += list(stuff.get(key) or [])
+            self.repo_save_returned(saved_oids + refused)
             if stuff.get('new_obj_dts'):
                 msg_parts.append('{} new'.format(len(stuff['new_obj_dts'])))
                 new_obj_oids = list(stuff['new_obj_dts'])
@@ -4890,6 +5005,12 @@ class Main(QMainWindow):
 
     def on_failure(self, f):
         orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
+        # an rpc that failed is never going to answer, so nothing should go
+        # on waiting for it
+        if getattr(self, 'repo_pending_oids', None):
+            self.close_repo_activity('the repository did not respond -- the '
+                                     'items will be synced at the next '
+                                     'login.')
 
     def on_set_value_result(self, stuff):
         # orb.log.debug('  rpc result: {}'.format(stuff))
@@ -8057,36 +8178,20 @@ class Main(QMainWindow):
         orb.save_caches()
         if orb.db.dirty:
             orb.db.commit()
-        # Dump the database to "db.yaml" in the home directory.  This is the
-        # file the schema migration in orb.start() reloads from after it drops
-        # and recreates the database, so it must exist and be current *before*
-        # an upgrade that changes the schema -- i.e. it has to be written by
-        # the version being replaced, at shutdown, which is here.
+        # NOTE: the database is deliberately NOT dumped here.
         #
-        # NOTE: this was previously guarded by a hardcoded "mods = False",
-        # which made the call dead code, so db.yaml was never written.  The
-        # migration then reloaded from a file that did not exist and, since
-        # load_and_transform_data() treats an absent file as "no data",
-        # emptied the database instead of migrating it -- silently.  The
-        # bare orb.dump_db() would not have helped either:  with no fpath it
-        # writes backup/db-dump-<dts>.yaml, which is not the path the
-        # migration reads.
+        # It used to be, so that the schema migration in orb.start() had a
+        # db.yaml to reload from -- which meant every shutdown paid for a
+        # migration that almost never happens, and made closing the client
+        # slow enough to be a nuisance (author, 2026-08-22).
         #
-        # The dump is unconditional.  There is no reliable "was anything
-        # modified" flag to consult, and a stale dump is exactly as
-        # destructive as a missing one -- the migration cannot tell the
-        # difference, and neither can the user until the data is gone.
-        self.statusbar.showMessage('* backing up db...')
-        try:
-            orb.dump_db(fpath=os.path.join(orb.home, 'db.yaml'))
-            self.statusbar.showMessage('* db backed up.')
-        except Exception as e:
-            # a failed dump must not prevent shutdown, but it does mean the
-            # next schema migration would find nothing, so say so loudly
-            orb.log.error(f'* db dump for migration FAILED: {e}')
-            orb.error_log.info('* cleanup_and_save: db dump failed')
-            orb.error_log.info(traceback.format_exc())
-            self.statusbar.showMessage('* db backup FAILED (see error log).')
+        # The dump now happens at start-up instead, in the migration branch
+        # of orb.start(), taken from the database it is about to migrate.
+        # That is faster (no cost on an ordinary shutdown), fresher (the dump
+        # cannot be stale, because nothing runs between it and the
+        # migration), and more robust (a home whose last shutdown was a crash
+        # still migrates).  See pangalactic/core/dbdump.py for why it cannot
+        # use orb.dump_db() there.
         if state.get('connected'):
             self.mbus.session = None
             self.mbus = None
