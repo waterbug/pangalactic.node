@@ -625,6 +625,8 @@ class Main(QMainWindow):
                            'unresolved activity parents')
         dispatcher.connect(self.on_check_in_signal, 'check in')
         dispatcher.connect(self.on_repo_save_pending, 'repo save pending')
+        dispatcher.connect(self.download_missing_component_files,
+                           'fetch component files')
         dispatcher.connect(self.on_new_objects_signal, 'new objects')
         dispatcher.connect(self.on_mod_objects_signal, 'modified objects')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
@@ -6927,9 +6929,137 @@ class Main(QMainWindow):
                 oid = so['oid']
         if oid:
             self.store_step_correspondence(oid, fpath)
+            self.start_component_file_transfers(fpath, oid)
             self.read_and_upload_file(fpath=fpath, rep_file_oid=oid)
         else:
             orb.log.debug('  - RepresentationFile oid not found; no upload.')
+
+    # ------------------------------------------------------------------
+    # COMPONENT FILE TRANSFER
+    #
+    # A CAD assembly may be exported as a *set* of files:  the assembly file
+    # names its subassembly and part files, and cannot be read without them.
+    # Only the file the user chose used to be uploaded, so the repository's
+    # copy rendered as whatever geometry happened to be inline -- for the
+    # CAx-IF files, nothing at all (author, observed on a round trip).
+    #
+    # The files go up one at a time, and have to:  read_and_upload_file()
+    # keeps the chunks, the path and the target oid in instance attributes,
+    # so two uploads at once would overwrite each other.  The queue is
+    # therefore drained from on_file_upload_success().
+    #
+    # It is a cascade rather than a loop because "component_file_of" points
+    # at the *referencing* file, whose RepresentationFile does not exist
+    # until it has itself been registered.  So a file can only be registered
+    # after its parent has been, which is why reference_closure() returns
+    # parents before children.
+    # ------------------------------------------------------------------
+
+    def start_component_file_transfers(self, fpath, rep_file_oid):
+        """
+        Queue the files that `fpath` references, if any, for transfer.
+
+        Args:
+            fpath (str):  the file just registered
+            rep_file_oid (str):  oid of its RepresentationFile
+        """
+        try:
+            from pangalactic.node.step_import import reference_closure
+            closure = reference_closure(fpath)
+        except Exception as e:
+            # pythonocc is not needed for this, but the module import is
+            # still the client's only reason to touch step_import here
+            orb.log.debug(f'  - component files: closure failed: {e}')
+            return
+        self.step_rep_file_oids = {fpath: rep_file_oid}
+        self.step_component_queue = list(closure)
+        if closure:
+            n = len(closure)
+            orb.log.info(f'  - {n} referenced file(s) to transfer.')
+
+    def next_component_file_transfer(self):
+        """
+        Register the next queued component file, if its referencing file has
+        been registered yet.  Called when an upload finishes.
+        """
+        queue = getattr(self, 'step_component_queue', None)
+        if not queue:
+            return
+        oids = getattr(self, 'step_rep_file_oids', None) or {}
+        for i, (child, parent) in enumerate(queue):
+            parent_oid = oids.get(parent)
+            if not parent_oid:
+                # its parent has not been registered yet;  it will be, and
+                # this one is reconsidered on the next pass
+                continue
+            del queue[i]
+            fname = os.path.basename(child)
+            try:
+                fsize = os.path.getsize(child)
+            except OSError:
+                orb.log.debug(f'  - component file gone: "{child}"')
+                # drop it and carry on -- one unreadable file should not
+                # strand the rest of the set
+                self.next_component_file_transfer()
+                return
+            orb.log.info(f'  - registering component file "{fname}"')
+            # imported here rather than at module scope:  step_dialogs is
+            # where the constant lives and importing it at start-up would
+            # pull in nothing useful this early
+            from pangalactic.node.step_dialogs import STEP_MIME_TYPE
+            try:
+                rpc = self.mbus.session.call('vger.add_component_file',
+                                rep_file_oid=parent_oid,
+                                fpath=child,
+                                parms={'file name': fname,
+                                       'file size': str(fsize),
+                                       'mime_type': STEP_MIME_TYPE})
+                rpc.addCallback(self.on_component_file_added)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                self.set_bus_state()
+            return
+        # nothing in the queue can proceed:  every remaining entry is waiting
+        # on a parent that was never registered, so it never will be
+        if queue:
+            names = [os.path.basename(c) for c, p in queue]
+            orb.log.info(f'  ** {len(queue)} component file(s) stranded: '
+                         f'{names}')
+            self.statusbar.showMessage(
+                f'WARNING: {len(queue)} referenced file(s) were not '
+                'transferred (see log)')
+        self.step_component_queue = []
+        self.step_rep_file_oids = {}
+
+    def on_component_file_added(self, result):
+        """
+        Callback for 'vger.add_component_file':  record the new
+        RepresentationFile and upload the file it stands for.
+
+        Args:
+            result (tuple):  (local file path, serialized objects)
+        """
+        fpath, sobjs = result
+        if not sobjs:
+            orb.log.info(f'  ** component file refused: "{fpath}"')
+            # carry on with the rest;  a refusal is an answer
+            self.next_component_file_transfer()
+            return
+        deserialize(orb, sobjs)
+        oid = ''
+        for so in sobjs:
+            if so['_cname'] == 'RepresentationFile':
+                oid = so['oid']
+        if not oid:
+            self.next_component_file_transfer()
+            return
+        oids = getattr(self, 'step_rep_file_oids', None)
+        if oids is None:
+            oids = self.step_rep_file_oids = {}
+        oids[fpath] = oid
+        # the upload's completion drains the next one
+        self.read_and_upload_file(fpath=fpath, rep_file_oid=oid)
 
     def store_step_correspondence(self, rep_file_oid, fpath):
         """
@@ -7171,6 +7301,8 @@ class Main(QMainWindow):
             except:
                 # C++ object got deleted ...
                 pass
+        # one upload at a time:  the next component file, if any, starts now
+        self.next_component_file_transfer()
 
     def open_doc_file(self, rep_file=None):
         """
@@ -7184,11 +7316,43 @@ class Main(QMainWindow):
         Keyword Args:
             chunk_size (int):  size of chunks to be used
         """
+        self.download_missing_component_files(rep_file)
         vault_fpath = orb.get_vault_fpath(rep_file)
         if os.path.exists(vault_fpath):
             self.open_vault_file(rep_file=rep_file)
         else:
             self.download_file(digital_file=rep_file, open_file=True)
+
+    def download_missing_component_files(self, rep_file=None):
+        """
+        Fetch any file this one references that is not in the vault yet.
+
+        A file that is part of an export set is useless without the rest of
+        the set, so they are fetched together rather than waiting for
+        something to notice one missing.  Files already in the vault are left
+        alone.
+
+        Args:
+            rep_file (RepresentationFile):  the file being opened
+
+        Returns:
+            int:  how many downloads were started
+        """
+        if rep_file is None or not state.get('connected'):
+            return 0
+        started = 0
+        for rf in orb.get_file_closure(rep_file):
+            if rf.oid == rep_file.oid:
+                continue
+            if os.path.exists(orb.get_vault_fpath(rf)):
+                continue
+            orb.log.info(f'  - fetching component file '
+                         f'"{rf.user_file_name}" ...')
+            self.download_file(digital_file=rf)
+            started += 1
+        if started:
+            orb.log.info(f'  - {started} component file(s) requested.')
+        return started
 
     def open_vault_file(self, rep_file=None):
         """

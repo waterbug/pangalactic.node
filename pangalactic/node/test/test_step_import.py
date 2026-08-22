@@ -276,3 +276,98 @@ class StepImportTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# the reference closure
+#
+# missing_references() reports what is absent;  reference_closure() enumerates
+# what is present, which is what has to be transferred for the assembly to be
+# readable anywhere else.  Only the file the user chose used to be uploaded,
+# so a round trip rendered whatever geometry was inline -- for these files,
+# none at all.
+# ---------------------------------------------------------------------------
+
+def test_30_closure_of_a_file_that_references_nothing():
+    """
+    CASE:  a single-file assembly.  Nothing to transfer but itself.
+    """
+    from pangalactic.node.step_import import reference_closure
+    assert reference_closure(AS1_IDEAS) == []
+
+
+def test_31_closure_is_the_whole_set():
+    """
+    CASE:  s1-pe-214.stp, which is exported as thirteen files.  Every one of
+    the other twelve is found, at both levels -- the four subassemblies it
+    names, and the parts those name in turn.
+    """
+    from pangalactic.node.step_import import reference_closure
+    found = reference_closure(S1_PE)
+    names = [os.path.basename(c) for c, p in found]
+    assert len(names) == 12, names
+    # the subassemblies it names directly
+    for name in ('mainbody_asm.stp', 'head_asm.stp', 'tail_asm.stp',
+                 'foot_asm.stp'):
+        assert name in names
+    # ... and parts named by those, which is the level that proves recursion
+    for name in ('main_body_back_prt.stp', 'head_front_prt.stp',
+                 'tail_turbine_prt.stp', 'foot_back_prt.stp'):
+        assert name in names
+
+
+def test_32_closure_pairs_each_file_with_its_referrer():
+    """
+    CASE:  the referencing file comes back with each one.
+
+    This is what "component_file_of" needs:  a part file belongs to the
+    subassembly that names it, not to the top-level file.
+    """
+    from pangalactic.node.step_import import reference_closure
+    by_child = {os.path.basename(c): os.path.basename(p)
+                for c, p in reference_closure(S1_PE)}
+    assert by_child['mainbody_asm.stp'] == 's1-pe-214.stp'
+    assert by_child['main_body_back_prt.stp'] == 'mainbody_asm.stp'
+    assert by_child['foot_front_prt.stp'] == 'foot_asm.stp'
+
+
+def test_33_parents_come_before_children():
+    """
+    CASE:  ordering.  A caller creating an object per file links each to its
+    referrer, which must therefore already exist -- so every referrer has to
+    appear before anything it references.
+    """
+    from pangalactic.node.step_import import reference_closure
+    found = reference_closure(S1_PE)
+    seen = {os.path.realpath(S1_PE)}
+    for child, parent in found:
+        assert os.path.realpath(parent) in seen, (
+            f'{os.path.basename(child)} comes before its referrer '
+            f'{os.path.basename(parent)}')
+        seen.add(os.path.realpath(child))
+
+
+def test_34_a_file_reached_twice_appears_once():
+    """
+    CASE:  no duplicates.  "component_file_of" is functional, so a file has
+    one referring file;  a part shared by two subassemblies is one file in
+    the export set.
+    """
+    from pangalactic.node.step_import import reference_closure
+    found = reference_closure(S1_PE)
+    reals = [os.path.realpath(c) for c, p in found]
+    assert len(reals) == len(set(reals))
+    assert os.path.realpath(S1_PE) not in reals   # the root is not its own
+
+
+def test_35_missing_files_are_left_out_not_raised(tmp_path):
+    """
+    CASE:  a file whose references are not beside it.  The closure is what
+    can be found;  missing_references() is what reports the rest, and the
+    importer refuses before it gets this far.
+    """
+    import shutil as _shutil
+    from pangalactic.node.step_import import reference_closure
+    lonely = str(tmp_path / os.path.basename(S1_PE))
+    _shutil.copy(S1_PE, lonely)
+    assert reference_closure(lonely) == []

@@ -154,6 +154,56 @@ def external_references(path):
     return names
 
 
+def reference_closure(path):
+    """
+    Find every file a STEP file needs, transitively, paired with the file
+    that references it.
+
+    The companion to missing_references():  that one reports what is absent,
+    this one enumerates what is present, which is what has to be transferred
+    for the assembly to be readable anywhere else.  A reference is resolved
+    relative to the directory of the file that makes it, as a STEP reader
+    resolves it.
+
+    Args:
+        path (str):  path to the STEP file
+
+    Returns:
+        list of tuple:  (referenced file path, referencing file path), in the
+        order encountered -- parents before children, so a caller creating an
+        object per file can rely on the referencing file already existing.
+        Empty if the file references nothing.
+
+    Note that a file reached by two routes appears once, under whichever
+    reference was seen first.  That matches the ontology, where
+    `component_file_of` is functional:  a file has one referencing file, and
+    a part shared by two subassemblies is one file in the export set.
+    """
+    found, visited = [], set()
+
+    def walk(fpath):
+        real = os.path.realpath(fpath)
+        if real in visited:
+            # a cycle, or a file reached by two routes
+            return
+        visited.add(real)
+        directory = os.path.dirname(os.path.abspath(fpath))
+        children = []
+        for name in external_references(fpath):
+            child = os.path.join(directory, name)
+            if os.path.exists(child):
+                if os.path.realpath(child) not in visited:
+                    found.append((child, fpath))
+                children.append(child)
+        # breadth first, so that "parents before children" holds across
+        # levels and not only within one
+        for child in children:
+            walk(child)
+
+    walk(path)
+    return found
+
+
 def missing_references(path):
     """
     Find the files a STEP file needs, transitively, that are not beside it.

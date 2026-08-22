@@ -6,8 +6,8 @@ from pydispatch import dispatcher
 
 from PyQt5.QtCore import Qt, QModelIndex, QSize
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
-                             QLayout, QMainWindow, QPushButton, QSizePolicy,
-                             QVBoxLayout, QWidget)
+                             QLayout, QMainWindow, QMessageBox, QPushButton,
+                             QSizePolicy, QVBoxLayout, QWidget)
 from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
@@ -484,6 +484,35 @@ class ModelWindow(QMainWindow):
         fpaths = []
         if mcad_models:
             orb.log.debug('  MCAD models found:')
+            # A CAD assembly exported as a set of files needs the whole set
+            # before it can be read.  Ask for anything missing before
+            # building a path:  get_mcad_model_file_path() stages what is in
+            # the vault, and stages less than the whole assembly if some of
+            # it has not been fetched.
+            pending = 0
+            for m in mcad_models:
+                for rf in (getattr(m, 'has_files', None) or []):
+                    if not getattr(rf, 'component_files', None):
+                        continue
+                    # dispatcher.send returns (receiver, result) pairs, so
+                    # the handler can say how many downloads it started
+                    for receiver, result in dispatcher.send(
+                                    signal='fetch component files',
+                                    rep_file=rf) or []:
+                        if isinstance(result, int):
+                            pending += result
+            if pending:
+                # the downloads are asynchronous and the viewer is about to
+                # open on whatever is in the vault now, so say so rather than
+                # rendering a half-assembly with no explanation
+                orb.log.info(f'  {pending} referenced file(s) being fetched.')
+                QMessageBox(QMessageBox.Information,
+                    'Fetching model files',
+                    f'This model is made of several files, and {pending} of '
+                    'them are still being fetched from the repository.\n\n'
+                    'Open the 3D view again when they have arrived to see '
+                    'the whole assembly.',
+                    QMessageBox.Ok, self).exec_()
             for m in mcad_models:
                 # orb.log.debug(f'      - model: "{m.id}"')
                 fpath = orb.get_mcad_model_file_path(m)

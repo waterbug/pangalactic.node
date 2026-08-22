@@ -158,6 +158,7 @@ supporting it -- is answered:  see section 5.)*
 
 The importer now stops before reading anything if any referenced file is
 missing, naming each one and the file that refers to it.
+
 `step_import.missing_references()` walks the closure, resolving each
 reference against the directory of the file that makes it -- which is how a
 reader resolves them -- following those that resolve, so a reference missing
@@ -179,6 +180,7 @@ Two points of care in the message:
   subassemblies present, the eight missing parts are named by the
   subassemblies, not by the top-level file, and saying so is the difference
   between an actionable message and a puzzling one.
+
 
 ## 6. Synthesis:  writing an assembly file rather than reading one (2026-08-22)
 
@@ -308,3 +310,72 @@ The two would share whatever answer this gets.
   argues for core.
 
 **Priority:  roadmap, not now** (author, 2026-08-22).
+
+
+## 7. File transfer, both ways (2026-08-25)
+
+Found by the author on a round trip:  an assembly imported from a multi-file
+export renders correctly from the directory it was imported from, and
+**incorrectly when fetched back from the repository** -- because only the
+file the user chose was ever uploaded.  For the CAx-IF files that means
+almost nothing renders:  `s1-pe-214.stp` and its subassemblies contain *no*
+inline geometry at all (0 `ADVANCED_BREP_SHAPE_REPRESENTATION`, 5 and 2
+`EXTERNAL_SOURCE` respectively), so every component's geometry is in another
+file.
+
+This is 3.2 step 5 and 3.3.  Step 4 -- grafting each referenced file's
+structure beneath the occurrence that stands for it -- is **not** done, so an
+imported assembly still has empty subassemblies in the PGEF object graph.
+What is fixed is the *files*:  the geometry now survives a round trip, which
+is what the 3D view depends on.
+
+### 7.1 Up:  `vger.add_component_file`
+
+`reference_closure()` (node) walks the set the same way `missing_references()`
+does, returning `(referenced file, referencing file)` pairs, **parents before
+children** -- which matters because `component_file_of` points at the
+referencing file, whose `RepresentationFile` has to exist first.
+
+The client then cascades:  each file is registered by
+`vger.add_component_file(rep_file_oid=<the referrer's>, ...)` and uploaded,
+and the *upload's* completion starts the next one.  One at a time is not a
+choice -- `read_and_upload_file()` keeps the chunks, path and target oid in
+instance attributes, so two at once would overwrite each other.
+
+The new rpc is separate from `add_update_model()` because that one always
+creates a `Model`;  calling it per file would leave a Model per file, all of
+the same product.  A component file joins the *same* Model as the file that
+references it:  it is not a model of anything in its own right.  It is
+idempotent on `(referencing file, user_file_name)`, since an import can
+legitimately be repeated.
+
+### 7.2 Down:  `orb.stage_file_closure()`
+
+Section 2.3's problem, solved where it has to be.  A vault file is named
+`<oid>_<user_file_name>`, so an assembly opened from the vault resolves none
+of its references *even when every file has been downloaded*.  Staging copies
+the closure into one directory per root file, each under its own
+`user_file_name`, and returns the staged root.  `get_mcad_model_file_path()`
+uses it, and skips files that are `component_file_of` something -- opening
+one of those directly would render a component instead of the assembly.
+
+One directory *per root file* rather than one shared one, because two
+assemblies can each reference a part file of the same name and they are not
+the same file.
+
+Partial sets stage as far as they can rather than refusing:  a reader given
+part of a set renders part of the assembly, which beats nothing.
+
+### 7.3 What is still weak
+
+* **The download is asynchronous and the viewer is not.**  Opening the 3D
+  view asks for any missing component files and then opens on what is in the
+  vault *now*, so the first open after a fetch can show a partial assembly.
+  It says so in a dialog rather than pretending, but the honest fix is to
+  open the viewer from the completion of the downloads.  There is no
+  aggregate "closure downloaded" signal to hang that on yet.
+* **Nothing removes staged directories.**  They are copies of vault content
+  under `<home>/staged/<oid>/` and will accumulate.
+* **Step 4 is still not done**, so the object graph and the file graph still
+  disagree:  the assembly renders whole and its subassemblies are still empty
+  as PGEF objects.  Section 3.2 is the design.
