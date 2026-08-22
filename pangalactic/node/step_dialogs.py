@@ -348,7 +348,19 @@ class StepPlanDialog(QDialog):
         # every new product arrives "unclassified" and the whole column has
         # to be set by hand.
         self.type_combo = None
+        self.select_all_checkbox = None
         if self.type_combos:
+            # Selecting rows one at a time is the same tedium the bulk
+            # assignment was added to remove, so:  one checkbox to select
+            # everything, then Ctrl-click the few to leave out.  Follows the
+            # Disciplines panel of ProductFilterDialog -- same label, and
+            # connected to "clicked" rather than "toggled" so that keeping it
+            # in step with the selection below does not re-fire it.
+            self.select_all_checkbox = QCheckBox(
+                                    'SELECT ALL / CLEAR SELECTIONS', self)
+            self.select_all_checkbox.clicked.connect(self.on_select_all)
+            layout.addWidget(self.select_all_checkbox)
+
             type_row = QHBoxLayout()
             type_row.addWidget(QLabel('Set product type:', self))
             self.type_combo = QComboBox(self)
@@ -357,9 +369,6 @@ class StepPlanDialog(QDialog):
             type_row.addWidget(self.type_combo)
             self.apply_selected_button = QPushButton('Apply to selected',
                                                      self)
-            self.apply_selected_button.setToolTip(
-                'Set the type of the selected rows.  Select rows by '
-                'clicking, and extend the selection with Shift or Ctrl.')
             self.apply_selected_button.clicked.connect(
                                             self.on_apply_type_to_selected)
             self.apply_selected_button.setEnabled(False)
@@ -373,6 +382,9 @@ class StepPlanDialog(QDialog):
             layout.addLayout(type_row)
             self.table.itemSelectionChanged.connect(
                                             self.on_table_selection_changed)
+            # set the button's initial enabled state and tooltip from the
+            # (empty) selection, rather than duplicating them here
+            self.on_table_selection_changed()
 
         button_row = QHBoxLayout()
         accept_all = QPushButton('Accept all', self)
@@ -482,16 +494,55 @@ class StepPlanDialog(QDialog):
         """
         return sorted({idx.row() for idx in self.table.selectedIndexes()})
 
+    def on_select_all(self):
+        """
+        Select every row, or clear the selection.
+
+        Selects *all* rows rather than only the ones that can take a type.
+        A "select all" that quietly selected a subset would look like a bug,
+        and there is no need for it to be clever:  apply_type_to_rows()
+        skips the rows that have no type to set, so taking in the usages and
+        placements costs nothing.
+        """
+        if self.select_all_checkbox is None:
+            return
+        if self.select_all_checkbox.isChecked():
+            self.table.selectAll()
+        else:
+            self.table.clearSelection()
+
     def on_table_selection_changed(self):
         """
-        "Apply to selected" means nothing without a selection that contains
-        a row whose type can be set, so it is enabled only then.
+        Keep the two selection controls honest about what a selection will
+        do:  "Apply to selected" is enabled only when the selection holds a
+        row whose type can be set, and says how many of them there are --
+        which is what tells a user that selecting the usages as well has no
+        effect, rather than leaving them to deselect those by hand.
         """
         button = getattr(self, 'apply_selected_button', None)
         if button is None:
             return
-        button.setEnabled(any(row in self.type_combos
-                              for row in self.selected_rows()))
+        rows = self.selected_rows()
+        settable = [row for row in rows if row in self.type_combos]
+        button.setEnabled(bool(settable))
+        n = len(settable)
+        if n:
+            s = '' if n == 1 else 's'
+            button.setToolTip(f'Set the type of the {n} selected new '
+                              f'product{s}.  Rows with no type to set -- '
+                              'usages, placements, products that will be '
+                              'reused -- are skipped, so there is no need to '
+                              'leave them out of the selection.')
+        else:
+            button.setToolTip(
+                'Select one or more new products to set their type.  Select '
+                'rows by clicking, and extend the selection with Shift or '
+                'Ctrl.')
+        # the box reflects the selection when it is changed by other means,
+        # so it never claims everything is selected when it is not
+        if self.select_all_checkbox is not None:
+            self.select_all_checkbox.setChecked(
+                                    len(rows) == self.table.rowCount())
 
     def apply_type_to_rows(self, rows):
         """

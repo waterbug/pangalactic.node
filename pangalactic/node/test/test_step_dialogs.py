@@ -819,3 +819,79 @@ def test_31_apply_to_selected_follows_the_selection(bulk_dialog):
     assert dlg.apply_selected_button.isEnabled()
     dlg.table.clearSelection()
     assert not dlg.apply_selected_button.isEnabled()
+
+
+def test_32_select_all_checkbox_selects_and_clears(bulk_dialog):
+    """
+    CASE:  the SELECT ALL / CLEAR SELECTIONS box.  Checking it selects every
+    row; clearing it deselects them.  Follows the Disciplines panel of
+    ProductFilterDialog, which is where the idiom comes from.
+    """
+    dlg = bulk_dialog
+    assert dlg.select_all_checkbox is not None
+    assert dlg.selected_rows() == []
+    dlg.select_all_checkbox.setChecked(True)
+    dlg.on_select_all()
+    assert dlg.selected_rows() == list(range(len(dlg.items)))
+    dlg.select_all_checkbox.setChecked(False)
+    dlg.on_select_all()
+    assert dlg.selected_rows() == []
+
+
+def test_33_select_all_then_apply_sets_every_new_product(bulk_dialog):
+    """
+    CASE:  select everything, then Apply to selected.  Every new product gets
+    the type and nothing else is disturbed -- which is the point of not
+    having to leave the usages out of the selection by hand.
+    """
+    dlg = bulk_dialog
+    target = dlg.product_types[1]
+    dlg.type_combo.setCurrentIndex(1)
+    dlg.select_all_checkbox.setChecked(True)
+    dlg.on_select_all()
+    dlg.on_apply_type_to_selected()
+    for row, item in enumerate(dlg.items):
+        if row in dlg.type_combos:
+            assert item.product_type is target
+        else:
+            assert item.product_type is not target or item.status != NEW
+
+
+def test_34_checkbox_follows_a_selection_made_by_other_means(bulk_dialog):
+    """
+    CASE:  the selection is changed without the checkbox.  The box reflects
+    it, so it never claims everything is selected when it is not.
+    """
+    dlg = bulk_dialog
+    dlg.table.selectAll()
+    assert dlg.select_all_checkbox.isChecked()
+    dlg.table.selectRow(sorted(dlg.type_combos)[0])
+    assert not dlg.select_all_checkbox.isChecked()
+    dlg.table.clearSelection()
+    assert not dlg.select_all_checkbox.isChecked()
+
+
+def test_35_apply_to_selected_says_how_many_it_will_set(bulk_dialog):
+    """
+    CASE:  a selection that takes in rows with no type to set.  The tooltip
+    counts only the ones that will change -- that is what tells a user the
+    usages can be left in the selection, rather than leaving them to deselect
+    each one by hand.
+    """
+    dlg = bulk_dialog
+    dlg.table.selectAll()
+    n = len(dlg.type_combos)
+    assert len(dlg.selected_rows()) > n
+    tip = dlg.apply_selected_button.toolTip()
+    assert f'{n} selected new product' in tip
+    assert 'skipped' in tip
+
+
+def test_36_no_select_all_box_in_place_mode(qtbot, plan):
+    """
+    CASE:  a PLACE plan.  Nothing has a type to set, so neither the bulk row
+    nor the select-all box is built.
+    """
+    dlg = StepPlanDialog(plan, PLACE, file_name='rover.stp')
+    qtbot.addWidget(dlg)
+    assert dlg.select_all_checkbox is None

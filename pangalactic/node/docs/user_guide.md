@@ -478,13 +478,19 @@ columns are:
   be corrected later.
 
   Setting them one row at a time gets tedious quickly on a real assembly, so
-  the row below the table sets several at once:  choose a type there, then
+  the controls below the table set several at once:  choose a type, then
   **Apply to all** to give it to every new product in the import, or
   **Apply to selected** to give it only to the rows you have selected.
+
   Select rows by clicking, and extend the selection with **Shift** or
-  **Ctrl** as you would anywhere else.  Rows with no type to set -- usages,
-  placements, and products that will be reused -- are simply skipped, so it
-  does not matter if the selection takes some in.
+  **Ctrl** as you would anywhere else;  the **SELECT ALL / CLEAR
+  SELECTIONS** box takes in every row at once, which is usually the quickest
+  start -- select everything, then **Ctrl**-click the few to leave out.
+
+  Rows with no type to set -- usages, placements, and products that will be
+  reused -- are simply skipped, so there is no need to leave them out of the
+  selection.  **Apply to selected** says in its tooltip how many products it
+  will actually change, so you can see this for yourself.
 
   A sensible way to work through a large import is **Apply to all** with the
   commonest type first, then select the exceptions and apply the right type
