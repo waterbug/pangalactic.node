@@ -102,6 +102,7 @@ from pangalactic.core                  import __version__
 from pangalactic.core                  import diagramz, orb
 from pangalactic.core                  import config, write_config
 from pangalactic.core                  import get_user_home
+from pangalactic.core.mapping          import schema_version
 from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
@@ -197,6 +198,94 @@ def safe_version(txt):
         return None
 
 
+def empty_home(home):
+    """
+    Empty an app home directory of everything derived from the repository,
+    so that the client rebuilds it on the next sync.
+
+    This is what happened to *every* incompatible home before there was a
+    schema migration.  It now happens only to one too old to migrate.
+
+    Removes the VERSION file, local.db, the onto and cache directories and
+    every .json file -- and, unlike the version this replaces, also the
+    migration dump and the recorded schema version.  Those two are new and
+    they matter:  a home emptied while its state still named an old schema
+    would send orb.start() into the migration branch on the freshly copied
+    reference database, and reload a stale db.yaml over it -- putting back
+    some of what was just discarded, out of date.
+
+    Prefs and the user's keys are deliberately untouched:  they are the
+    user's, not the repository's, and nothing about a schema requires losing
+    them.
+
+    Args:
+        home (str):  path to the app home directory
+    """
+    for name in ('VERSION', 'local.db', 'db.yaml'):
+        fpath = os.path.join(home, name)
+        if os.path.exists(fpath):
+            os.remove(fpath)
+    for name in ('cache', 'onto'):
+        dpath = os.path.join(home, name)
+        if os.path.exists(dpath):
+            shutil.rmtree(dpath, ignore_errors=True)
+    if os.path.isdir(home):
+        for fname in os.listdir(home):
+            if fname.endswith('.json'):
+                os.remove(os.path.join(home, fname))
+    # drop the recorded schema version, so the rebuilt home is not taken for
+    # one that needs migrating
+    state_path = os.path.join(home, 'state')
+    if os.path.exists(state_path):
+        try:
+            with open(state_path) as f:
+                saved = yaml.safe_load(f.read()) or {}
+            if 'schema_version' in saved:
+                del saved['schema_version']
+                with open(state_path, 'w') as f:
+                    f.write(yaml.safe_dump(saved, default_flow_style=False))
+        except Exception:
+            # an unreadable state file is about to be rewritten by start-up
+            # anyway;  it is not worth failing over here
+            pass
+
+
+def pending_schema_migration(home):
+    """
+    Say whether starting the orb on this home will migrate its schema.
+
+    Read here rather than asked of the orb because this runs *before*
+    orb.start(), which is where the migration happens:  by the time the orb
+    could answer, it has already done it.  The state file is read directly,
+    without touching the module-level `state`, so that nothing about
+    start-up changes as a side effect of asking.
+
+    Args:
+        home (str):  path to the app home directory
+
+    Returns:
+        tuple or None:  (home version, app version) if a migration is
+        pending, otherwise None.  None also covers a home with no recorded
+        schema version at all, which cannot be migrated because there is
+        nothing to compare -- see the note in orb.start(), which now records
+        one so this stops being possible.
+    """
+    fpath = os.path.join(home or '', 'state')
+    if not os.path.exists(fpath):
+        return None
+    try:
+        with open(fpath) as f:
+            saved = yaml.safe_load(f.read()) or {}
+    except Exception:
+        # an unreadable state file is not worth failing start-up over;  the
+        # orb will make its own decision about it in a moment
+        return None
+    home_schema_version = saved.get('schema_version')
+    if home_schema_version and home_schema_version != schema_version:
+        return (home_schema_version, schema_version)
+    return None
+
+
 class Main(QMainWindow):
     """
     Main window of the 'Pangalaxian' client gui.
@@ -231,11 +320,32 @@ class Main(QMainWindow):
     # enumeration of modes
     modes = ['system', 'component', 'db', 'data']
 
-    # compatible release versions -- used to determine compatibility of the
-    # "home" directory
+    # Release versions whose home directory has the *current* schema.  The
+    # schema version is not recorded by older releases, but the "VERSION"
+    # file is written by every one of them, so this is what actually tells
+    # the client whether a home needs migrating (author, 2026-08-22).  Add
+    # the new version here when a release does not change the schema;  start
+    # the list afresh when it does.
     compat_versions = [
                        Version('4.4.dev3')
                        ]
+
+    # The oldest home this release can migrate.  A home older than this is
+    # emptied and rebuilt from the repository, as every incompatible home
+    # used to be.
+    #
+    # The floor exists because migrating is not unconditionally better than
+    # resetting:  the dump is schema-agnostic and will read any old database,
+    # but reloading it goes through the current classes, so objects of
+    # classes since removed are dropped and attributes since renamed are lost
+    # unless mapping.schema_maps carries a transform for them.  Far enough
+    # back that stops being a migration and becomes a quiet, partial one,
+    # which is worse than an honest reset.
+    #
+    # SET THIS PER RELEASE.  It should be the oldest version whose data this
+    # release can still make sense of;  4.0 is a conservative starting point
+    # rather than a researched one.
+    min_migratable_version = Version('4.0')
     # signals
     # remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
 
@@ -336,33 +446,61 @@ class Main(QMainWindow):
                     home_version = safe_version(f.read()) or home_version
             if home_version not in self.compat_versions:
                 compat_home_version = False
-        if compat_home_version:
-            msg = f'... home version ok: {home_version} ...'
-            self.add_splash_msg(msg)
+        # -----------------------------------------------------------------
+        # An incompatible home used to be *emptied* here -- VERSION,
+        # local.db, the onto and cache directories and every .json file
+        # removed -- which is to say the user's local data was discarded
+        # whenever they installed a release built on a newer core.  That was
+        # the only answer available before there was a schema migration.
+        #
+        # There is one now, so a home that can be migrated is migrated
+        # (author, 2026-08-22).  Three cases:
+        #
+        #   compatible  -- the release that wrote it shares this schema;
+        #                  nothing to do.
+        #   migratable  -- older, but not so old that reloading its data
+        #                  through the current classes would quietly lose
+        #                  most of it;  orb.start() dumps, rebuilds and
+        #                  reloads.
+        #   too old     -- emptied, as before, and said so plainly.
+        #
+        # NOTE the ordering, which is what made the old behaviour
+        # unavoidable:  this runs *before* orb.start(), so the removals
+        # destroyed local.db and the parameter caches before the migration
+        # could see them.  A wipe and a migration cannot both happen here.
+        # -----------------------------------------------------------------
+        # A migration is due if the release that wrote this home did not
+        # share our schema (the version check above), or if the home itself
+        # records a different schema version -- the two are independent, and
+        # either is enough.  The second only ever fires for a home that has
+        # migrated before, since nothing else used to record one.
+        self.force_migration = False
+        pending = pending_schema_migration(home)
+        too_old = (not compat_home_version
+                   and home_version < self.min_migratable_version)
+        if too_old:
+            self.add_splash_msg(f'... home version {home_version} is too old '
+                                'to migrate ...')
+            self.add_splash_msg('... rebuilding local data from the '
+                                'repository ...')
+            empty_home(home)
+        elif not compat_home_version or pending:
+            # force it only when the orb would not work it out for itself
+            self.force_migration = not compat_home_version
+            self.add_splash_msg(f'... home version: {home_version} ...')
+            if pending:
+                was, now = pending
+                self.add_splash_msg(f'... schema change: {was} -> {now} ...')
+            else:
+                self.add_splash_msg('... schema change detected ...')
+            self.add_splash_msg('... migrating your data, please wait ...')
         else:
-            msg = f'... home non-compatible: {home_version} ...'
-            self.add_splash_msg(msg)
-            # remove VERSION, local.db, onto, cache, all .json files
-            if os.path.exists(version_fpath):
-                os.remove(version_fpath)
-            localdb_path = os.path.join(home, 'local.db')
-            if os.path.exists(localdb_path):
-                os.remove(localdb_path)
-            cache_path = os.path.join(home, 'cache')
-            if os.path.exists(cache_path):
-                shutil.rmtree(cache_path)
-            onto_path = os.path.join(home, 'onto')
-            if os.path.exists(onto_path):
-                shutil.rmtree(onto_path)
-            fnames = os.listdir(home)
-            for fname in fnames:
-                if fname.endswith('.json'):
-                    os.remove(os.path.join(home, fname))
-            self.add_splash_msg('... home fixed ...')
+            self.add_splash_msg(f'... home version ok: {home_version} ...')
         # =====================================================================
         # start up the orb and do some orb stuff, including setting the home
         # directory and related directories (added to state)
-        orb.start(home=home, console=console, debug=debug)
+        orb.start(home=home, console=console, debug=debug,
+                  force_migration=self.force_migration)
         self.add_splash_msg('... database initialized ...')
         # orb.start() calls load_reference_data(), which includes parameter
         # definitions ... load_reference_data() also loads the data from
