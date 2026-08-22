@@ -1463,11 +1463,13 @@ class PgxnObject(QDialog):
             # =================================================================
         if (isinstance(self.obj, orb.classes['HardwareProduct'])
             and self.obj.oid in componentz):
-            # the "Mini MEL" action only makes sense for white box objects
-            self.mini_mel_action = self.create_action('Mini\nMEL',
-                                    slot=self.display_mini_mel, icon='data',
-                                    tip='Generate a mini-MEL for this object',
-                                    modes=['edit', 'view'])
+            # the "MEL (BOM)" action only makes sense for white box objects
+            self.mini_mel_action = self.create_action('MEL [BOM]',
+                                slot=self.display_mini_mel, icon='data',
+                                tip='Generate a MEL (Master Equipment List)\n'
+                                'a.k.a. BOM (Bill of Materials)\n'
+                                'for this object',
+                                modes=['edit', 'view'])
             self.toolbar.addAction(self.mini_mel_action)
         self.vbox.insertWidget(0, self.toolbar)
 
@@ -2172,14 +2174,14 @@ class PgxnObject(QDialog):
 
     def display_mini_mel(self):
         """
-        Display a "Mini MEL" for the current object when 'Mini MEL' action is
-        selected.
+        Display a "MEL" ("Master Equipment List", a.k.a. "Bill of Materials" or
+        BOM) for the current object when the MEL/BOM action is selected.
         """
         try:
             dlg = MiniMelDialog(self.obj, parent=self)
             dlg.show()
         except:
-            orb.log.debug('* MiniMEL encountered an exception.')
+            orb.log.debug('* MEL generation encountered an exception.')
 
     def on_new_version(self):
         """
@@ -2280,9 +2282,11 @@ class PgxnObject(QDialog):
             and obj.assembly.oid == self.obj.oid
             and not hasattr(self, 'mini_mel_action')):
             self.mini_mel_action = self.create_action('Mini\nMEL',
-                                    slot=self.display_mini_mel, icon='data',
-                                    tip='Generate a mini-MEL for this object',
-                                    modes=['edit', 'view'])
+                                slot=self.display_mini_mel, icon='data',
+                                tip='Generate a MEL (Master Equipment List)\n'
+                                'a.k.a. BOM (Bill of Materials)\n'
+                                'for this object',
+                                modes=['edit', 'view'])
             self.toolbar.addAction(self.mini_mel_action)
 
     def on_update_pgxno(self, mod_oids=None):

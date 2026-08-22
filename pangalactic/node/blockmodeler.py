@@ -253,9 +253,11 @@ class ModelWindow(QMainWindow):
                                     icon="camera",
                                     tip="Save Diagram as Image or Print")
         self.toolbar.addAction(self.image_action)
-        self.mini_mel_action = self.create_action('Mini\nMEL',
+        self.mini_mel_action = self.create_action('MEL (BOM)',
                                 slot=self.display_mini_mel, icon='data',
-                                tip='Generate a mini-MEL for this object')
+                                tip='Generate a MEL (Master Equipment List)\n'
+                                'a.k.a. BOM (Bill of Materials)\n'
+                                'for this object')
         self.toolbar.addAction(self.mini_mel_action)
         self.models_and_docs_info_action = self.create_action(
                         "Models\nand Docs",
@@ -314,7 +316,7 @@ class ModelWindow(QMainWindow):
 
     def display_mini_mel(self):
         """
-        Display a "Mini MEL" for the current object when 'Mini MEL' action is
+        Display a "MEL" (BOM) for the current object when 'MEL' action is
         selected.
         """
         dlg = MiniMelDialog(self.obj, parent=self)
