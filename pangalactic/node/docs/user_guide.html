@@ -81,6 +81,7 @@
 <li><a href="#check-out-the-items-you-intend-to-work-on">Check Out the Items You Intend to Work On</a></li>
 <li><a href="#a-claim-is-exclusive">A Claim Is Exclusive</a></li>
 <li><a href="#check-items-back-in-when-you-are-done">Check Items Back In When You Are Done</a></li>
+<li><a href="#activities-and-timelines">Activities and Timelines</a></li>
 <li><a href="#claims-expire">Claims Expire</a></li>
 <li><a href="#when-you-reconnect">When You Reconnect</a></li>
 </ul></li>
@@ -451,7 +452,8 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <li><strong>Claim expires after</strong> – between 1 and 90 days, 7 by default. This is a backstop for a claim you forget to release; see <strong>Check Items Back In When You Are Done</strong> below.</li>
 </ul>
 <p><strong>Available to check out</strong> lists the items you may claim, each with a checkbox, all checked initially; use <strong>Select All</strong> and <strong>Select None</strong> to set them together. <strong>Not available</strong> lists the ones you cannot, each with the reason: <em>already checked out by you</em>, <em>checked out by “someone”</em>, <em>frozen</em>, or <em>no permission to modify</em>.</p>
-<p>Some kinds of object are not offered at all, because they have no independent existence: <strong>Ports</strong>, <strong>Flows</strong>, <strong>Representation Files</strong>, and the objects that reify relationships. These are always created and edited as part of work on the thing that owns them, so claiming the owner covers them – checking out a <strong>Product</strong> covers its ports. <strong>Projects</strong> and the <strong>Person</strong> and <strong>Role</strong> objects are not work items and are not offered either. <strong>Activities</strong> <em>are</em> offered: editing a timeline offline is useful in its own right.</p>
+<p>Some kinds of object are not offered at all, because they have no independent existence: <strong>Ports</strong>, <strong>Flows</strong>, <strong>Representation Files</strong>, and the objects that reify relationships. These are always created and edited as part of work on the thing that owns them, so claiming the owner covers them – checking out a <strong>Product</strong> covers its ports. <strong>Projects</strong> and the <strong>Person</strong> and <strong>Role</strong> objects are not work items and are not offered either.</p>
+<p><strong>Activities</strong> are not offered, for a different reason: they cannot be edited offline at all. See <strong>Activities and Timelines</strong> below.</p>
 <p>Click <strong>OK</strong> and the claims are made. The repository decides authoritatively, applying the same permission rules, so occasionally an item the dialog offered comes back refused.</p>
 <h3 id="a-claim-is-exclusive">A Claim Is Exclusive</h3>
 <p>While an object is checked out, <strong>only the holder may modify it</strong> – online or offline, and including a <strong>Global Administrator</strong>. This is the same principle as a <strong>frozen</strong> object, where even an administrator gets no <strong>Edit</strong> button: the point of the claim is that the holder can rely on it.</p>
@@ -466,7 +468,12 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <li><p><strong>When you save.</strong> If you save an item you have checked out, <strong>Pangalaxian</strong> asks whether to check it in as well. Saving and checking in are different things – a save records your edit, a check-in gives up the claim – but it is an easy assumption that saving does both, so you are asked rather than left to remember. If you would rather not be asked, the question has a <strong>Do not ask again</strong> box.</p></li>
 </ul>
 <!-- SCREENSHOT: the Object Viewer/Editor showing Checked Out (you) and Check In -->
-<p>Note that the indicator and the <strong>Check In</strong> button appear on <strong>Hardware Products</strong>. Claims on other kinds of item – <strong>Activities</strong>, for instance – are made in the same way but have no indicator of their own yet.</p>
+<p>Note that the indicator and the <strong>Check In</strong> button appear on <strong>Hardware Products</strong>. Claims on other kinds of item are made in the same way but have no indicator of their own yet.</p>
+<h3 id="activities-and-timelines">Activities and Timelines</h3>
+<p><strong>Activities</strong> cannot be edited while disconnected, and cannot be checked out.</p>
+<p>This is not an oversight. An <strong>Activity</strong> is not an independent thing: its <em>duration</em> and its start and stop times are bound up with those of every other <strong>Activity</strong> in its timeline, and the <strong>ConOps Modeler</strong> adjusts the others as you change one. So a claim on a single activity would not cover the work – the whole timeline would have to be claimed, which is a different and larger idea than checking out an object.</p>
+<p>Rather than support that badly, <strong>Pangalaxian</strong> keeps timeline work online: the <strong>Mission Details</strong> table is read-only while you are disconnected, and the <strong>ConOps Modeler</strong> will not accept a dropped activity. Reconnect, and both work as usual.</p>
+<p>This may be revisited if offline timeline work turns out to be needed.</p>
 <h3 id="claims-expire">Claims Expire</h3>
 <p>A claim also lapses by itself when its expiry passes, and the item becomes editable by others again. Expiry is the backstop rather than the intended way to end a claim: choose it long enough to cover the work, check the item in when you are done, and if a claim is forgotten it will not block a colleague indefinitely. An administrator can also force-release a claim.</p>
 <h3 id="when-you-reconnect">When You Reconnect</h3>

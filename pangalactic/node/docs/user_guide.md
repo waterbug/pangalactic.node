@@ -788,8 +788,10 @@ the objects that reify relationships.  These are always created and edited as
 part of work on the thing that owns them, so claiming the owner covers them
 -- checking out a **Product** covers its ports.  **Projects** and the
 **Person** and **Role** objects are not work items and are not offered
-either.  **Activities** *are* offered:  editing a timeline offline is useful
-in its own right.
+either.
+
+**Activities** are not offered, for a different reason:  they cannot be
+edited offline at all.  See **Activities and Timelines** below.
 
 Click **OK** and the claims are made.  The repository decides
 authoritatively, applying the same permission rules, so occasionally an item
@@ -835,8 +837,27 @@ what records the release:
 <!-- SCREENSHOT: the Object Viewer/Editor showing Checked Out (you) and Check In -->
 
 Note that the indicator and the **Check In** button appear on **Hardware
-Products**.  Claims on other kinds of item -- **Activities**, for instance --
-are made in the same way but have no indicator of their own yet.
+Products**.  Claims on other kinds of item are made in the same way but have
+no indicator of their own yet.
+
+### Activities and Timelines
+
+**Activities** cannot be edited while disconnected, and cannot be checked
+out.
+
+This is not an oversight.  An **Activity** is not an independent thing:  its
+*duration* and its start and stop times are bound up with those of every
+other **Activity** in its timeline, and the **ConOps Modeler** adjusts the
+others as you change one.  So a claim on a single activity would not cover
+the work -- the whole timeline would have to be claimed, which is a
+different and larger idea than checking out an object.
+
+Rather than support that badly, **Pangalaxian** keeps timeline work online:
+the **Mission Details** table is read-only while you are disconnected, and
+the **ConOps Modeler** will not accept a dropped activity.  Reconnect, and
+both work as usual.
+
+This may be revisited if offline timeline work turns out to be needed.
 
 ### Claims Expire
 

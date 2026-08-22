@@ -29,11 +29,39 @@ except:
     # if an orb has not been set, uberorb is set by default
     import pangalactic.core.set_uberorb
     from pangalactic.core             import orb, state
-from pangalactic.core.access      import get_perms, is_global_admin
+from pangalactic.core.access      import (get_perms, is_global_admin,
+                                          is_writable_now)
 from pangalactic.core.clone       import clone
 from pangalactic.core.parametrics import (clone_mode_defs,
                                           set_dval)
 from pangalactic.core.utils.datetimes import dtstamp
+
+
+def not_permitted(obj):
+    """
+    Title and text for the popup shown when an edit to `obj` is refused.
+
+    Two quite different things reach the same guard.  A user whose roles do
+    not cover the project is told about their roles;  a user who is merely
+    disconnected is told about the connection, because sending them to look
+    at their role assignments would waste their time -- the roles are fine.
+
+    Args:
+        obj (Identifiable):  the object the edit was refused on
+
+    Returns:
+        tuple:  (title, text)
+    """
+    if (state.get('client') and not state.get('connected')
+            and isinstance(obj, orb.classes['Activity'])):
+        return ('Not Connected',
+                'Activities can only be edited while connected to the '
+                'repository.\n\n'
+                'Editing an activity adjusts the times of the other '
+                'activities in its timeline, so it cannot be done offline.')
+    return ('Unauthorized Operation',
+            "User's roles do not permit this operation")
+
 from pangalactic.node.buttons     import ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.dialogs     import (DisplayNotesDialog,
@@ -164,10 +192,9 @@ class ActivityBlock(QGraphicsPolygonItem):
             # --------------------------------------------------------
             # 0: user permissions prohibit operation -> abort
             # --------------------------------------------------------
+            title, text = not_permitted(self.activity)
             popup = QMessageBox(
-                  QMessageBox.Critical,
-                  "Unauthorized Operation",
-                  "User's roles do not permit this operation",
+                  QMessageBox.Critical, title, text,
                   QMessageBox.Ok, self.parentWidget())
             popup.show()
             event.ignore()
@@ -472,10 +499,9 @@ class TimelineScene(QGraphicsScene):
             # --------------------------------------------------------
             # 0: user permissions prohibit operation -> abort
             # --------------------------------------------------------
+            title, text = not_permitted(self.subject)
             popup = QMessageBox(
-                  QMessageBox.Critical,
-                  "Unauthorized Operation",
-                  "User's roles do not permit this operation",
+                  QMessageBox.Critical, title, text,
                   QMessageBox.Ok, self.parent())
             popup.show()
             event.ignore()
@@ -1044,7 +1070,16 @@ class ActivityWidget(QWidget):
         allowed_roles = set(['Lead Engineer', 'Systems Engineer',
                              'Administrator'])
         global_admin = is_global_admin(user)
-        if global_admin or (role_names & allowed_roles):
+        # NOTE: the role test answers *entitlement* -- may this user ever
+        # edit these activities.  is_writable_now() answers the separate
+        # question of whether it is safe to do so at this moment, which for
+        # an Activity means "only while connected":  editing a duration or a
+        # start time here adjusts the times of the other activities in the
+        # timeline, so it cannot be confined to one claimed object.  See
+        # is_writable_now() rule [5].  Both must hold, exactly as get_perms()
+        # composes them.
+        entitled = global_admin or (role_names & allowed_roles)
+        if entitled and is_writable_now(self.subject, user):
             table = ActInfoTable(self.subject, project=project,
                                  timeline=self.timeline, editable=True)
         else:

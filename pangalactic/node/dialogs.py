@@ -2700,12 +2700,24 @@ class PrepareForOfflineDialog(QDialog):
             #       - RepresentationFile: the payload of a Model or Document
             #       - Relation / ParameterRelation: covered by the object
             #         whose relationship they reify
-            #     Activities, by contrast, ARE offered: editing them offline
-            #     is useful in its own right.
+            # [3] Activities are excluded, for a different reason (author,
+            #     2026-08-21): an Activity's duration and start/stop times
+            #     are interrelated with those of every other Activity in its
+            #     timeline, so editing one offline would require locking the
+            #     whole timeline -- a larger and different design than
+            #     claiming an object. Rather than support that badly they are
+            #     excluded from offline work altogether: access.py refuses to
+            #     write one while disconnected (rule [5]), so offering a
+            #     claim on one here would promise something that does not
+            #     work. Revisit if a priority use case appears.
+            #     Tested by isinstance, so Mission and Test -- both Activity
+            #     subclasses -- go with it.
             if cname in ('Project', 'Organization', 'Person',
                          'RoleAssignment', 'Port', 'Flow',
                          'RepresentationFile', 'Relation',
                          'ParameterRelation'):
+                continue
+            if isinstance(obj, orb.classes['Activity']):
                 continue
             obj_id = getattr(obj, 'id', None) or oid
             label = f'{obj_id}  ({cname})'
