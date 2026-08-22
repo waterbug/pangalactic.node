@@ -25,7 +25,8 @@ except:
     import pangalactic.core.set_uberorb
     from pangalactic.core import orb
 from pangalactic.core import prefs, state
-from pangalactic.core.access import get_perms, is_global_admin
+from pangalactic.core.access import (get_perms, is_global_admin,
+                                     is_offline_excluded)
 from pangalactic.core.clone  import clone
 from pangalactic.core.meta import (MAIN_VIEWS, PGEF_DIMENSION_ORDER, PGXN_HIDE,
                                    PGXN_HIDE_PARMS, PGXN_MASK,
@@ -1313,6 +1314,7 @@ class PgxnObject(QDialog):
     def init_toolbar(self):
         self.toolbar = QToolBar('Tools')
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self.init_checkout_actions()
         if isinstance(self.obj, orb.classes['HardwareProduct']):
             self.freeze_action = self.create_action('Freeze',
                                     slot=self.freeze, icon='freeze_16',
@@ -1367,44 +1369,6 @@ class PgxnObject(QDialog):
                 is_global_admin(orb.get(state.get('local_user_oid')))):
                 # only a global admin can "thaw"
                 self.thaw_action.setVisible(True)
-            # ------------------------------------------------------------
-            # CHECK-OUT indicator.  Shows whether the repository has an
-            # active CheckOut claim on this object and who holds it.
-            #
-            # This was written when claims were advisory;  they are not any
-            # more.  Since phase 2 (core cece2d5) access.py consults them,
-            # and a claim is exclusive:  while an object is checked out only
-            # the holder may modify it, online or offline, including a global
-            # administrator.  So the indicator now reports something that
-            # actually constrains the user.  See
-            # pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md.
-            #
-            # NOTE: this whole block is inside the HardwareProduct branch, so
-            # the indicator and the Check In action appear only for products.
-            # Claims can be held on other kinds of object -- Activities are
-            # offered by PrepareForOfflineDialog -- and those have no
-            # indicator here.
-            # ------------------------------------------------------------
-            self.checkout_action = self.create_action('Checked\nOut',
-                                    slot=self.show_checkout_info,
-                                    icon='info',
-                                    tip='Check-out status of this object',
-                                    modes=['edit', 'view'])
-            self.toolbar.addAction(self.checkout_action)
-            # ------------------------------------------------------------
-            # CHECK IN:  shown only when the claim on this object is the
-            # local user's and there is a connection to release it through.
-            # Until this existed a claim could only be ended by waiting for
-            # it to expire or by asking an administrator to force-release it.
-            # ------------------------------------------------------------
-            self.checkin_action = self.create_action('Check\nIn',
-                                    slot=self.on_check_in,
-                                    icon='commit_16',
-                                    tip='Release your check-out claim on '
-                                        'this object',
-                                    modes=['edit', 'view'])
-            self.toolbar.addAction(self.checkin_action)
-            self.refresh_checkout_indicator()
             self.clone_action = self.create_action('Clone',
                                     slot=self.on_clone, icon='clone_16',
                                     tip='Clone this object',
@@ -1506,6 +1470,53 @@ class PgxnObject(QDialog):
                                     modes=['edit', 'view'])
             self.toolbar.addAction(self.mini_mel_action)
         self.vbox.insertWidget(0, self.toolbar)
+
+    def init_checkout_actions(self):
+        """
+        Build the check-out indicator and the Check In action.
+
+        The indicator shows whether the repository has an active CheckOut
+        claim on this object and who holds it.  A claim is exclusive:  while
+        an object is checked out only the holder may modify it, online or
+        offline, and that includes a global administrator (core cece2d5), so
+        the indicator reports something that actually constrains the user.
+        See pangalactic.core/NOTES_ON_CHECKOUT_MODEL.md.
+
+        These used to be built inside the HardwareProduct branch of
+        init_toolbar(), so a claim on an Acu, a Model or a Document -- all of
+        which PrepareForOfflineDialog offers -- was invisible in the editor,
+        and its holder had no way to check it back in.  They are built for
+        any object that can be claimed now.
+
+        NOTE: "can be claimed" is asked of access.is_offline_excluded(),
+        which is the single definition of what may not be (timeline objects;
+        see NOTES_ON_CHECKOUT_MODEL.md section 13), rather than by naming the
+        classes that may.  Naming them would be a list to keep in step with
+        the dialog's, which is the drift that put the check in three repos
+        before it was consolidated.
+
+        Being generous costs nothing:  refresh_checkout_indicator() hides
+        both actions unless there is an active claim on this particular
+        object, so an object that is never claimed never shows them.
+        """
+        if is_offline_excluded(self.obj):
+            return
+        self.checkout_action = self.create_action('Checked\nOut',
+                                slot=self.show_checkout_info,
+                                icon='info',
+                                tip='Check-out status of this object',
+                                modes=['edit', 'view'])
+        self.toolbar.addAction(self.checkout_action)
+        # CHECK IN: shown only when the claim on this object is the local
+        # user's and there is a connection to release it through
+        self.checkin_action = self.create_action('Check\nIn',
+                                slot=self.on_check_in,
+                                icon='commit_16',
+                                tip='Release your check-out claim on this '
+                                    'object',
+                                modes=['edit', 'view'])
+        self.toolbar.addAction(self.checkin_action)
+        self.refresh_checkout_indicator()
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False, modes=None):

@@ -837,9 +837,11 @@ what records the release:
 
 <!-- SCREENSHOT: the Object Viewer/Editor showing Checked Out (you) and Check In -->
 
-Note that the indicator and the **Check In** button appear on **Hardware
-Products**.  Claims on other kinds of item are made in the same way but have
-no indicator of their own yet.
+The indicator and the **Check In** button appear on any item that can be
+checked out -- **Hardware Products**, but also the component usages
+(**Acus**), **Models** and **Documents** that a claim on a product extends
+to, so a claim made on your behalf is visible and releasable wherever you
+meet it.
 
 ### Activities and Timelines
 

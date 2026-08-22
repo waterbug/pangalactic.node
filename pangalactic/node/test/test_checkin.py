@@ -102,6 +102,71 @@ def answer(monkeypatch, button):
 
 
 # ---------------------------------------------------------------------------
+# which objects get an indicator at all
+#
+# The indicator and the Check In action used to be built inside PgxnObject's
+# HardwareProduct branch, so a claim on an Acu, a Model or a Document was
+# invisible and its holder had no way to release it.  They are built for
+# anything that can be claimed now.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(params=['HardwareProduct', 'Acu', 'Model', 'Document'])
+def claimable(request, test_orb):
+    """
+    One object of each kind that can be checked out and is likely to be
+    opened in the editor.
+
+    The test data has no Document, so one is constructed in memory rather
+    than saved:  the editor builds its toolbar from the object's class, which
+    is all these tests look at, and saving it would leave it in the session
+    for every later test in the run.
+    """
+    cname = request.param
+    objs = orb.get_by_type(cname)
+    if objs:
+        return objs[0]
+    obj = orb.classes[cname](oid=f'test:{cname}-claimable')
+    obj.id = obj.oid
+    obj.name = f'a {cname}'
+    return obj
+
+
+def test_00_claimable_objects_have_an_indicator(qtbot, claimable, me,
+                                                clean_state):
+    """
+    CASE:  an object that can be checked out, with a claim held by the local
+    user.  The indicator and the Check In action are both there.
+    """
+    claim(claimable.oid, me)
+    state['connected'] = True
+    w = editor(qtbot, claimable)
+    w.refresh_checkout_indicator()
+    assert w.checkout_action.isVisible()
+    assert '(you)' in w.checkout_action.text()
+    assert w.checkin_action.isVisible()
+
+
+def test_00b_excluded_objects_have_no_indicator(qtbot, test_orb, me,
+                                                clean_state):
+    """
+    CASE:  a timeline object.  It cannot be claimed at all, so it gets no
+    indicator -- not a hidden one, none built.
+
+    A claim is put in the mirror anyway, to show the actions are absent
+    because the class is excluded rather than because there is nothing to
+    show.
+    """
+    act = orb.get_by_type('Activity')[0]
+    claim(act.oid, me)
+    state['connected'] = True
+    w = editor(qtbot, act)
+    assert getattr(w, 'checkout_action', None) is None
+    assert getattr(w, 'checkin_action', None) is None
+    # and the refresh does not raise on an object that has neither
+    w.refresh_checkout_indicator()
+
+
+# ---------------------------------------------------------------------------
 # when the Check In action is available
 # ---------------------------------------------------------------------------
 
