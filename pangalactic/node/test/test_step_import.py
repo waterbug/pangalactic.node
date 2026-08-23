@@ -409,3 +409,89 @@ def test_36_occ_follows_external_references_when_the_files_are_there(tmp_path):
     assert len(alone.children) == len(whole.children)
     assert not any(c.children for c in alone.children)
     assert count(alone) < count(whole)
+
+
+# ---------------------------------------------------------------------------
+# identifying a referenced file with the product it models
+#
+# A STEP file in an export set defines a product and says which:  the chain
+# DOCUMENT_FILE -> APPLIED_DOCUMENT_REFERENCE -> PRODUCT_DEFINITION ->
+# PRODUCT_DEFINITION_FORMATION -> PRODUCT.  Following it is what lets each
+# file become the Model of its own product rather than a loose attachment to
+# the assembly's.
+# ---------------------------------------------------------------------------
+
+def test_37_referenced_product_names_of_the_top_file():
+    """
+    CASE:  the top file of the s1 export.  Each file it names comes back
+    paired with the product that file defines.
+    """
+    from pangalactic.node.step_import import referenced_product_names
+    names = referenced_product_names(S1_PE)
+    assert names.get('mainbody_asm.stp') == 'MAINBODY_ASM'
+    assert names.get('head_asm.stp') == 'HEAD_ASM'
+    assert names.get('tail_asm.stp') == 'TAIL_ASM'
+    assert names.get('foot_asm.stp') == 'FOOT_ASM'
+
+
+def test_38_a_file_referencing_nothing_names_nothing():
+    """
+    CASE:  a single-file assembly.  Nothing to identify.
+    """
+    from pangalactic.node.step_import import referenced_product_names
+    assert referenced_product_names(AS1_IDEAS) == {}
+
+
+def test_39_closure_product_names_reaches_the_part_files():
+    """
+    CASE:  the whole closure.  A file names the products of the files *it*
+    references, so the parts are named by the subassemblies rather than by
+    the top file -- which is why this takes a walk and not one pass.
+    """
+    from pangalactic.node.step_import import closure_product_names
+    names = {os.path.basename(p): n
+             for p, n in closure_product_names(S1_PE).items()}
+    # named by the top file
+    assert names.get('mainbody_asm.stp') == 'MAINBODY_ASM'
+    # named by mainbody_asm.stp, two levels down
+    assert names.get('main_body_back_prt.stp') == 'MAIN_BODY_BACK'
+    assert names.get('foot_front_prt.stp') == 'FOOT_FRONT'
+    # every file in the closure is identified, not just some
+    assert len(names) == 12, sorted(names)
+
+
+def test_40_product_names_match_the_occurrence_prototypes():
+    """
+    CASE:  the names the files give match the names OCC gives the
+    occurrences.
+
+    This is the join the whole thing rests on:  the file says it defines
+    MAIN_BODY_BACK, the plan creates a product for a prototype OCC calls
+    MAIN_BODY_BACK, and they have to be the same string or nothing pairs up.
+    """
+    from pangalactic.node.step_import import closure_product_names
+    from pangalactic.node.step_import import read_assembly
+    prototypes = set()
+
+    def collect(occ):
+        prototypes.add(occ.prototype_name)
+        for c in occ.children:
+            collect(c)
+
+    collect(read_assembly(S1_PE))
+    for product_name in closure_product_names(S1_PE).values():
+        assert product_name in prototypes, (
+            f'"{product_name}" is named by a file but is not a prototype')
+
+
+def test_41_unreadable_file_names_nothing():
+    """
+    CASE:  a file that cannot be read.  Empty rather than raising -- this
+    runs during an import, and a file that has gone missing is the
+    importer's business to report, not this function's.
+    """
+    from pangalactic.node.step_import import (closure_product_names,
+                                              referenced_product_names)
+    missing = os.path.join(DATA, 'no_such_file.stp')
+    assert referenced_product_names(missing) == {}
+    assert closure_product_names(missing) == {}

@@ -154,6 +154,89 @@ def external_references(path):
     return names
 
 
+# The chain, in a STEP assembly file, from a referenced file name to the
+# product that file defines:
+#
+#     DOCUMENT_FILE('main_body_back_prt.stp', ...)            -- #84
+#     APPLIED_DOCUMENT_REFERENCE(#84, '', (#42))              -- binds it
+#     PRODUCT_DEFINITION('part definition', '', #41, #38)     -- #42
+#     PRODUCT_DEFINITION_FORMATION('1', 'LAST_VERSION', #40)  -- #41
+#     PRODUCT('MAIN_BODY_BACK', ...)                          -- #40
+#
+# It is read with targeted expressions rather than the part21 grammar in
+# pangalactic.core.utils.part21:  that grammar parses everything, which is
+# slow and far more than is wanted for four hops.
+DOCUMENT_FILE_RE = re.compile(r"#(\d+)\s*=\s*DOCUMENT_FILE\s*\(\s*'([^']*)'")
+APPLIED_DOC_REF_RE = re.compile(
+    r"APPLIED_DOCUMENT_REFERENCE\s*\(\s*#(\d+)\s*,[^,]*,\s*\(\s*#(\d+)")
+PRODUCT_DEF_RE = re.compile(
+    r"#(\d+)\s*=\s*PRODUCT_DEFINITION\s*\([^,]*,[^,]*,\s*#(\d+)")
+PRODUCT_DEF_FORMATION_RE = re.compile(
+    r"#(\d+)\s*=\s*PRODUCT_DEFINITION_FORMATION\s*\([^,]*,[^,]*,\s*#(\d+)")
+PRODUCT_RE = re.compile(r"#(\d+)\s*=\s*PRODUCT\s*\(\s*'([^']*)'")
+
+
+def referenced_product_names(path):
+    """
+    Map each file a STEP file references to the product that file defines.
+
+    The name matters because it is how a referenced file is identified with
+    something in the assembly:  the file `main_body_back_prt.stp` *is* the
+    model of the product `MAIN_BODY_BACK`, and the file says so.
+
+    Args:
+        path (str):  path to the STEP file
+
+    Returns:
+        dict:  {referenced file name: product name}.  A file whose chain
+        cannot be followed is left out rather than guessed at.
+    """
+    try:
+        with open(path, errors='replace') as f:
+            text = f.read()
+    except OSError:
+        return {}
+    doc_files = dict(DOCUMENT_FILE_RE.findall(text))
+    prod_defs = dict(PRODUCT_DEF_RE.findall(text))
+    formations = dict(PRODUCT_DEF_FORMATION_RE.findall(text))
+    products = dict(PRODUCT_RE.findall(text))
+    names = {}
+    for doc_id, prod_def_id in APPLIED_DOC_REF_RE.findall(text):
+        fname = doc_files.get(doc_id)
+        if not fname:
+            continue
+        formation_id = prod_defs.get(prod_def_id)
+        product_id = formations.get(formation_id) if formation_id else None
+        name = products.get(product_id) if product_id else None
+        if name:
+            names[fname] = name
+    return names
+
+
+def closure_product_names(path):
+    """
+    Map every file in a STEP file's reference closure to the product it
+    defines, following the references down.
+
+    A file names the products of the files *it* references, so the whole map
+    takes a walk:  `s1-pe-214.stp` says `mainbody_asm.stp` is MAINBODY_ASM,
+    and `mainbody_asm.stp` says `main_body_back_prt.stp` is MAIN_BODY_BACK.
+
+    Args:
+        path (str):  path to the STEP file
+
+    Returns:
+        dict:  {referenced file *path*: product name}
+    """
+    names = {}
+    for child, parent in reference_closure(path):
+        by_name = referenced_product_names(parent)
+        name = by_name.get(os.path.basename(child))
+        if name:
+            names[child] = name
+    return names
+
+
 def reference_closure(path):
     """
     Find every file a STEP file needs, transitively, paired with the file

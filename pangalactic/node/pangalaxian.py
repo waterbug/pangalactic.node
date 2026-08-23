@@ -7006,11 +7006,16 @@ class Main(QMainWindow):
             # imported here rather than at module scope:  step_dialogs is
             # where the constant lives and importing it at start-up would
             # pull in nothing useful this early
-            from pangalactic.node.step_dialogs import STEP_MIME_TYPE
+            from pangalactic.node.step_dialogs import (MCAD_MODEL_TYPE_OID,
+                                                       STEP_MIME_TYPE)
+            # the product this file models, if the import identified one
+            products = state.get('step_component_products') or {}
             try:
                 rpc = self.mbus.session.call('vger.add_component_file',
                                 rep_file_oid=parent_oid,
                                 fpath=child,
+                                of_thing_oid=products.get(child, ''),
+                                mtype_oid=MCAD_MODEL_TYPE_OID,
                                 parms={'file name': fname,
                                        'file size': str(fsize),
                                        'mime_type': STEP_MIME_TYPE})

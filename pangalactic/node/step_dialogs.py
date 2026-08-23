@@ -894,9 +894,66 @@ def _register_step_model(path, items, result, parent=None):
                                 'checksum': _checksum(path),
                                 'mode': CREATE,
                                 'map': dict(result.mapping)}
+    # Which product does each referenced file model?  The file says so --
+    # main_body_back_prt.stp *is* the model of MAIN_BODY_BACK -- and the
+    # import has just created a Product for that prototype.  Pairing them up
+    # is what lets each file become the Model of its own product rather than
+    # a loose attachment to the assembly's.
+    state['step_component_products'] = _component_product_oids(path, items,
+                                                               result)
     orb.log.info(f'  - step: registering MCAD model of "{assembly.id}"')
     dispatcher.send(signal='add update model',
                     mtype_oid=MCAD_MODEL_TYPE_OID, fpath=path, parms=parms)
+
+
+def _component_product_oids(path, items, result):
+    """
+    Map each referenced file to the oid of the Product it is a model of.
+
+    Matching is by the STEP product name, which the referencing file gives
+    for each file it names, and which is also a plan item's `path`.
+
+    Args:
+        path (str):  the file that was imported
+        items (list of PlanItem):  the plan
+        result (ImportResult):  what the import did
+
+    Returns:
+        dict:  {file path: product oid}.  A file whose product cannot be
+        identified is left out;  it is still transferred and still linked to
+        the file that references it, it is simply not identified with
+        anything.
+    """
+    from pangalactic.node.step_import import closure_product_names
+    by_name = {}
+    ambiguous = set()
+    for item in items:
+        if item.kind != PRODUCT:
+            continue
+        oid = result.mapping.get(product_key(item))
+        if not oid:
+            continue
+        if item.path in by_name and by_name[item.path] != oid:
+            # two prototypes of the same name -- Pro/ENGINEER emits eight
+            # called SOLID or COMPOUND in one assembly.  Those have no files
+            # of their own, but rather than guess, drop the name.
+            ambiguous.add(item.path)
+            continue
+        by_name[item.path] = oid
+    for name in ambiguous:
+        by_name.pop(name, None)
+    oids = {}
+    for fpath, product_name in closure_product_names(path).items():
+        oid = by_name.get(product_name)
+        if oid:
+            oids[fpath] = oid
+        else:
+            fname = os.path.basename(fpath)
+            orb.log.debug(f'  - step: no product for "{fname}" '
+                          f'(named "{product_name}")')
+    orb.log.info(f'  - step: {len(oids)} referenced file(s) identified with '
+                 'a product.')
+    return oids
 
 
 def _checksum(path):

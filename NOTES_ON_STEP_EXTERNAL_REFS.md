@@ -422,10 +422,45 @@ anything missing, and costs nothing when it does not.
   imported assembly's subassemblies are *not* empty and the object graph is
   complete.  Nothing needs writing;  what needed correcting was this note.
 
-* **What does remain of section 3.2 step 5** is one file per Model.  Every
-  referenced file currently hangs off the *master's* Model through
-  `component_file_of`, rather than each being the MCAD Model of the Product
-  it defines.  The files are all present and all transferred, so nothing is
-  missing;  what is missing is the identification of a file with the product
-  it is a model of, which is what would let a subassembly be opened in the 3D
-  viewer on its own.  Smaller and more optional than step 4 looked.
+* Section 3.2 step 5 -- one Model per file -- **is now built**;  see 7.5.
+
+### 7.5 One Model per file (2026-08-25)
+
+Every referenced file used to hang off the *master's* Model, which
+transferred the files but identified them with nothing.  Each file now gets a
+Model of the product it defines, so the file graph and the assembly graph
+become two views of one thing -- and a subassembly can be opened in the 3D
+viewer on its own, which is the visible consequence.
+
+**The file says which product it defines.**  It is not inferred from the file
+name.  The chain, in the *referencing* file:
+
+    DOCUMENT_FILE('main_body_back_prt.stp', ...)            -- #84
+    APPLIED_DOCUMENT_REFERENCE(#84, '', (#42))              -- binds it
+    PRODUCT_DEFINITION('part definition', '', #41, #38)     -- #42
+    PRODUCT_DEFINITION_FORMATION('1', 'LAST_VERSION', #40)  -- #41
+    PRODUCT('MAIN_BODY_BACK', ...)                          -- #40
+
+`referenced_product_names()` follows it with targeted expressions rather than
+the part21 grammar in `p.core.utils.part21`, which parses everything and is
+far more than four hops need.  `closure_product_names()` walks the closure,
+because a file names the products of the files *it* references -- the top
+file names MAINBODY\_ASM, and `mainbody_asm.stp` names MAIN\_BODY\_BACK.  All
+12 files of the s1 export are identified.
+
+**The join is the product name**, which is also the occurrence prototype name
+OCC reports, and a plan item's `path`.  A test pins that they agree, since
+nothing pairs up if they ever diverge.  Two prototypes sharing a name are
+dropped rather than guessed at -- Pro/ENGINEER emits eight called SOLID or
+COMPOUND in one assembly, though those have no files of their own.
+
+**A file whose product cannot be identified still transfers** and is still
+linked by `component_file_of`;  it simply joins the referencing file's Model
+as before.  Nothing is lost by failing to identify it.
+
+**One consequence in `get_mcad_model_file_path()`**, worth stating because it
+is not obvious:  choosing "the file that no other references" is wrong now.
+A subassembly's file *is* referenced -- by its parent, which belongs to a
+different Model.  The test is against the files of *the same* Model, which
+gets both shapes right:  this one, and the older one where a whole set hung
+off a single Model.
