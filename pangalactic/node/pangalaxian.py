@@ -103,6 +103,7 @@ from pangalactic.core                  import diagramz, orb
 from pangalactic.core                  import config, write_config
 from pangalactic.core                  import get_user_home
 from pangalactic.core.mapping          import schema_version
+from pangalactic.core.uberorb          import is_viewable_file
 from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
@@ -7405,6 +7406,94 @@ class Main(QMainWindow):
             except:
                 orb.log.debug('  browser unable to open file.')
 
+    # ------------------------------------------------------------------
+    # AUTOMATIC FILE DOWNLOAD
+    #
+    # A sync brings a project's Products, Acus, Models and
+    # RepresentationFiles -- but a RepresentationFile is a *record* of a
+    # file, not the file.  So a client syncing a project someone else
+    # imported got the whole assembly and rendered nothing (author, observed
+    # from a second machine, 2026-08-26).
+    #
+    # Files the built-in viewer can render are therefore fetched as they
+    # arrive.  The vault copy is infrastructure:  it is what the viewer
+    # opens, and the user should not have to go to "Models and Docs" and save
+    # a local copy in order to look at a model.  That function is for taking
+    # a copy *away* -- to share, or to use in another process -- and is left
+    # as it is.
+    #
+    # Anything the client cannot display itself is left on demand;  fetching
+    # every document in a project in order to look at an assembly would be
+    # the wrong trade.
+    #
+    # One at a time, for the same reason uploads are:  download_file() keeps
+    # the chunk count and the progress dialog in instance attributes, so two
+    # at once would report each other's progress and close each other's
+    # dialog.
+    # ------------------------------------------------------------------
+
+    def queue_viewable_files(self, objs):
+        """
+        Queue any file among `objs` that the viewer can render and the vault
+        does not have yet.
+
+        Args:
+            objs (list):  objects just deserialized
+
+        Returns:
+            int:  the number of files waiting after this call
+        """
+        if not objs or not state.get('connected'):
+            return 0
+        rep_file_cls = orb.classes['RepresentationFile']
+        queue = getattr(self, 'viewable_file_queue', None)
+        if queue is None:
+            queue = self.viewable_file_queue = []
+        queued = set(rf.oid for rf in queue)
+        # the one being fetched right now is not in the queue any more, but
+        # must not be queued again.  Popping it checks the vault and would
+        # skip it anyway, so this is tidiness rather than a fix -- but a
+        # queue that re-lists what it is already doing is hard to reason
+        # about.
+        in_flight = getattr(self, 'downloading_file_oid', '')
+        if in_flight:
+            queued.add(in_flight)
+        for obj in objs:
+            if not isinstance(obj, rep_file_cls):
+                continue
+            if not is_viewable_file(obj):
+                continue
+            if obj.oid in queued:
+                continue
+            if os.path.exists(orb.get_vault_fpath(obj)):
+                continue
+            queue.append(obj)
+            queued.add(obj.oid)
+        if queue and not getattr(self, 'downloading_viewable_file', False):
+            orb.log.info(f'* {len(queue)} model file(s) to fetch ...')
+            self.next_viewable_file_download()
+        return len(queue)
+
+    def next_viewable_file_download(self):
+        """
+        Fetch the next queued file, if any.  Called when one finishes.
+        """
+        queue = getattr(self, 'viewable_file_queue', None)
+        if not queue:
+            self.downloading_viewable_file = False
+            self.downloading_file_oid = ''
+            return
+        rep_file = queue.pop(0)
+        if os.path.exists(orb.get_vault_fpath(rep_file)):
+            # arrived by another route while it waited -- opening a model
+            # fetches its closure, for one
+            self.next_viewable_file_download()
+            return
+        self.downloading_viewable_file = True
+        self.downloading_file_oid = rep_file.oid
+        orb.log.info(f'  - fetching "{rep_file.user_file_name}" ...')
+        self.download_file(digital_file=rep_file)
+
     def download_file(self, digital_file=None, chunk_size=None,
                       open_file=False):
         """
@@ -7487,6 +7576,8 @@ class Main(QMainWindow):
     def on_file_download_success(self, result):
         orb.log.info(f'  download done in {self.downloaded_chunks} chunks.')
         self.download_progress.done(0)
+        # one at a time:  the next queued model file, if any, starts now
+        self.next_viewable_file_download()
 
     def on_download_open_success(self, result):
         orb.log.info(f'  download done in {self.downloaded_chunks} chunks.')
@@ -7940,6 +8031,11 @@ class Main(QMainWindow):
                 msg = "data has been {}.".format(end)
             self.statusbar.showMessage(msg)
             QApplication.processEvents()
+            # A Model arriving without its file leaves nothing to render.
+            # The vault copy is what the viewer opens, so it is fetched here
+            # rather than left for the user to save by hand -- see
+            # queue_viewable_files().
+            self.queue_viewable_files(objs)
             new_products_psus_or_acus = [obj for obj in objs if isinstance(obj,
                                          (orb.classes['Product'],
                                           orb.classes['Acu'],
@@ -8072,6 +8168,11 @@ class Main(QMainWindow):
                 msg = "data has been {}.".format(end)
             self.statusbar.showMessage(msg)
             QApplication.processEvents()
+            # A Model arriving without its file leaves nothing to render.
+            # The vault copy is what the viewer opens, so it is fetched here
+            # rather than left for the user to save by hand -- see
+            # queue_viewable_files().
+            self.queue_viewable_files(objs)
             new_products_psus_or_acus = [obj for obj in objs if isinstance(obj,
                                          (orb.classes['Product'],
                                           orb.classes['Acu'],

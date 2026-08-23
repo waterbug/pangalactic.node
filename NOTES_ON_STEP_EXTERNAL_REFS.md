@@ -464,3 +464,35 @@ A subassembly's file *is* referenced -- by its parent, which belongs to a
 different Model.  The test is against the files of *the same* Model, which
 gets both shapes right:  this one, and the older one where a whole set hung
 off a single Model.
+
+### 7.6 The file follows the Model (2026-08-26)
+
+Reported by the author after testing from a second machine:  syncing the
+project brings the whole assembly -- Products, Acus, Models,
+RepresentationFiles -- and **nothing renders**, because a
+`RepresentationFile` is a *record* of a file, not the file.  The files could
+be had through "Models and Docs" -> save a local copy, one at a time, which
+works but is not what that function is for:  it is for taking a copy *away*,
+to share or to use elsewhere.  The vault copy is infrastructure -- it is what
+the viewer opens -- and the user should not have to assemble it by hand.
+
+So a file the built-in viewer can render is now fetched as it arrives, from
+`load_serialized_objects()` and its `force_` twin, which is where every
+incoming batch lands.  Anything else is left on demand:  fetching every
+document in a project in order to look at an assembly would be the wrong
+trade, and "save a local copy" is the right route for a file the client
+cannot display anyway.
+
+`VIEWABLE_FILE_SUFFIXES` in `p.core.uberorb` is the one list -- `.stp`,
+`.step`, `.p21`, `.stl`, `.brep`, each in both cases, since a suffix is
+whatever the exporter wrote.  `get_mcad_model_file_path()` uses the same
+list, which is what it means for these to be *the* viewable formats rather
+than two opinions about it.
+
+**One at a time**, for the same reason uploads are:  `download_file()` keeps
+the chunk count and the progress dialog in instance attributes, so two at
+once would report each other's progress and close each other's dialog.  A
+file already in the vault is skipped -- which is the normal case for the
+client that did the import, since uploading copies to the local vault on the
+way past -- and so is one that arrives by another route while it waits in the
+queue.
