@@ -366,16 +366,49 @@ the same file.
 Partial sets stage as far as they can rather than refusing:  a reader given
 part of a set renders part of the assembly, which beats nothing.
 
-### 7.3 What is still weak
+### 7.3 The files travel with the product
 
-* **The download is asynchronous and the viewer is not.**  Opening the 3D
-  view asks for any missing component files and then opens on what is in the
-  vault *now*, so the first open after a fetch can show a partial assembly.
-  It says so in a dialog rather than pretending, but the honest fix is to
-  open the viewer from the completion of the downloads.  There is no
-  aggregate "closure downloaded" signal to hang that on yet.
+The first version of this fetched missing component files when the 3D view
+was opened, which the author corrected (2026-08-25):  **a product sent from
+the server should always include all its components, models and documents,
+with all their files.**  The client is meant to hold everything the server
+knows about a product -- that is what the master-model paradigm means -- so
+fetching pieces on demand is the wrong shape, and the user will not be
+looking at a product before its download has finished anyway.
+
+Three things were in the way:
+
+1. `serialize()` deliberately withheld Models and RepresentationFiles from
+   the Products they represent.  The note there gave differing "owners" and
+   access controls as the reason.  That is answered structurally rather than
+   by withholding:  **a project-owned object can only be built from objects
+   that are public or owned by that project** (author), so a requester
+   entitled to a product is entitled to what it is made of.  There is now an
+   `include_models` keyword, off by default -- a client saving a product has
+   no reason to send the models back -- which `vger.get_objects()` turns on,
+   and which carries down to components.
+2. **Library models never reached clients at all.**  `sync_library_objects`
+   filters on `public`, and nothing sets `public` on a Model -- `clone()`
+   leaves it None -- so every model of every public library product was
+   withheld.  `add_update_model` now takes it from the thing modelled, and
+   the library sync also accepts a model whose `of_thing` is public, which
+   covers models already created.
+3. A `Model` already carried its `has_files`, so once a model travels its
+   files do -- which is why the component-file work needed no further
+   plumbing to reach the client.
+
+The on-view fetch is kept as a safety net.  It should now never find
+anything missing, and costs nothing when it does not.
+
+### 7.4 What is still weak
+
 * **Nothing removes staged directories.**  They are copies of vault content
   under `<home>/staged/<oid>/` and will accumulate.
 * **Step 4 is still not done**, so the object graph and the file graph still
   disagree:  the assembly renders whole and its subassemblies are still empty
-  as PGEF objects.  Section 3.2 is the design.
+  as PGEF objects.  This is not a nicety -- the object graph is the master
+  model, and the client is supposed to hold all of it (author, 2026-08-25),
+  so this is now a gap against a stated principle rather than an optional
+  extra.  Section 3.2 is the design:  each referenced file becomes the MCAD
+  Model of the Product it defines, and the file-reference graph and the Acu
+  graph become two views of one assembly.
