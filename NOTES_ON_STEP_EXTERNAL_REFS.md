@@ -32,29 +32,42 @@ s1-pe-214.stp             4 refs
 
 ## 2. Three failures, all silent
 
-### 2.1 The imported structure is incomplete
+### 2.1 The imported structure is incomplete *when the files are absent*
 
-**OCC does not follow external references.**  Verified by reading the file
-three ways -- with the referenced files beside it, with them absent, and with
-the top file renamed as the vault would name it.  All three give an identical
-result, so the referenced files are not being read at all:
+> **CORRECTED 2026-08-25.  The claim this section originally made -- that
+> "OCC does not follow external references" -- is false, and the
+> "verification" recorded for it was faulty.  OCC follows them perfectly
+> well when the referenced files are beside the file being read.  What was
+> actually being observed was a file read *without* its siblings.  Left in
+> place rather than deleted, because the wrong conclusion shaped sections 3
+> and 5 and it should be visible why.**
+
+Reading `s1-pe-214.stp` two ways, 2026-08-25:
 
 ```
-S1_PE_TOP                     children=5
-  MAINBODY_ASM-1              children=0
-  HEAD_ASM-1                  children=0
-  TAIL_ASM-1                  children=0
-  FOOT_ASM-1                  children=0
-  FOOT_ASM-2                  children=0
+WITH siblings:     39 occurrences        WITHOUT siblings:  6 occurrences
+  MAINBODY_ASM-1     children=2            MAINBODY_ASM-1     children=0
+  HEAD_ASM-1         children=2            HEAD_ASM-1         children=0
+  TAIL_ASM-1         children=3            TAIL_ASM-1         children=0
+  FOOT_ASM-1         children=2            FOOT_ASM-1         children=0
+  FOOT_ASM-2         children=2            FOOT_ASM-2         children=0
 ```
 
-Five prototypes where the design is thirteen files.  The subassemblies are
-imported as products with correct placements and **no contents**:
-`foot_back_prt`, `head_front_prt` and the rest are simply absent.  The import
-reports success and the model is wrong.
+The right-hand column is what the original claim was based on:  six
+occurrences, every subassembly empty, `foot_back_prt` and the rest simply
+absent.  The left-hand column is the same file read from the directory it was
+exported into, and it is complete -- `plan_creation()` on it yields the full
+nested structure down to `HEAD_ASM-1/HEAD_BACK/SOLID-1`.
 
-Note that `FOOT_ASM` is correctly one prototype used twice -- the parts that
-work, work.  That is what makes it hard to notice.
+So the failure was never OCC's;  it was reading a file that had been
+separated from its set.  Which means **section 5's refusal did not merely
+report this problem, it fixed it**:  by refusing to read a file whose
+references do not resolve, the importer guarantees the condition under which
+OCC reads the whole assembly.  That was not the intent at the time, and the
+premise was never re-tested afterwards.
+
+Note that `FOOT_ASM` is correctly one prototype used twice -- true either
+way, and part of what made the truncated tree look plausible.
 
 ### 2.2 Only the top file is transferred
 
@@ -404,11 +417,15 @@ anything missing, and costs nothing when it does not.
 
 * **Nothing removes staged directories.**  They are copies of vault content
   under `<home>/staged/<oid>/` and will accumulate.
-* **Step 4 is still not done**, so the object graph and the file graph still
-  disagree:  the assembly renders whole and its subassemblies are still empty
-  as PGEF objects.  This is not a nicety -- the object graph is the master
-  model, and the client is supposed to hold all of it (author, 2026-08-25),
-  so this is now a gap against a stated principle rather than an optional
-  extra.  Section 3.2 is the design:  each referenced file becomes the MCAD
-  Model of the Product it defines, and the file-reference graph and the Acu
-  graph become two views of one assembly.
+* **Step 4 turned out to be unnecessary** -- see the correction at the head
+  of section 2.1.  OCC grafts the referenced files' structure itself, so an
+  imported assembly's subassemblies are *not* empty and the object graph is
+  complete.  Nothing needs writing;  what needed correcting was this note.
+
+* **What does remain of section 3.2 step 5** is one file per Model.  Every
+  referenced file currently hangs off the *master's* Model through
+  `component_file_of`, rather than each being the MCAD Model of the Product
+  it defines.  The files are all present and all transferred, so nothing is
+  missing;  what is missing is the identification of a file with the product
+  it is a model of, which is what would let a subassembly be opened in the 3D
+  viewer on its own.  Smaller and more optional than step 4 looked.

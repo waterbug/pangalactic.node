@@ -371,3 +371,41 @@ def test_35_missing_files_are_left_out_not_raised(tmp_path):
     lonely = str(tmp_path / os.path.basename(S1_PE))
     _shutil.copy(S1_PE, lonely)
     assert reference_closure(lonely) == []
+
+
+def test_36_occ_follows_external_references_when_the_files_are_there(tmp_path):
+    """
+    CASE:  the same file read with its referenced files beside it, and
+    without them.
+
+    This pins a fact that was got wrong and stayed wrong for five days:  OCC
+    *does* follow AP214 external references, provided the files resolve.  The
+    original claim that it does not was based on reading a file separated
+    from its set -- which is the second half of this test, and looks entirely
+    plausible on its own.
+
+    It matters because it is what makes the importer's refusal (section 5 of
+    NOTES_ON_STEP_EXTERNAL_REFS.md) sufficient:  by refusing to read a file
+    whose references do not resolve, the importer guarantees the condition
+    under which the whole assembly is read.  If OCC's behaviour here ever
+    changes, the planned-and-abandoned "graft the structure" work comes back,
+    and this test is what would say so.
+    """
+    import shutil as _shutil
+    from pangalactic.node.step_import import read_assembly
+
+    def count(occ):
+        return 1 + sum(count(c) for c in occ.children)
+
+    whole = read_assembly(S1_PE)
+    assert count(whole) > 30, 'the referenced files were not followed'
+    assert all(c.children for c in whole.children), (
+        'a subassembly came back empty with every file present')
+
+    lonely = str(tmp_path / os.path.basename(S1_PE))
+    _shutil.copy(S1_PE, lonely)
+    alone = read_assembly(lonely)
+    # the same five usages, and nothing under any of them
+    assert len(alone.children) == len(whole.children)
+    assert not any(c.children for c in alone.children)
+    assert count(alone) < count(whole)
