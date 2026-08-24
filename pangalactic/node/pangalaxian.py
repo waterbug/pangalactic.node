@@ -518,6 +518,9 @@ class Main(QMainWindow):
         orb.start(home=home, console=console, debug=debug,
                   force_migration=self.force_migration)
         self.add_splash_msg('... database initialized ...')
+        # staged model files are a cache of the vault;  drop the ones whose
+        # RepresentationFile is gone, which can never be wanted again
+        orb.prune_staged_files()
         # orb.start() calls load_reference_data(), which includes parameter
         # definitions ... load_reference_data() also loads the data from
         # "parameters.json" and "data_elements.json" into the "parameterz" and

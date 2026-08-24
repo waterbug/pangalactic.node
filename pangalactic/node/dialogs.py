@@ -21,7 +21,8 @@ from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                              QDialog, QDialogButtonBox, QFileDialog,
                              QFormLayout, QFrame, QHBoxLayout, QLabel,
-                             QLineEdit, QProgressDialog, QRadioButton,
+                             QLineEdit, QMessageBox, QProgressDialog,
+                             QRadioButton,
                              QScrollArea, QSizePolicy, QSpinBox, QTableView,
                              QTableWidget, QTextBrowser, QTextEdit,
                              QVBoxLayout, QWidget)
@@ -1061,6 +1062,20 @@ class FileInfoDialog(QDialog):
             save_local_button = SizedButton("Save Local Copy")
             save_local_button.clicked.connect(self.on_save_local)
             self.vbox.addWidget(save_local_button)
+            # A CAD assembly may be exported as a *set* of files, each
+            # referring to the others by name.  Saving one of those on its
+            # own gives the user a file nothing can read -- for s1-pe-214 it
+            # is one file out of thirteen -- and this dialog exists precisely
+            # for taking a copy away to share or use elsewhere, which is when
+            # the whole set is wanted (author, 2026-08-26).
+            if getattr(self.dfile, 'component_files', None):
+                save_set_button = SizedButton("Save Whole Set")
+                save_set_button.setToolTip(
+                    'This file refers to others and cannot be read without '
+                    'them.  Saves all of them into one directory, under the '
+                    'names the references use.')
+                save_set_button.clicked.connect(self.on_save_set)
+                self.vbox.addWidget(save_set_button)
         else:
             orb.log.debug('  file not found in local vault')
             download_button = SizedButton("Download File")
@@ -1100,6 +1115,48 @@ class FileInfoDialog(QDialog):
             self.accept()
         else:
             self.reject()
+
+    def on_save_set(self, evt):
+        """
+        Save this file and every file it references into one directory,
+        each under the name its references use.
+
+        The names matter and are the whole point:  a STEP assembly resolves
+        its references by name, relative to its own directory, so a set saved
+        under any other names is not readable.  They are the file's own
+        `user_file_name`, not the vault's `<oid>_<name>`, which exists to
+        keep the vault collision-free and means nothing outside it.
+        """
+        dir_path = QFileDialog.getExistingDirectory(
+                        self, 'Save the whole set into which directory?',
+                        state.get('last_path', ''))
+        if not dir_path:
+            self.reject()
+            return
+        orb.log.debug(f'  - saving file set to "{dir_path}"')
+        closure = orb.get_file_closure(self.dfile)
+        saved, missing = [], []
+        for rf in closure:
+            vault_fpath = orb.get_vault_fpath(rf)
+            if not os.path.exists(vault_fpath):
+                missing.append(rf.user_file_name)
+                continue
+            shutil.copy(vault_fpath, os.path.join(dir_path,
+                                                  rf.user_file_name))
+            saved.append(rf.user_file_name)
+        state['last_path'] = dir_path
+        n = len(saved)
+        msg = f'<p>{n} file(s) saved to<br><b>{dir_path}</b></p>'
+        if missing:
+            # said rather than silently skipped:  a set missing a file is not
+            # readable, and the user is about to send it to somebody
+            names = ''.join(f'<br>&nbsp;&nbsp;{name}' for name in missing)
+            msg += ('<p><b><font color="red">These have not been downloaded '
+                    f'and were not saved:</font></b>{names}</p>'
+                    '<p>The set will not be complete without them.</p>')
+        QMessageBox(QMessageBox.Information, 'File set saved', msg,
+                    QMessageBox.Ok, self).exec_()
+        self.accept()
 
 
 class ModelsAndDocsInfoDialog(QDialog):
