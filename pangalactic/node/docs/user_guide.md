@@ -422,12 +422,14 @@ To begin, select the **Import STEP Assembly** item in the **Tools** menu.  It
 is available in both **System Modeler** and **Component Modeler** modes.
 
 <!-- SCREENSHOT: Tools menu with "Import STEP Assembly" highlighted -->
+![Tools / Import STEP Assembly](images/import_step_menu_item.png "Tools / Import STEP Assembly")
 
 ### Choose the File and What the Import Should Do
 
 The first dialog asks for the file and for what should be done with it.
 
 <!-- SCREENSHOT: the "Import a STEP Assembly" dialog, both options visible -->
+![Import STEP Assembly Dialog](images/import_step_dialog.png "Import STEP Assembly Dialog")
 
 Click **Select STEP file ...** to choose the file, then choose one of two
 options.  They are quite different, and which one is right depends on whether
@@ -452,6 +454,7 @@ Nothing is created until you have seen what would be created.  The second
 dialog lists the import item by item:
 
 <!-- SCREENSHOT: the plan dialog for a "create" import, showing several rows -->
+![Import STEP Assembly Plan](images/import_step_plan.png "Import STEP Assembly Plan")
 
 Each row is one thing the import proposes to do, and each has a checkbox.  The
 columns are:
@@ -491,6 +494,8 @@ columns are:
   reused -- are simply skipped, so there is no need to leave them out of the
   selection.  **Apply to selected** says in its tooltip how many products it
   will actually change, so you can see this for yourself.
+
+![Apply to selected](images/import_step_apply_to_selected.png "Apply to selected")
 
   A sensible way to work through a large import is **Apply to all** with the
   commonest type first, then select the exceptions and apply the right type

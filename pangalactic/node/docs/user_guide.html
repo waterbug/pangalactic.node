@@ -281,9 +281,15 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <p>Component placements matter beyond simply recording them: the position and orientation of each component within its assembly is what allows the mass distribution of a system to be computed, which is the input an attitude control simulation needs.</p>
 <p>To begin, select the <strong>Import STEP Assembly</strong> item in the <strong>Tools</strong> menu. It is available in both <strong>System Modeler</strong> and <strong>Component Modeler</strong> modes.</p>
 <!-- SCREENSHOT: Tools menu with "Import STEP Assembly" highlighted -->
+<figure>
+<img src="images/import_step_menu_item.png" title="Tools / Import STEP Assembly" alt="" /><figcaption>Tools / Import STEP Assembly</figcaption>
+</figure>
 <h3 id="choose-the-file-and-what-the-import-should-do">Choose the File and What the Import Should Do</h3>
 <p>The first dialog asks for the file and for what should be done with it.</p>
 <!-- SCREENSHOT: the "Import a STEP Assembly" dialog, both options visible -->
+<figure>
+<img src="images/import_step_dialog.png" title="Import STEP Assembly Dialog" alt="" /><figcaption>Import STEP Assembly Dialog</figcaption>
+</figure>
 <p>Click <strong>Select STEP file …</strong> to choose the file, then choose one of two options. They are quite different, and which one is right depends on whether the assembly already exists in <strong>Pangalaxian</strong>:</p>
 <ul>
 <li><p><strong>Place the components of “…”</strong> – the assembly already exists here, and the file is the same design as it exists in <strong>CAD</strong>. Each occurrence in the file is matched to a component the assembly already has, by <strong>reference designator</strong>, and the position of each is recorded. <em>No products are created and no structure is changed</em> – only placements are added. This option is available only when an assembly is selected; if none is, it is disabled and says so.</p></li>
@@ -292,6 +298,9 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <h3 id="review-the-plan">Review the Plan</h3>
 <p>Nothing is created until you have seen what would be created. The second dialog lists the import item by item:</p>
 <!-- SCREENSHOT: the plan dialog for a "create" import, showing several rows -->
+<figure>
+<img src="images/import_step_plan.png" title="Import STEP Assembly Plan" alt="" /><figcaption>Import STEP Assembly Plan</figcaption>
+</figure>
 <p>Each row is one thing the import proposes to do, and each has a checkbox. The columns are:</p>
 <ul>
 <li><p><strong>kind</strong> – what the item is: a <strong>product</strong> (a specification), a <strong>usage</strong> (a component in an assembly, at a particular reference designator), or a <strong>placement</strong> (where a component sits within its assembly).</p></li>
@@ -307,10 +316,12 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <li><p><strong>product type</strong> – for a newly created product, what kind of thing it is. <strong>STEP</strong> carries no notion of a product type, so every new product starts as <strong>unclassified</strong>; you can set a type on any row from the list of known product types. Leaving them <strong>unclassified</strong> is perfectly workable and can be corrected later.</p>
 <p>Setting them one row at a time gets tedious quickly on a real assembly, so the controls below the table set several at once: choose a type, then <strong>Apply to all</strong> to give it to every new product in the import, or <strong>Apply to selected</strong> to give it only to the rows you have selected.</p>
 <p>Select rows by clicking, and extend the selection with <strong>Shift</strong> or <strong>Ctrl</strong> as you would anywhere else; the <strong>SELECT ALL / CLEAR SELECTIONS</strong> box takes in every row at once, which is usually the quickest start – select everything, then <strong>Ctrl</strong>-click the few to leave out.</p>
-<p>Rows with no type to set – usages, placements, and products that will be reused – are simply skipped, so there is no need to leave them out of the selection. <strong>Apply to selected</strong> says in its tooltip how many products it will actually change, so you can see this for yourself.</p>
-<p>A sensible way to work through a large import is <strong>Apply to all</strong> with the commonest type first, then select the exceptions and apply the right type to those.</p></li>
-<li><p><strong>note</strong> – anything else worth knowing about the item.</p></li>
+<p>Rows with no type to set – usages, placements, and products that will be reused – are simply skipped, so there is no need to leave them out of the selection. <strong>Apply to selected</strong> says in its tooltip how many products it will actually change, so you can see this for yourself.</p></li>
 </ul>
+<figure>
+<img src="images/import_step_apply_to_selected.png" title="Apply to selected" alt="" /><figcaption>Apply to selected</figcaption>
+</figure>
+<p>A sensible way to work through a large import is <strong>Apply to all</strong> with the commonest type first, then select the exceptions and apply the right type to those. * <strong>note</strong> – anything else worth knowing about the item.</p>
 <p>The last two statuses are informational, and are worth reading: they say what the import will <em>not</em> cover, which usually matters as much as what it will. A run of <strong>no such component</strong> rows generally means the file is a different design from the assembly, or that the reference designators do not agree.</p>
 <p>Use <strong>Accept all</strong> and <strong>Reject all</strong> to set every checkbox at once, or click individual checkboxes. An unconfirmed product also drops the usages that depend on it – a usage cannot be created with one end missing – so rejecting a product rejects everything below it.</p>
 <p>When creating products and structure with a project selected, the dialog also offers to add the file’s top-level assembly to the project as a system:</p>
