@@ -366,6 +366,105 @@ are the authorized-path cases, which must pass both before and after.
 
 ---
 
+### 3.9 Files, models and documents — as built (2026-08-28..29)
+
+Three rpcs created objects **on the server** that nothing about them required
+there: `add_update_model()`, `add_component_file()` and `add_update_doc()`.
+Attaching a file to a product, transferring an exported CAD file *set*, and
+attaching a document were therefore the only parts of an import that needed a
+connection — everything else is built locally and syncs later. All three now
+build their objects on the client and are not called. They remain registered
+for older clients.
+
+The rule that governs it: **a `RepresentationFile` reaches the repository only
+together with its bytes.** A file object without its file is not a degraded
+version of the thing, it is a false statement to every other client. So the
+bytes are copied into the local vault when the object is made, pushed *before*
+the objects (`push_staged_files()` sits ahead of
+`sync_user_created_objs_to_repo()` in the chain and the chain waits on it),
+and if an upload fails the objects are held back for the next sync.
+
+**No queue of pending uploads.** The local vault is the record of what this
+machine has; `vger.missing_vault_files()` is the record of what the repository
+lacks. A queue would be a third record able to disagree with both — and asking
+*repairs* history rather than merely avoiding a repeat, so a file whose upload
+failed long ago goes up at the next sync. See
+`pangalactic.core.digital_files` and NOTES_ON_STEP_IMPORT.md §3c.
+
+#### Who may fetch a file (2026-08-29)
+
+`vger.download_chunk()` checked **nothing** — not even that the caller was a
+known user, which `upload_chunk()` has always done. An oid was sufficient to
+fetch the bytes it named. In practice that took a deliberately driven WAMP
+call rather than anything a user could click, and the oid alone reveals only
+a file name, so it was never a leak in normal operation; it is fixed because
+the barrier should be permission rather than intent.
+
+**The permission consulted is the one on what the file represents, not on the
+file.** `RepresentationFile` is in `access.modifiables`, which grants every
+user view/modify/delete on it — a gate on the file itself would authorize
+everybody. So the gate asks about `of_object`, the same reasoning as
+`add_component_file()`: "authorization is the model's, since that is what
+gains a file". A file that represents nothing is refused; nothing in the
+application makes one.
+
+Checked against the test project rather than reasoned, because the failure
+mode of getting this wrong is locking people out of their own files:
+
+| subject | project member | outsider |
+|---|---|---|
+| model of a cloaked assembly | `view` | *nothing* |
+| model of a public library product | `view` | `view` |
+| document owned by a project | `view` | *nothing* |
+
+A global admin has `view` on everything. Component files inherit their
+project's Model — `new_component_file()` gives a component's own Model the
+*referencing* model's owner — so a member of the importing project can always
+fetch the whole set.
+
+One client consequence had to be handled with it. `on_chunk_download_failure`
+returns None, which tells twisted the failure is handled, so the success
+callback chained after it runs anyway — and `on_download_open_success()`
+then unpacked that None, raising `TypeError` in the reactor. Harmless while
+the only failures were transport ones; a refusal fails *every* chunk. The
+completion callbacks now consult `failed_chunks` and report the failure
+instead.
+
+#### The DocumentReference problem, and why it is a special case
+
+A document is three objects: `Document`, `RepresentationFile`, and the
+`DocumentReference` that attaches it to something. The first two are
+`Modelable`s and sync like anything else. The third cannot:
+
+- It is an `Identifiable`, so it has **no `creator`** — and
+  `sync_user_created_objs_to_repo()` pushes `local_user.created_objects`,
+  which is the inverse of `creator`. It can never appear there.
+- **It cannot be made a `Modelable`**, which is what was done for the
+  placement classes at schema 3.6.0 for exactly this reason. `related_item`
+  points at `Modelable`, which would become its own superclass, and
+  sqlalchemy's joined table inheritance cannot then tell that foreign key
+  from the inheritance one. Verified by execution on 2026-08-29 rather than
+  read off the warning in `registry.py`: the orb does not start —
+  `AmbiguousForeignKeysError: Can't determine the inherit condition between
+  inherited table 'modelable_' and inheriting table 'document_reference_'`.
+- **It must not simply be added to the sync's oid list.** `on_sync_result()`
+  *deletes* a local-only object with no creator, on the reasoning that the
+  repository must have deleted it. A `DocumentReference` listed there would
+  be destroyed on the first sync after it was made. This is the trap worth
+  remembering: the obvious fix is destructive.
+
+So it travels as a **dependent of its Document**. `push_document_references()`
+finds it by way of the Document (which has a creator), asks
+`vger.get_mod_dts()` which references the repository already has, and sends
+the missing ones together with their Documents — `DESERIALIZATION_ORDER` puts
+`Document` first, and re-sending one the repository has costs nothing, since
+it comes back "unmodified" and is not republished. `DocumentReference` is in
+`access.modifiables`, which is also the only way `vger.save()` will accept
+one: it authorizes a new object by "the caller is its creator", and this class
+has none.
+
+---
+
 ## 4. Suggested sequencing
 
 1. **Decide 3.1** — the offline permission model. Everything else depends

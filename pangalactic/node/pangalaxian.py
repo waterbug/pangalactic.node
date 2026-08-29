@@ -72,7 +72,7 @@ import ruamel_yaml as yaml
 from nacl.public import PrivateKey
 
 # twisted
-from twisted.internet.defer import DeferredList
+from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
@@ -116,6 +116,13 @@ from pangalactic.core.access           import (get_perms,
                                                is_reference_data)
 from pangalactic.core.clone            import clone
 from pangalactic.core.datastructures   import chunkify
+from pangalactic.core.digital_files    import (documents_of_local_user,
+                                               is_staged, new_component_file,
+                                               new_doc_with_file,
+                                               new_model_with_file,
+                                               stage_in_vault,
+                                               staged_files_of_local_user,
+                                               vault_path)
 from pangalactic.core.meta             import asciify
 from pangalactic.core.names            import get_external_name_plural
 from pangalactic.core.parametrics      import (data_elementz,
@@ -1248,9 +1255,25 @@ class Main(QMainWindow):
         # ------------------------------------------------------------------
         rpc.addCallback(self.replay_deletion_queue)
         rpc.addErrback(self.on_failure)
+        # ------------------------------------------------------------------
+        # NOTE: files go up BEFORE the objects that describe them, and the
+        # chain waits for them.  A RepresentationFile whose bytes are not in
+        # the vault tells every other client that a file is available when it
+        # is not, and vger.download_chunk() can only answer such a request
+        # with nothing.  Ordering it the other way would leave that window
+        # open on every sync;  ordering it this way closes it, at the cost of
+        # a login that waits for its uploads.
+        # ------------------------------------------------------------------
+        rpc.addCallback(self.push_staged_files)
+        rpc.addErrback(self.on_failure)
         rpc.addCallback(self.sync_user_created_objs_to_repo)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.on_user_objs_sync_result)
+        rpc.addErrback(self.on_failure)
+        # after the user's own objects, because a DocumentReference is only
+        # meaningful once its Document is there -- and it is not carried by
+        # that push at all, having no creator to be found by
+        rpc.addCallback(self.push_document_references)
         rpc.addErrback(self.on_failure)
         # populate the local mirror of active check-out claims (advisory
         # display only -- see the CHECK-OUT / CHECK-IN section below)
@@ -6888,84 +6911,375 @@ class Main(QMainWindow):
 
     def on_add_update_model(self, mtype_oid='', fpath='', parms=None):
         """
-        Handle "add update model" signal: call rpc to add or update Model and
-        RepresentationFile objects related to a specified item, and add
-        callbacks to upload_file() to upload associated file(s) if appropriate.
+        Handle the "add update model" signal:  create the Model and the
+        RepresentationFile for a file, keep the file, and send both to the
+        repository if there is a connection.
+
+        **This used to be an rpc.**  `vger.add_update_model()` created the two
+        objects on the server, which made attaching a file to a product the
+        one part of an import that could not be done offline -- the products,
+        the assembly structure and the placements are all built locally and
+        sync later, and only the file was special.  Nothing about the two
+        objects needs the server:  see pangalactic.core.digital_files.
+
+        The rpc is still registered, for clients older than this one.  This
+        does not call it, so there is one path and it is the path that works
+        offline;  the online case is the same code with a connection.
+
+        Keyword Args:
+            mtype_oid (str):  oid of the ModelType
+            fpath (str):  the file, on this machine
+            parms (dict):  as documented on digital_files.new_model_with_file
         """
         orb.log.debug('* "add update model" signal received ...')
-        if mtype_oid and fpath and parms:
-            orb.log.info('  - calling "vger.add_update_model"')
-            try:
-                rpc = self.mbus.session.call('vger.add_update_model',
-                                             mtype_oid=mtype_oid,
-                                             fpath=fpath,
-                                             parms=parms)
-                rpc.addCallback(self.on_model_added)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                orb.log.debug('     trying to reconnect ...')
-                self.set_bus_state()
-                return
-        else:
-            orb.log.debug('  incomplete signature, rpc not called')
+        if not (mtype_oid and fpath and parms):
+            orb.log.debug('  incomplete signature, nothing done')
             return
+        model, rep_file = new_model_with_file(mtype_oid, fpath, parms)
+        if model is None:
+            # new_model_with_file() logged which precondition failed
+            self.statusbar.showMessage('the model could not be created '
+                                       '(see log)')
+            return
+        orb.save([model, rep_file])
+        orb.db.commit()
+        # created here and not yet seen by the repository, so editable
+        # offline without a check-out claim -- access.is_writable_now(),
+        # rule [4].  The plural "new objects" signal does not do this (only
+        # the singular one does), and offline it is not sent at all.
+        self.add_locally_created(model.oid)
+        self.add_locally_created(rep_file.oid)
+        # The bytes are kept before anything else can go wrong with them:
+        # from here the file is recoverable from the object, and the user may
+        # move or delete what they imported.
+        stage_in_vault(rep_file, fpath)
+        orb.log.info(f'  model "{model.id}" and its file created locally.')
+        # NOTE: no "new objects" signal yet.  That signal *is* the push --
+        # on_mod_objects_signal() calls vger.save() from it whenever the
+        # client is connected -- and the objects must not go up before the
+        # bytes.  It is sent below, once the file has arrived.  Nothing local
+        # is lost by waiting:  a Model and a RepresentationFile match none of
+        # that handler's gui branches, so for these two objects the signal
+        # does nothing else.
+        # a STEP import leaves its correspondence pending because the
+        # RepresentationFile did not exist yet;  now it does
+        self.store_step_correspondence(rep_file.oid, fpath)
+        self.register_component_files(fpath, rep_file)
+        if not state.get('connected'):
+            # Nothing else to do:  both objects are in created_objects and
+            # the bytes are in the vault, so the next sync sends them.  This
+            # is the case that used to lose the file attachment entirely.
+            orb.log.info('  offline -- model and file will sync when '
+                         'connected.')
+            self.statusbar.showMessage(f'"{model.name}" saved here; it will '
+                                       'be sent when you are connected')
+            return
+        # Connected:  the same two steps the sync does, in the same order --
+        # the bytes, then the objects that describe them.
+        d = self.upload_vault_file(rep_file)
+        d.addCallback(lambda ok: self.save_new_file_objects(model, rep_file,
+                                                            ok))
+        d.addErrback(self.on_failure)
 
-    def on_model_added(self, result):
+    def save_new_file_objects(self, model, rep_file, uploaded, also=None):
         """
-        Callback for return values of rpc 'vger.add_update_model',
+        Send a Model or Document and its RepresentationFile to the
+        repository, once the file's bytes are there.
 
         Args:
-            result (tuple): [0] path to the local model file,
-                            [1] serialized Model and RepresentationFile
-                                instances
+            model (Model or Document):  the thing the file belongs to
+            rep_file (RepresentationFile):  its file object
+            uploaded (bool):  whether the bytes arrived
+
+        Keyword Args:
+            also (list):  further objects to send with them -- a document's
+                DocumentReference, which has no route of its own (see
+                digital_files.new_doc_with_file)
+
+        Returns:
+            bool: what it was told about the upload, so it can be chained
         """
-        fpath, sobjs = result
-        orb.log.debug(f'* on_model_added(fpath={fpath}, sobjs)')
-        orb.log.debug('  deserializing Model and RepresentationFile ...')
-        objs = deserialize(orb, sobjs)
-        orb.log.debug('  deserialized objects:')
-        for obj in objs:
-            orb.log.debug(f'  {obj.id}')
-        oid = ''
-        for so in sobjs:
-            if so['_cname'] == "RepresentationFile":
-                oid = so['oid']
-        if oid:
-            self.store_step_correspondence(oid, fpath)
-            self.start_component_file_transfers(fpath, oid)
-            self.read_and_upload_file(fpath=fpath, rep_file_oid=oid)
-        else:
-            orb.log.debug('  - RepresentationFile oid not found; no upload.')
+        if not uploaded:
+            # The objects stay local and stay in created_objects, so the next
+            # sync tries again -- with the bytes first, again.  Sending them
+            # now would publish a file nobody can fetch.
+            orb.log.error(f'  file for "{model.id}" did not go up; the '
+                          'objects are held back until it does.')
+            self.statusbar.showMessage('the file could not be sent; it will '
+                                       'be retried at the next sync')
+            return uploaded
+        # the bytes are there, so the objects may go
+        dispatcher.send(signal='new objects',
+                        objs=[model, rep_file] + list(also or []))
+        return uploaded
 
     # ------------------------------------------------------------------
-    # COMPONENT FILE TRANSFER
+    # SENDING A FILE'S BYTES
+    #
+    # A RepresentationFile in the repository is expected to have its file in
+    # the repository's vault:  an object that says a file is available when
+    # it is not is not a degraded version of the thing, it is wrong, and
+    # every reader of it is wrong.  So the bytes go first and the object
+    # follows, both when a file is created here and at every sync.
+    #
+    # Nothing keeps a queue of what has been sent.  The local vault is the
+    # record of which files this machine has, and vger.missing_vault_files()
+    # is the record of which of those the repository still lacks;  a queue
+    # would be a third record able to disagree with both.  It also means a
+    # file whose upload failed -- or one created before any of this existed
+    # -- is repaired by the next sync rather than lost.
+    # ------------------------------------------------------------------
+
+    def push_staged_files(self, data=None):
+        """
+        Send the repository any file it does not have, before the objects
+        that describe them are pushed.
+
+        Placed ahead of sync_user_created_objs_to_repo() in the sync chain
+        for that reason, and returns a Deferred the chain waits on:  the
+        objects must not arrive first.
+
+        Keyword Args:
+            data:  passed through for callback chaining (ignored)
+
+        Returns:
+            a Deferred firing when every file that needed sending has been
+            answered for, or `data` if there was nothing to send.
+        """
+        if not state.get('connected'):
+            return data
+        rep_files = staged_files_of_local_user()
+        if not rep_files:
+            return data
+        self._files_to_push = {orb.get_vault_fname(rf): rf
+                               for rf in rep_files}
+        wanted = {fname: int(getattr(rf, 'file_size', 0) or 0)
+                  for fname, rf in self._files_to_push.items()}
+        orb.log.info(f'* asking the repository about {len(wanted)} file(s)')
+        try:
+            rpc = self.mbus.session.call('vger.missing_vault_files',
+                                         files=wanted)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            self.set_bus_state()
+            return data
+        rpc.addCallback(self.upload_missing_vault_files)
+        rpc.addErrback(self.on_failure)
+        return rpc
+
+    def upload_missing_vault_files(self, fnames):
+        """
+        Callback for 'vger.missing_vault_files':  send the ones it named.
+
+        Args:
+            fnames (list of str):  vault file names the repository lacks
+
+        Returns:
+            a DeferredList firing when all of them have been sent or have
+            failed
+        """
+        to_push = getattr(self, '_files_to_push', None) or {}
+        rep_files = [to_push[f] for f in (fnames or []) if f in to_push]
+        self._files_to_push = {}
+        if not rep_files:
+            orb.log.info('  the repository has every file already.')
+            return None
+        n = len(rep_files)
+        orb.log.info(f'  sending {n} file(s) the repository does not have.')
+        self.statusbar.showMessage(f'sending {n} file(s) to the repository '
+                                   '...')
+        return DeferredList([self.upload_vault_file(rf) for rf in rep_files],
+                            consumeErrors=True)
+
+    def push_document_references(self, data=None):
+        """
+        Send the repository any DocumentReference it does not have, together
+        with the Document it belongs to.
+
+        A DocumentReference cannot sync the way everything else does.  It has
+        no `creator` -- it is an `Identifiable`, and it cannot be made a
+        `Modelable` because `related_item` points at `Modelable` (see
+        digital_files.new_doc_with_file) -- so it can never appear in
+        `local_user.created_objects`, which is what
+        `sync_user_created_objs_to_repo()` pushes.
+
+        It must not simply be added to that push, either:  `on_sync_result()`
+        **deletes** a local-only object that has no creator, on the reasoning
+        that the repository must have deleted it.  A DocumentReference listed
+        there would be destroyed on the first sync after it was made.
+
+        So it travels as a dependent instead, and the Document goes with it
+        in the same call -- the repository may not have that either, and
+        DESERIALIZATION_ORDER puts Document first.  Re-sending a Document the
+        repository already has costs nothing:  it comes back "unmodified" and
+        is not republished.
+
+        Keyword Args:
+            data:  passed through for callback chaining (ignored)
+
+        Returns:
+            a Deferred for the rpc, or `data` if there was nothing to send
+        """
+        if not state.get('connected'):
+            return data
+        found = documents_of_local_user()
+        if not found:
+            return data
+        self._doc_refs_to_push = {}
+        for document, refs in found:
+            for ref in refs:
+                self._doc_refs_to_push[ref.oid] = (document, ref)
+        oids = list(self._doc_refs_to_push)
+        orb.log.info(f'* asking the repository about {len(oids)} document '
+                     'reference(s)')
+        try:
+            rpc = self.mbus.session.call('vger.get_mod_dts', oids=oids)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            self.set_bus_state()
+            return data
+        rpc.addCallback(self.save_missing_document_references)
+        rpc.addErrback(self.on_failure)
+        return rpc
+
+    def save_missing_document_references(self, mod_dts):
+        """
+        Callback for 'vger.get_mod_dts':  send the references it did not
+        report, which are the ones it does not have.
+
+        Args:
+            mod_dts (dict):  {oid: mod_datetime} for the oids it does have
+
+        Returns:
+            a Deferred for the save, or None if there was nothing to send
+        """
+        to_push = getattr(self, '_doc_refs_to_push', None) or {}
+        self._doc_refs_to_push = {}
+        missing = [pair for oid, pair in to_push.items()
+                   if oid not in (mod_dts or {})]
+        if not missing:
+            orb.log.info('  the repository has every document reference.')
+            return None
+        objs = []
+        for document, ref in missing:
+            if document not in objs:
+                objs.append(document)
+            objs.append(ref)
+        n = len(missing)
+        orb.log.info(f'  sending {n} document reference(s).')
+        try:
+            rpc = self.mbus.session.call('vger.save', serialize(orb, objs))
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            self.set_bus_state()
+            return None
+        rpc.addCallback(self.on_vger_save_result)
+        rpc.addErrback(self.on_failure)
+        return rpc
+
+    def upload_vault_file(self, rep_file):
+        """
+        Upload one file from the local vault, queued behind any already going
+        up.
+
+        The vault copy is the source, not whatever path the file was imported
+        from:  that path may be gone, and the vault copy is the one the
+        object's name and checksum describe.
+
+        Args:
+            rep_file (RepresentationFile):  the file to send
+
+        Returns:
+            Deferred:  fires with True when the file has been sent, False if
+            it could not be.  It always fires -- a chunk failure used to
+            simply stop, which as part of a sync chain would hang the login.
+        """
+        d = Deferred()
+        if not is_staged(rep_file):
+            orb.log.error('  no bytes in the local vault for '
+                          f'"{getattr(rep_file, "id", "?")}".')
+            d.callback(False)
+            return d
+        queue = getattr(self, 'file_upload_queue', None)
+        if queue is None:
+            queue = self.file_upload_queue = []
+        queue.append((vault_path(rep_file), rep_file.oid, d))
+        # `fpath_to_upload` is set by read_and_upload_file() and does not
+        # exist until the first upload of the session -- the same lazy idiom
+        # the component-file queue uses
+        if not getattr(self, 'fpath_to_upload', ''):
+            # nothing in flight, so this one starts now;  otherwise the
+            # upload that is running will pick it up when it finishes
+            self.next_vault_file_upload()
+        return d
+
+    def next_vault_file_upload(self):
+        """
+        Start the next queued file, if there is one.
+
+        Returns:
+            bool:  True if an upload was started
+        """
+        queue = getattr(self, 'file_upload_queue', None) or []
+        if not queue:
+            return False
+        fpath, oid, d = queue.pop(0)
+        self._upload_deferred = d
+        self.read_and_upload_file(fpath=fpath, rep_file_oid=oid)
+        return True
+
+    def finish_vault_file_upload(self, ok):
+        """
+        Answer whoever is waiting on the upload that just ended, and start
+        the next.
+
+        Args:
+            ok (bool):  whether the file was sent
+
+        Returns:
+            bool:  True if another upload was started, so that the caller
+            does not start one of its own -- only one file goes up at a time
+        """
+        d = getattr(self, '_upload_deferred', None)
+        self._upload_deferred = None
+        if d is not None and not d.called:
+            d.callback(ok)
+        return self.next_vault_file_upload()
+
+    # ------------------------------------------------------------------
+    # COMPONENT FILES
     #
     # A CAD assembly may be exported as a *set* of files:  the assembly file
     # names its subassembly and part files, and cannot be read without them.
-    # Only the file the user chose used to be uploaded, so the repository's
-    # copy rendered as whatever geometry happened to be inline -- for the
-    # CAx-IF files, nothing at all (author, observed on a round trip).
+    # Only the file the user chose used to be transferred, so the
+    # repository's copy rendered as whatever geometry happened to be inline
+    # -- for the CAx-IF files, nothing at all (author, observed on a round
+    # trip).
     #
-    # The files go up one at a time, and have to:  read_and_upload_file()
-    # keeps the chunks, the path and the target oid in instance attributes,
-    # so two uploads at once would overwrite each other.  The queue is
-    # therefore drained from on_file_upload_success().
+    # This used to be a cascade:  one `vger.add_component_file()` rpc per
+    # file, each one waiting for the previous file's upload to finish,
+    # because "component_file_of" points at the *referencing* file and that
+    # file's RepresentationFile did not exist until the rpc creating it had
+    # replied.  Registering a set therefore required a connection and took as
+    # long as uploading it.
     #
-    # It is a cascade rather than a loop because "component_file_of" points
-    # at the *referencing* file, whose RepresentationFile does not exist
-    # until it has itself been registered.  So a file can only be registered
-    # after its parent has been, which is why reference_closure() returns
-    # parents before children.
+    # The objects are made here now, so there is nothing to wait for:  one
+    # pass over reference_closure(), which returns parents before children
+    # for exactly this reason.  The uploads are queued behind one another as
+    # before -- read_and_upload_file() keeps the chunks, the path and the
+    # target oid in instance attributes, so two at once would overwrite each
+    # other -- but nothing depends on them any more, and offline there are
+    # simply no uploads to queue.
     # ------------------------------------------------------------------
 
-    def start_component_file_transfers(self, fpath, rep_file_oid):
+    def register_component_files(self, fpath, rep_file):
         """
-        Queue the files that `fpath` references, if any, for transfer.
+        Create a RepresentationFile for every file that `fpath` references,
+        and send the bytes if there is a connection.
 
         Args:
             fpath (str):  the file just registered
-            rep_file_oid (str):  oid of its RepresentationFile
+            rep_file (RepresentationFile):  its RepresentationFile
         """
         try:
             from pangalactic.node.step_import import reference_closure
@@ -6975,100 +7289,99 @@ class Main(QMainWindow):
             # still the client's only reason to touch step_import here
             orb.log.debug(f'  - component files: closure failed: {e}')
             return
-        self.step_rep_file_oids = {fpath: rep_file_oid}
-        self.step_component_queue = list(closure)
-        if closure:
-            n = len(closure)
-            orb.log.info(f'  - {n} referenced file(s) to transfer.')
-
-    def next_component_file_transfer(self):
-        """
-        Register the next queued component file, if its referencing file has
-        been registered yet.  Called when an upload finishes.
-        """
-        queue = getattr(self, 'step_component_queue', None)
-        if not queue:
+        if not closure:
             return
-        oids = getattr(self, 'step_rep_file_oids', None) or {}
-        for i, (child, parent) in enumerate(queue):
-            parent_oid = oids.get(parent)
-            if not parent_oid:
-                # its parent has not been registered yet;  it will be, and
-                # this one is reconsidered on the next pass
+        # imported here rather than at module scope:  step_dialogs is where
+        # the constants live and importing it at start-up would pull in
+        # nothing useful this early
+        from pangalactic.node.step_dialogs import (MCAD_MODEL_TYPE_OID,
+                                                   STEP_MIME_TYPE)
+        orb.log.info(f'  - {len(closure)} referenced file(s) to register.')
+        # which product does each referenced file model?  The file says so --
+        # main_body_back_prt.stp *is* the model of MAIN_BODY_BACK -- and the
+        # import has just created a Product for that prototype.
+        products = state.get('step_component_products') or {}
+        # the RepresentationFile each path became, so a child can find its
+        # parent's;  parents come first, so it is always already here
+        by_path = {fpath: rep_file}
+        created, staged = [], []
+        for child, parent in closure:
+            referencing = by_path.get(parent)
+            if referencing is None:
+                # the closure is ordered parents-first, so this means the
+                # parent was refused above -- skip the child rather than
+                # attach it to the wrong file
+                orb.log.debug(f'  - no parent object for "{child}"; skipped.')
                 continue
-            del queue[i]
             fname = os.path.basename(child)
             try:
                 fsize = os.path.getsize(child)
             except OSError:
-                orb.log.debug(f'  - component file gone: "{child}"')
                 # drop it and carry on -- one unreadable file should not
                 # strand the rest of the set
-                self.next_component_file_transfer()
-                return
-            orb.log.info(f'  - registering component file "{fname}"')
-            # imported here rather than at module scope:  step_dialogs is
-            # where the constant lives and importing it at start-up would
-            # pull in nothing useful this early
-            from pangalactic.node.step_dialogs import (MCAD_MODEL_TYPE_OID,
-                                                       STEP_MIME_TYPE)
-            # the product this file models, if the import identified one
-            products = state.get('step_component_products') or {}
-            try:
-                rpc = self.mbus.session.call('vger.add_component_file',
-                                rep_file_oid=parent_oid,
-                                fpath=child,
-                                of_thing_oid=products.get(child, ''),
-                                mtype_oid=MCAD_MODEL_TYPE_OID,
-                                parms={'file name': fname,
-                                       'file size': str(fsize),
-                                       'mime_type': STEP_MIME_TYPE})
-                rpc.addCallback(self.on_component_file_added)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                self.set_bus_state()
+                orb.log.debug(f'  - component file gone: "{child}"')
+                continue
+            of_thing = orb.get(products.get(child, '')) or None
+            new_model, component = new_component_file(
+                                referencing, child,
+                                {'file name': fname,
+                                 'file size': str(fsize),
+                                 'mime_type': STEP_MIME_TYPE},
+                                of_thing=of_thing,
+                                mtype_oid=MCAD_MODEL_TYPE_OID)
+            if component is None:
+                continue
+            by_path[child] = component
+            if new_model is not None:
+                created.append(new_model)
+            if component not in created:
+                created.append(component)
+            stage_in_vault(component, child)
+            staged.append(component)
+        if not created:
             return
-        # nothing in the queue can proceed:  every remaining entry is waiting
-        # on a parent that was never registered, so it never will be
-        if queue:
-            names = [os.path.basename(c) for c, p in queue]
-            orb.log.info(f'  ** {len(queue)} component file(s) stranded: '
-                         f'{names}')
-            self.statusbar.showMessage(
-                f'WARNING: {len(queue)} referenced file(s) were not '
-                'transferred (see log)')
-        self.step_component_queue = []
-        self.step_rep_file_oids = {}
+        orb.save(created)
+        orb.db.commit()
+        for obj in created:
+            self.add_locally_created(obj.oid)
+        n = len(staged)
+        orb.log.info(f'  - {n} component file(s) created locally.')
+        if not state.get('connected'):
+            orb.log.info('  - offline; they will sync when connected.')
+            return
+        # the bytes of each, then the objects -- the same order, and the same
+        # reason, as the file they belong to
+        d = DeferredList([self.upload_vault_file(rf) for rf in staged],
+                         consumeErrors=True)
+        d.addCallback(lambda results: self.save_component_files(created,
+                                                                results))
+        d.addErrback(self.on_failure)
 
-    def on_component_file_added(self, result):
+    def save_component_files(self, objs, results):
         """
-        Callback for 'vger.add_component_file':  record the new
-        RepresentationFile and upload the file it stands for.
+        Send the component files' objects, once their bytes are there.
 
         Args:
-            result (tuple):  (local file path, serialized objects)
+            objs (list):  the Models and RepresentationFiles created
+            results (list of tuple):  the DeferredList's (success, value)
+                pairs, one per upload
+
+        Returns:
+            the results, so this can be chained
         """
-        fpath, sobjs = result
-        if not sobjs:
-            orb.log.info(f'  ** component file refused: "{fpath}"')
-            # carry on with the rest;  a refusal is an answer
-            self.next_component_file_transfer()
-            return
-        deserialize(orb, sobjs)
-        oid = ''
-        for so in sobjs:
-            if so['_cname'] == 'RepresentationFile':
-                oid = so['oid']
-        if not oid:
-            self.next_component_file_transfer()
-            return
-        oids = getattr(self, 'step_rep_file_oids', None)
-        if oids is None:
-            oids = self.step_rep_file_oids = {}
-        oids[fpath] = oid
-        # the upload's completion drains the next one
-        self.read_and_upload_file(fpath=fpath, rep_file_oid=oid)
+        sent = all(ok and value for ok, value in (results or []))
+        if not sent:
+            # They stay local and stay in created_objects, so the next sync
+            # tries again -- bytes first, again.  All of them are held back,
+            # not only the one that failed:  a set is only readable whole.
+            orb.log.error('  ** not every component file went up; the '
+                          'objects are held back until they do.')
+            self.statusbar.showMessage('some referenced files were not sent; '
+                                       'they will be retried at the next '
+                                       'sync')
+            return results
+        dispatcher.send(signal='new objects', objs=objs)
+        return results
 
     def store_step_correspondence(self, rep_file_oid, fpath):
         """
@@ -7105,56 +7418,52 @@ class Main(QMainWindow):
 
     def on_add_update_doc(self, fpath='', parms=None):
         """
-        Handle "add update doc" signal: call rpc to add or update Model and
-        RepresentationFile objects related to a specified item, and add
-        callbacks to upload_file() to upload associated file(s) file if
-        appropriate.
+        Handle the "add update doc" signal:  create the Document, its
+        RepresentationFile and the DocumentReference that attaches it to
+        something, keep the file, and send them to the repository if there is
+        a connection.
+
+        **This used to be an rpc**, `vger.add_update_doc()`, so attaching a
+        document was impossible offline for the same reason attaching a model
+        was.  Same treatment, same order:  the bytes, then the objects.  See
+        pangalactic.core.digital_files.
+
+        Keyword Args:
+            fpath (str):  the file, on this machine
+            parms (dict):  as documented on digital_files.new_doc_with_file
         """
         orb.log.debug('* "add update doc" signal received ...')
-        if fpath and parms:
-            orb.log.info('  - calling "vger.add_update_doc"')
-            try:
-                rpc = self.mbus.session.call('vger.add_update_doc',
-                                             fpath=fpath,
-                                             parms=parms)
-                rpc.addCallback(self.on_doc_added)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                orb.log.debug('     trying to reconnect ...')
-                self.set_bus_state()
-                return
-        else:
-            orb.log.debug('  incomplete signature, rpc not called')
+        if not (fpath and parms):
+            orb.log.debug('  incomplete signature, nothing done')
             return
-
-    def on_doc_added(self, result):
-        """
-        Callback for return values of rpc 'vger.add_update_doc',
-
-        Args:
-            result (tuple): [0] path to the local doc file,
-                            [1] serialized Document, DocumentReference, and
-                                RepresentationFile instances
-        """
-        fpath, sobjs = result
-        orb.log.debug(f'* on_doc_added(fpath={fpath}, sobjs)')
-        orb.log.debug('* serialized objects:')
-        orb.log.debug(f'  {sobjs}')
-        orb.log.debug('  deserializing Document, DocumentReference,')
-        orb.log.debug('  and RepresentationFile ...')
-        objs = deserialize(orb, sobjs)
-        orb.log.debug('  deserialized objects:')
-        for obj in objs:
-            orb.log.debug(f'  {obj.id}')
-        oid = ''
-        for so in sobjs:
-            if so['_cname'] == "RepresentationFile":
-                oid = so['oid']
-        if oid:
-            self.read_and_upload_file(fpath=fpath, rep_file_oid=oid)
-        else:
-            orb.log.debug('  - RepresentationFile oid not found; no upload.')
+        document, doc_ref, rep_file = new_doc_with_file(fpath, parms)
+        if document is None:
+            # new_doc_with_file() logged which precondition failed
+            self.statusbar.showMessage('the document could not be created '
+                                       '(see log)')
+            return
+        orb.save([document, doc_ref, rep_file])
+        orb.db.commit()
+        # created here and not yet seen by the repository, so editable
+        # offline -- access.is_writable_now(), rule [4].  The
+        # DocumentReference does not need it:  it is in access.modifiables,
+        # which get_perms() answers before it reaches that rule.
+        self.add_locally_created(document.oid)
+        self.add_locally_created(rep_file.oid)
+        stage_in_vault(rep_file, fpath)
+        orb.log.info(f'  document "{document.id}" and its file created '
+                     'locally.')
+        if not state.get('connected'):
+            orb.log.info('  offline -- document and file will sync when '
+                         'connected.')
+            self.statusbar.showMessage(f'"{document.name}" saved here; it '
+                                       'will be sent when you are connected')
+            return
+        d = self.upload_vault_file(rep_file)
+        d.addCallback(lambda ok: self.save_new_file_objects(
+                                    document, rep_file, ok,
+                                    also=[doc_ref]))
+        d.addErrback(self.on_failure)
 
     def read_and_upload_file(self, fpath='', rep_file_oid='', chunk_size=None):
         """
@@ -7226,13 +7535,26 @@ class Main(QMainWindow):
         if fpath and self.chunks_to_upload:
             fname = os.path.basename(fpath)
             orb.log.info(f'* uploading file: "{fname}"')
-            if rep_file_oid:
+            # NOTE: the name is taken from the RepresentationFile when there
+            # is one, rather than built from the path.  The two agree for a
+            # file being uploaded from wherever the user keeps it, but the
+            # source is now often the local vault copy, whose base name is
+            # already "oid_user_file_name" -- deriving from it again would
+            # send the file up as "oid_oid_user_file_name".
+            rep_file = orb.get(rep_file_oid) if rep_file_oid else None
+            if rep_file is not None:
+                self.vault_fname = orb.get_vault_fname(rep_file)
+                orb.log.info(f'  using vault file name: "{self.vault_fname}"')
+                # keeps the local vault authoritative;  a no-op when the
+                # source *is* the vault copy
+                stage_in_vault(rep_file, fpath)
+            elif rep_file_oid:
                 self.vault_fname = rep_file_oid + '_' + fname
                 orb.log.info(f'  using vault file name: "{self.vault_fname}"')
+                shutil.copy(fpath, os.path.join(orb.vault, self.vault_fname))
             else:
                 self.vault_fname = fname
-            # before uploading file, copy it to local vault ...
-            shutil.copy(fpath, os.path.join(orb.vault, self.vault_fname))
+                shutil.copy(fpath, os.path.join(orb.vault, self.vault_fname))
             orb.log.info('  [copied to local vault]')
             self.uploaded_chunks = 0
             self.failed_chunks = 0
@@ -7258,6 +7580,7 @@ class Main(QMainWindow):
                     orb.log.debug(f'  ** {txt}')
                     orb.log.debug('     trying to reconnect ...')
                     self.set_bus_state()
+                    self.finish_vault_file_upload(False)
                     return
             except:
                 message = f'File "{fpath}" could not be uploaded.'
@@ -7265,9 +7588,11 @@ class Main(QMainWindow):
                                     "Error in uploading", message,
                                     QMessageBox.Ok, self)
                 popup.show()
+                self.finish_vault_file_upload(False)
                 return
         else:
             orb.log.info('  file path or list of chunks were missing.')
+            self.finish_vault_file_upload(False)
             return
 
     def on_chunk_upload_success(self, result):
@@ -7292,8 +7617,30 @@ class Main(QMainWindow):
             self.on_file_upload_success()
 
     def on_chunk_upload_failure(self, result):
-        orb.log.info(f'  chunk {result} failed.')
+        """
+        A chunk did not go up, so the file did not.
+
+        This used only to count the failure, which stopped the chain where it
+        stood:  nothing sent the next chunk and nothing said the upload had
+        ended, leaving a partial file in the repository's vault and, now that
+        a sync waits on uploads, a sync chain that would never continue.  The
+        transfer is abandoned instead, and retried at the next sync --
+        vger.upload_chunk() overwrites at chunk 0, so the retry replaces the
+        partial file rather than appending to it.
+        """
+        orb.log.error(f'  chunk {result} failed; abandoning the upload.')
         self.failed_chunks += 1
+        fname = os.path.basename(getattr(self, 'fpath_to_upload', '') or '')
+        if getattr(self, 'upload_progress', None):
+            self.upload_progress.done(0)
+        self.fpath_to_upload = ''
+        self.rep_file_oid_to_upload = ''
+        self.vault_fname = ''
+        self.chunks_to_upload = []
+        self.uploaded_chunks = 0
+        self.statusbar.showMessage(f'"{fname}" was not sent; it will be '
+                                   'retried at the next sync')
+        self.finish_vault_file_upload(False)
 
     def on_file_upload_success(self):
         orb.log.info(f'  upload completed in {self.uploaded_chunks} chunks.')
@@ -7310,8 +7657,10 @@ class Main(QMainWindow):
             except:
                 # C++ object got deleted ...
                 pass
-        # one upload at a time:  the next component file, if any, starts now
-        self.next_component_file_transfer()
+        # one upload at a time:  whoever was waiting on this file is told,
+        # and the next queued file starts.  Two at once would overwrite each
+        # other's chunks.
+        self.finish_vault_file_upload(True)
 
     def open_doc_file(self, rep_file=None):
         """
@@ -7573,16 +7922,58 @@ class Main(QMainWindow):
         return result
 
     def on_chunk_download_failure(self, result):
-        orb.log.info(f'  chunk {result} failed.')
+        """
+        A chunk did not arrive.
+
+        Note what this does *not* do:  it returns None, which tells twisted
+        the failure is handled, so the success callback chained after it
+        still runs.  That was harmless while the only failures were transport
+        ones;  vger.download_chunk() can now refuse a request outright -- the
+        user may not view what the file represents -- and every chunk of that
+        file fails.  So the reason is kept, and the completion callbacks
+        below consult failed_chunks rather than announcing a download that
+        did not happen.
+        """
+        orb.log.error(f'  chunk download failed: {result}')
         self.failed_chunks += 1
+        self.download_failure = result
+        return None
+
+    def download_did_fail(self):
+        """
+        Report a download that did not complete, and tidy up after it.
+
+        Returns:
+            bool:  True if the download failed, so the caller stops
+        """
+        if not getattr(self, 'failed_chunks', 0):
+            return False
+        n = self.failed_chunks
+        orb.log.error(f'  download failed:  {n} chunk(s) did not arrive.')
+        progress = getattr(self, 'download_progress', None)
+        if progress:
+            progress.done(0)
+        self.statusbar.showMessage('the file could not be downloaded '
+                                   '(see log)')
+        return True
 
     def on_file_download_success(self, result):
+        if self.download_did_fail():
+            return
         orb.log.info(f'  download done in {self.downloaded_chunks} chunks.')
         self.download_progress.done(0)
         # one at a time:  the next queued model file, if any, starts now
         self.next_viewable_file_download()
 
     def on_download_open_success(self, result):
+        if self.download_did_fail():
+            return
+        if not result:
+            # nothing to open and nothing to unpack;  a chunk that failed
+            # before the counter was reached would arrive here as None
+            orb.log.error('  download produced no data; nothing to open.')
+            self.download_progress.done(0)
+            return
         orb.log.info(f'  download done in {self.downloaded_chunks} chunks.')
         self.download_progress.done(0)
         oid, seq, data = result

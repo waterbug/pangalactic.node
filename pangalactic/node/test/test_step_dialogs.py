@@ -500,6 +500,53 @@ def test_20_correspondence_waits_for_the_representation_file(qtbot,
     assert stored['map'] == pending['map']
 
 
+def test_20a_an_offline_import_still_registers_the_file(qtbot, monkeypatch,
+                                                        tmp_path):
+    """
+    CASE:  a CREATE import made while disconnected.
+
+    The file used to be dropped on the floor here -- registration was an rpc,
+    so offline there was nothing to call, and the import produced an assembly
+    whose geometry came from a file the repository would never hear about.
+    The objects are built locally now, so the signal is sent either way and
+    the sync carries them.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from pangalactic.core import state
+    step_file = tmp_path / 'offline.stp'
+    step_file.write_text('ISO-10303-21;')
+    root = occ('root', children=[occ('A')])
+    root.prototype_key = 'ok'
+    root.prototype_name = 'Offline Assembly'
+    root.children[0].prototype_key = 'owk'
+    root.children[0].prototype_name = 'Offline Wheel'
+    sent = {}
+    def fake_send(signal=None, **kw):
+        if signal == 'add update model':
+            sent.update(kw)
+    monkeypatch.setattr(sd.dispatcher, 'send', fake_send)
+    monkeypatch.setattr(sd.StepImportModeDialog, 'exec_',
+                        lambda self: (setattr(self, 'file_path',
+                                              str(step_file)) or 1))
+    monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
+                        raising=False)
+    monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
+                        lambda *a, **k: root)
+    monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 1)
+    was = state.get('connected')
+    state['connected'] = False
+    try:
+        result = sd.run_step_import(assembly=None)
+    finally:
+        state['connected'] = was
+    assert result is not None
+    assert sent.get('fpath') == str(step_file)
+    assert (sent.get('parms') or {}).get('file name') == 'offline.stp'
+    # and the correspondence is waiting for the handler, as when online
+    pending = state.get('step_pending_correspondence') or {}
+    assert pending.get('fpath') == str(step_file)
+
+
 def test_21_import_stops_when_a_referenced_file_is_missing(qtbot, monkeypatch,
                                                            tmp_path):
     """
@@ -895,3 +942,135 @@ def test_36_no_select_all_box_in_place_mode(qtbot, plan):
     dlg = StepPlanDialog(plan, PLACE, file_name='rover.stp')
     qtbot.addWidget(dlg)
     assert dlg.select_all_checkbox is None
+
+
+# ---------------------------------------------------------------------------
+# FINDING THE STORED FILE
+#
+# The changed-file check needs the RepresentationFile the file was stored as,
+# and no caller can supply it:  the file is not chosen until the mode dialog
+# returns.  run_step_import() therefore looks it up on the assembly, which is
+# what makes StepFileChangedDialog reachable from the application at all.
+# ---------------------------------------------------------------------------
+
+def _mcad_model_of(assembly, file_name, model_id):
+    """
+    Attach a STEP file to an assembly as a CREATE import would:  an MCAD
+    Model of it, with the file as the Model's RepresentationFile.
+    """
+    from pangalactic.core.placements import new_thing
+    model = new_thing('Model', id=model_id, name=model_id,
+                      of_thing=assembly,
+                      type_of_model=orb.get('pgefobjects:ModelType.MCAD'))
+    rep_file = new_thing('RepresentationFile', id=model_id + '_file',
+                         name=model_id + ' file', of_object=model,
+                         user_file_name=file_name)
+    orb.db.commit()
+    return rep_file
+
+
+def test_37_the_assemblys_own_step_file_is_found(qtbot):
+    """
+    CASE:  the assembly carries the file being imported.  It is found by
+    user_file_name, which is the name it was imported under.
+    """
+    from pangalactic.node.step_dialogs import _stored_step_file
+    assembly = orb.get(ASSEMBLY_OID)
+    rep_file = _mcad_model_of(assembly, 'found.stp', 'step-found')
+    assert _stored_step_file(assembly, '/somewhere/else/found.stp') is rep_file
+
+
+def test_38_another_file_is_not_taken_for_this_one(qtbot):
+    """
+    CASE:  the assembly has a stored STEP file, but not this one.  Nothing is
+    returned, so the import goes ahead without a comparison -- warning about
+    a file we are not importing would be worse than saying nothing.
+    """
+    from pangalactic.node.step_dialogs import _stored_step_file
+    assembly = orb.get(ASSEMBLY_OID)
+    _mcad_model_of(assembly, 'other.stp', 'step-other')
+    assert _stored_step_file(assembly, '/tmp/not-that-one.stp') is None
+    assert _stored_step_file(None, '/tmp/other.stp') is None
+
+
+def test_39_the_most_recently_imported_file_wins(qtbot):
+    """
+    CASE:  two stored files of the same name.  vger.add_update_model() makes
+    a new Model and RepresentationFile on every call, so importing a file
+    twice leaves two of them, and the one a re-import is being compared
+    against is the one imported last.
+    """
+    from pangalactic.node.step_dialogs import _stored_step_file
+    from pangalactic.node.step_plan import set_correspondence, ImportResult
+    assembly = orb.get(ASSEMBLY_OID)
+    older = _mcad_model_of(assembly, 'twice.stp', 'step-twice-1')
+    newer = _mcad_model_of(assembly, 'twice.stp', 'step-twice-2')
+    set_correspondence(older, ImportResult(), PLACE, checksum='aaa',
+                       NOW='2026-08-01 00:00:00')
+    set_correspondence(newer, ImportResult(), PLACE, checksum='bbb',
+                       NOW='2026-08-20 00:00:00')
+    orb.db.commit()
+    assert _stored_step_file(assembly, '/tmp/twice.stp') is newer
+
+
+def test_40_a_changed_file_stops_a_place_import(qtbot, monkeypatch, tmp_path):
+    """
+    CASE:  re-importing a file that has changed since it was imported.  The
+    warning is raised without the caller having supplied anything, and
+    declining it abandons the import before the file is even read.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from pangalactic.node.step_plan import set_correspondence, ImportResult
+    assembly = orb.get(ASSEMBLY_OID)
+    step_file = tmp_path / 'edited.stp'
+    step_file.write_text('ISO-10303-21; /* re-exported */')
+    rep_file = _mcad_model_of(assembly, 'edited.stp', 'step-edited')
+    set_correspondence(rep_file, ImportResult(), PLACE,
+                       checksum='the-file-as-it-was')
+    orb.db.commit()
+    monkeypatch.setattr(sd.StepImportModeDialog, 'exec_',
+                        lambda self: (setattr(self, 'file_path',
+                                              str(step_file)) or 1))
+    monkeypatch.setattr(sd.StepImportModeDialog, 'mode', PLACE,
+                        raising=False)
+    asked = []
+    monkeypatch.setattr(sd.StepFileChangedDialog, 'exec_',
+                        lambda self: asked.append(self.windowTitle()) or 0)
+    read = []
+    monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
+                        lambda *a, **k: read.append(1))
+    assert sd.run_step_import(assembly=assembly) is None
+    assert asked == ['This file has changed']
+    assert read == []
+
+
+def test_41_a_create_import_does_not_adopt_the_stored_file(qtbot, monkeypatch,
+                                                           tmp_path):
+    """
+    CASE:  CREATE mode with an assembly selected and a stored file of the
+    same name.  No warning:  CREATE builds a new assembly and registers a
+    file of its own, so the stored file belongs to an earlier import and
+    neither describes what is about to happen nor may have its correspondence
+    overwritten by it.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from pangalactic.node.step_plan import set_correspondence, ImportResult
+    assembly = orb.get(ASSEMBLY_OID)
+    step_file = tmp_path / 'fresh.stp'
+    step_file.write_text('ISO-10303-21; /* a different export */')
+    rep_file = _mcad_model_of(assembly, 'fresh.stp', 'step-fresh')
+    set_correspondence(rep_file, ImportResult(), PLACE, checksum='not-this')
+    orb.db.commit()
+    monkeypatch.setattr(sd.StepImportModeDialog, 'exec_',
+                        lambda self: (setattr(self, 'file_path',
+                                              str(step_file)) or 1))
+    monkeypatch.setattr(sd.StepImportModeDialog, 'mode', CREATE,
+                        raising=False)
+    asked = []
+    monkeypatch.setattr(sd.StepFileChangedDialog, 'exec_',
+                        lambda self: asked.append(1) or 0)
+    monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
+                        lambda *a, **k: occ('root'))
+    monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 0)
+    assert sd.run_step_import(assembly=assembly) is None
+    assert asked == []

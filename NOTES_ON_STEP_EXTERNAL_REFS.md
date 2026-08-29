@@ -342,25 +342,44 @@ imported assembly still has empty subassemblies in the PGEF object graph.
 What is fixed is the *files*:  the geometry now survives a round trip, which
 is what the 3D view depends on.
 
-### 7.1 Up:  `vger.add_component_file`
+### 7.1 Up:  `digital_files.new_component_file()`
 
 `reference_closure()` (node) walks the set the same way `missing_references()`
 does, returning `(referenced file, referencing file)` pairs, **parents before
 children** -- which matters because `component_file_of` points at the
 referencing file, whose `RepresentationFile` has to exist first.
 
-The client then cascades:  each file is registered by
-`vger.add_component_file(rep_file_oid=<the referrer's>, ...)` and uploaded,
-and the *upload's* completion starts the next one.  One at a time is not a
-choice -- `read_and_upload_file()` keeps the chunks, path and target oid in
-instance attributes, so two at once would overwrite each other.
+`register_component_files()` then makes one pass over that list, creating the
+objects locally as it goes.  Ordering is all it needs:  a child's parent is
+always already in hand.
 
-The new rpc is separate from `add_update_model()` because that one always
-creates a `Model`;  calling it per file would leave a Model per file, all of
-the same product.  A component file joins the *same* Model as the file that
-references it:  it is not a model of anything in its own right.  It is
-idempotent on `(referencing file, user_file_name)`, since an import can
-legitimately be repeated.
+**This was a cascade until 2026-08-28**, and the change is worth recording.
+Each file used to be registered by `vger.add_component_file(...)`, and the
+*upload's* completion started the next one -- so registering a set required a
+connection and took as long as transferring it, and a set imported offline
+was reduced to the one file the user chose.  The rpc is still registered, for
+older clients;  nothing here calls it.
+
+Uploads are still one at a time -- `read_and_upload_file()` keeps the chunks,
+path and target oid in instance attributes, so two at once would overwrite
+each other -- but they are now a queue behind the object creation rather than
+the thing driving it.  Offline there are simply no uploads to queue, and the
+objects sync with their bytes at the next connection like any other file (see
+NOTES_ON_STEP_IMPORT.md section 3c).
+
+The rules the rpc established are unchanged, and are now in
+`pangalactic.core.digital_files.new_component_file()`:  a component file
+**joins the Model of the file that references it** -- it is not a model of
+anything in its own right -- *unless* the import identified which product it
+models, in which case it gets a Model of that product;  and it is
+**idempotent** on `(referencing file, user_file_name)`, since an import can
+legitimately be repeated and a part shared by two subassemblies is named by
+both of them in one set.
+
+One difference: the whole set is published together or not at all.  If any
+file's bytes fail to go up, every object of that set is held back for the
+next sync -- a set is only readable whole, so publishing the rest would
+describe an assembly nobody can open.
 
 ### 7.2 Down:  `orb.stage_file_closure()`
 

@@ -267,6 +267,36 @@ failure mode with the worst consequences. An absent checksum on either side
 is *not* treated as a change: warning about a file we cannot compare would
 only train the user to click through the warning.
 
+### Finding the stored file
+
+The check needs the `RepresentationFile` the file was stored as, and for a
+year it had no way to get one: `run_step_import()` took a `rep_file` argument,
+but the only caller — `pangalaxian.step_import()` — could not supply it, since
+*which* file is being imported is not known until the mode dialog returns. The
+check was therefore unreachable from the application, and the dialog was only
+ever seen in tests (found 2026-08-28, while shooting user-guide screenshots).
+
+`_stored_step_file()` now looks it up on the assembly: its MCAD `Model`s, their
+`RepresentationFile`s, matched on `user_file_name`. Three consequences worth
+knowing:
+
+- **A file renamed on disk is not recognised.** The name is what identifies a
+  STEP file to a user and what `user_file_name` records; matching on anything
+  else would mean warning about the wrong file, which is worse than saying
+  nothing.
+- **Several can match.** `vger.add_update_model()` clones a new `Model` and
+  `RepresentationFile` on every call — it adds, it never updates — so
+  importing a file twice leaves two. The most recently imported one wins,
+  since that is the state a re-import is actually being compared against.
+- **PLACE only.** A CREATE import builds a new assembly and registers a file of
+  its own for it, so a stored file of the same name belongs to some earlier
+  import. Adopting it there would both warn about the wrong thing and, at
+  `set_correspondence()`, overwrite that import's correspondence with this
+  one's — while skipping the registration of the new file entirely.
+
+A PLACE import now also *stores* its correspondence, which previously only a
+CREATE import did, for want of the same lookup.
+
 ### What a round trip would additionally need — not built
 
 Writing changes back out through STEP is a larger thing than it looks, and
@@ -363,13 +393,97 @@ does not exist until the rpc returns. The import leaves it in
 matched on it, so a model added by some other route in the meantime cannot
 claim it.
 
-### Offline
+### Offline — and why the objects are no longer made on the server
 
-Registration is skipped, with a log line. `add_update_model` is an rpc and
-there is nothing to call. The assembly and its placements are still saved and
-will sync — only the file attachment is lost, and re-importing the file while
-connected is the remedy. Queuing the upload for reconnect is a larger piece
-of work and is not attempted.
+**Superseded, 2026-08-28.** This used to say that registration was skipped
+offline, because `add_update_model` is an rpc and there was nothing to call:
+the assembly and its placements synced, and only the file attachment was
+lost. That was the one part of an import that required a connection, and it
+was never right — as the author put it, everything that can be done offline
+should be.
+
+The two objects are now built on the client, by
+`pangalactic.core.digital_files.new_model_with_file()`, and the rpc is not
+called at all. Nothing about them needed the server. The stated reason for
+building them there — that the vault file name belonged on the server — did
+not survive a reading: `orb.get_vault_fname()` is `oid + '_' + user_file_name`,
+it lives in the orb both ends run, and `upload_file()` on the client had
+open-coded the same expression all along.
+
+**The rule the design turns on: a `RepresentationFile` reaches the repository
+only together with its bytes.** A file object without its file is not a
+degraded version of the thing, it is a false statement — it tells every other
+client that a file is available when it is not. So:
+
+- the bytes are copied into the **local vault** the moment the objects are
+  created, which makes them recoverable from the object alone
+  (`vault_path()`) and independent of the user later moving or deleting what
+  they imported;
+- the bytes are pushed **before** the objects, both at creation time and in
+  the sync chain, where `push_staged_files()` sits ahead of
+  `sync_user_created_objs_to_repo()` and the chain waits on it;
+- if the upload fails, the objects are **held back** and retried next time,
+  rather than published pointing at nothing.
+
+**There is no queue of pending uploads.** The local vault is the record of
+which files this machine has, and `vger.missing_vault_files()` is the record
+of which of those the repository lacks. A queue would be a third record able
+to disagree with both, and would need writing, reading and pruning. Asking
+also makes the mechanism *repair* history rather than merely avoid repeating
+it: a file whose upload failed, or one attached before any of this existed,
+is reported missing and goes up at the next sync.
+
+`missing_vault_files()` is keyed on the **vault file name**, not on an oid,
+and is answered from the vault alone. That is not an optimisation: the bytes
+go first, so at the moment a client asks, the repository has usually never
+heard of the object. An earlier draft keyed it on oids and would have skipped
+the first upload of every new file.
+
+Three supporting fixes went with it, each a defect in its own right:
+
+- `vger.upload_chunk()` appended unconditionally, so a retried upload doubled
+  whatever had already arrived. Chunk 0 now truncates. Retrying is normal now
+  that a file goes up whenever its object syncs.
+- `vger.download_chunk()` opened the vault path unguarded, so a request for a
+  file whose bytes were absent raised out of the rpc. It answers empty and
+  logs which file it was.
+- `on_chunk_upload_failure()` counted the failure and stopped where it stood
+  — nothing sent the next chunk and nothing said the upload had ended. As
+  part of a sync chain that waits on uploads, that would have hung the login.
+  The transfer is abandoned and retried instead.
+
+And two things the client-side path fixes by construction: the
+`RepresentationFile` gets a `creator` (the rpc set one on component files but
+not on the main one, so every such object in the repository is in nobody's
+`created_objects`), and `checksum` is populated — `DigitalFile` has declared
+it as "a sha-256 hash generated from the file contents" all along and nothing
+ever wrote one.
+
+**Cloaking had to be taught about files.** `is_cloaked()` and
+`get_owner_id()` had no branch for `RepresentationFile`, which has no
+`public` of its own — `public` is declared on `ManagedObject` and
+`DigitalFile` is not one — so it fell through to "public". That did not
+matter while these objects were only ever made by `add_update_model()`, which
+publishes on the owner's channel directly; it matters as soon as they arrive
+through `vger.save()`, which asks. Both now delegate to `of_object`, as the
+placement classes delegate to the usage they position. This is not only a
+metadata question: `vger.download_chunk()` authorizes nothing at all, so the
+oid of a file *is* access to the file.
+
+**The component-file path went the same way.** `vger.add_component_file()`
+created the `RepresentationFile` for each referenced file of a STEP file
+*set*, one rpc per file, each waiting on the previous file's upload — so a
+set imported offline was reduced to the one file the user chose, and even
+online, registering a set took as long as transferring it. It is now one
+synchronous pass in `register_component_files()`, since
+`reference_closure()` already returns parents before children and there is
+no longer a reply to wait for. Both rpcs stay registered for older clients.
+See NOTES_ON_STEP_EXTERNAL_REFS.md §7.1.
+
+One rule the set adds: its objects are published together or not at all. A
+set is only readable whole, so if any file's bytes fail to go up, every
+object of that set waits for the next sync rather than describing an
+assembly nobody can open.
 
 ## 3d. Specification reuse, and why it is not a general question
 

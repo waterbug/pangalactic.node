@@ -259,7 +259,7 @@ class StepImportModeDialog(QDialog):
         start = state.get('last_step_path') or orb.home
         fpath, _ = QFileDialog.getOpenFileName(
             self, 'Select a STEP file', start,
-            'STEP Files (*.stp *.step *.STP *.STEP);;All Files (*)')
+            'STEP Files (*.stp *.step *.STP *.STEP *.p21);;All Files (*)')
         if fpath:
             self.file_path = fpath
             state['last_step_path'] = os.path.dirname(fpath)
@@ -663,10 +663,13 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     Args:
         assembly (Product):  the assembly to place, if one is selected.
             Without it, only creating is offered.
-        rep_file (RepresentationFile):  the stored STEP file, if the file
-            being imported is one.  Given it, the correspondence is stored
-            and a changed file is noticed; without it, the import still
-            works but nothing is remembered about it.
+        rep_file (RepresentationFile):  the stored STEP file, if the caller
+            already knows it.  Given it, the correspondence is stored and a
+            changed file is noticed.  A PLACE import that is not given one
+            looks it up on the assembly (`_stored_step_file`), since the
+            file is not chosen until the mode dialog returns and no caller
+            can know it in advance; if there is none, the import still works
+            but nothing is remembered about it.
         parent (QWidget):  parent widget for the dialogs
 
     Returns:
@@ -685,6 +688,19 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
         return None
     path, mode = mode_dlg.file_path, mode_dlg.mode
     file_name = os.path.basename(path)
+
+    # A PLACE import is usually re-reading a file the assembly already
+    # carries, but which file that is cannot be known before this point --
+    # the file is chosen in the dialog above.  Looking it up here is what
+    # makes the changed-file check reachable at all.
+    #
+    # PLACE only.  A CREATE import builds a *new* assembly and registers a
+    # file of its own for it (`_register_step_model`), so a stored file of
+    # the same name belongs to some earlier import and is not its file:
+    # comparing against it would warn about the wrong thing, and adopting it
+    # would overwrite that import's correspondence with this one's.
+    if rep_file is None and mode == PLACE:
+        rep_file = _stored_step_file(assembly, path)
 
     if rep_file is not None and file_has_changed(rep_file,
                                                  _checksum(path)):
@@ -828,6 +844,54 @@ MCAD_MODEL_TYPE_OID = 'pgefobjects:ModelType.MCAD'
 STEP_MIME_TYPE = 'application/step'
 
 
+def _stored_step_file(assembly, path):
+    """
+    Find the RepresentationFile that an assembly's STEP file is stored as,
+    when the file being imported is that file.
+
+    A CREATE import attaches the file to the assembly it built and uploads it
+    (`_register_step_model`), and the correspondence of that import hangs off
+    the RepresentationFile.  A later PLACE import of the same file has only
+    the assembly and a path, so this is how the two are brought back
+    together.
+
+    Matching is by file name, since `user_file_name` is what records the name
+    the file was imported under and is how a user identifies it.  A file
+    renamed on disk is therefore not recognised -- which errs toward asking
+    nothing rather than toward warning about the wrong file.
+
+    Args:
+        assembly (Product):  the assembly being placed into
+        path (str):  the file about to be imported
+
+    Returns:
+        RepresentationFile or None:  the stored file, or None if the assembly
+        has no MCAD model of a file by that name.  More than one can match --
+        `vger.add_update_model()` creates a new Model and RepresentationFile
+        on every call, so importing a file twice leaves two -- and then the
+        most recently imported of them wins, a file with no correspondence
+        being no evidence of anything and serving only as a fallback.
+    """
+    if assembly is None:
+        return None
+    fname = os.path.basename(path)
+    candidates = []
+    for model in (getattr(assembly, 'has_models', None) or []):
+        mtype_oid = getattr(getattr(model, 'type_of_model', None), 'oid', '')
+        if mtype_oid != MCAD_MODEL_TYPE_OID:
+            continue
+        for rf in (getattr(model, 'has_files', None) or []):
+            if getattr(rf, 'user_file_name', '') == fname:
+                candidates.append(rf)
+    if not candidates:
+        return None
+    dated = [(get_correspondence(rf).get('imported', ''), rf)
+             for rf in candidates]
+    # a stable sort, so among files that say nothing the first found wins
+    dated.sort(key=lambda pair: pair[0])
+    return dated[-1][1]
+
+
 def _register_step_model(path, items, result, parent=None):
     """
     Give the imported assembly an MCAD Model of it, with a
@@ -835,15 +899,17 @@ def _register_step_model(path, items, result, parent=None):
 
     Rather than building those objects here, this sends the same
     "add update model" signal that `ModelImportDialog` sends, so an imported
-    STEP model is created by exactly the path that a hand-attached one is:
-    `vger.add_update_model()` makes the Model and the RepresentationFile,
-    assigns the vault file name, publishes them on the owner's channel, and
-    the client then uploads the file.  Duplicating that here would mean a
-    second implementation of the vault naming, which belongs on the server.
+    STEP model is created by exactly the path that a hand-attached one is.
+    That path no longer goes through the repository:  the handler builds both
+    objects locally, keeps the file in the vault, and sends them on when
+    there is a connection (see `pangalactic.core.digital_files`).  So this
+    works offline, and an import no longer has a half that happens only if
+    the user is online.
 
-    The correspondence cannot be stored yet:  it hangs off the
-    RepresentationFile, which does not exist until the rpc returns.  It is
-    left in `state` for `on_model_added()` to write once the object arrives.
+    The correspondence is still left in `state` for the handler to write.  It
+    could be written here, now that the RepresentationFile exists by the time
+    the signal returns, but the handler is where the objects are known to
+    have been accepted, and one place that writes it is better than two.
 
     Args:
         path (str):  the STEP file that was imported
@@ -867,12 +933,6 @@ def _register_step_model(path, items, result, parent=None):
     if assembly is None:
         orb.log.debug('  - step: no root assembly; no model registered.')
         return
-    if not state.get('connected'):
-        # add_update_model is an rpc; offline there is nothing to call.  The
-        # assembly and its placements are already saved and will sync, but
-        # the STEP file itself will not be attached.
-        orb.log.info('  - step: not connected; model/file not registered.')
-        return
     fname = os.path.basename(path)
     try:
         fsize = os.path.getsize(path)
@@ -887,8 +947,8 @@ def _register_step_model(path, items, result, parent=None):
              'of_thing_oid': assembly.oid,
              'owner_oid': getattr(assembly.owner, 'oid', '') or '',
              'project_oid': state.get('project') or ''}
-    # left for on_model_added(), which is where the RepresentationFile
-    # first exists
+    # left for the "add update model" handler, which is where the objects
+    # are known to have been accepted
     state['step_pending_correspondence'] = {
                                 'fpath': path,
                                 'checksum': _checksum(path),
