@@ -400,27 +400,55 @@ call rather than anything a user could click, and the oid alone reveals only
 a file name, so it was never a leak in normal operation; it is fixed because
 the barrier should be permission rather than intent.
 
-**The permission consulted is the one on what the file represents, not on the
-file.** `RepresentationFile` is in `access.modifiables`, which grants every
-user view/modify/delete on it — a gate on the file itself would authorize
-everybody. So the gate asks about `of_object`, the same reasoning as
-`add_component_file()`: "authorization is the model's, since that is what
-gains a file". A file that represents nothing is refused; nothing in the
-application makes one.
+**The rule is `access.may_fetch_file()`, and it is not a `get_perms()`
+check.** The first version of this was, and it was wrong — see below. The
+rule that works is the one that already decides who is *told* about an
+object: a client subscribes to `vger.channel.<org id>` for every organization
+it has a role in, so a cloaked object reaches exactly the people with a role
+in its owner and a public one reaches everybody. **You may fetch what you
+would have been sent.**
 
-Checked against the test project rather than reasoned, because the failure
-mode of getting this wrong is locking people out of their own files:
-
-| subject | project member | outsider |
+| subject | member of the owner | outsider |
 |---|---|---|
-| model of a cloaked assembly | `view` | *nothing* |
-| model of a public library product | `view` | `view` |
-| document owned by a project | `view` | *nothing* |
+| model of a cloaked assembly | yes | no |
+| model of a public library product | yes | yes |
+| file representing nothing | no | no |
 
-A global admin has `view` on everything. Component files inherit their
-project's Model — `new_component_file()` gives a component's own Model the
+A global admin may fetch anything. Component files inherit their project's
+Model — `new_component_file()` gives a component's own Model the
 *referencing* model's owner — so a member of the importing project can always
 fetch the whole set.
+
+#### Why not get_perms(), in either form
+
+Both obvious gates are wrong, in opposite directions, and the second one
+shipped:
+
+- **On the file.** `RepresentationFile` is in `access.modifiables`, which
+  grants every user view/modify/delete. That authorizes everybody.
+- **On the Model or Document it belongs to.** Those are `Product` subclasses
+  but not `HardwareProduct`s, and the Product branch of `get_perms()` handles
+  only `HardwareProduct` — so a cloaked Model matches no branch and falls
+  through to an empty set. *Nobody* has `view` on it, not even a member of
+  the owning project; only its creator and a global admin get through, by
+  earlier branches. **This is what shipped on 2026-08-29 and it broke file
+  distribution**: a STEP import synced its products to the rest of the
+  project and its files reached no one.
+- **On the thing modelled.** Tempting as a fix for the above, and also wrong:
+  `get_perms()` returns `['view']` on a cloaked `HardwareProduct` to any user
+  at all, role or no role, so delegating there would be no gate.
+
+The defect survived its tests because every `Person` in the test data has a
+role in H2G2, so what the tests took for an outsider was a member with an
+unmatching product type — and the member they tested with was the file's
+*creator*, which passes by a branch that has nothing to do with the project.
+`test_digital_files.py` now creates a Person with no role at all, and uses
+`buckaroo`, who is an ordinary member and created nothing.
+
+There is a real hole underneath this, left alone deliberately: a project
+member has **no** `get_perms()` view on a Model or Document owned by their
+own project. Nothing depended on it before this gate did, but it is worth
+fixing on its own terms rather than as a side effect of a download check.
 
 One client consequence had to be handled with it. `on_chunk_download_failure`
 returns None, which tells twisted the failure is handled, so the success
