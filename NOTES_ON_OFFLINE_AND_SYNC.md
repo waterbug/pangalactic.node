@@ -459,6 +459,35 @@ the only failures were transport ones; a refusal fails *every* chunk. The
 completion callbacks now consult `failed_chunks` and report the failure
 instead.
 
+#### Fetching the bytes: three routes in, not two
+
+A `RepresentationFile` is a record of a file, not the file, so a client
+fetches the ones its viewer can render as they arrive
+(`queue_viewable_files()`). That was hooked into `load_serialized_objects()`
+and its `force_` twin, "which between them are where every incoming batch
+lands". They are where every **sync** lands. A third route exists:
+`on_received_objects()`, which handles the `new` and `modified` pubsub
+messages — how a client that is *already connected* learns of another user's
+import. It deserializes directly, deliberately (`load_serialized_objects()`
+there caused ordering problems), and so never queued anything.
+
+So a connected client received the products, the components and the file's
+record, and never the file (author, observed 2026-08-29, importing on one
+client with a second connected). A client that had been offline and synced
+got the file, which is why this was not seen earlier.
+
+**"Already in the vault" now means the right length, not merely present.** A
+failed fetch leaves a short file, and `download_chunk()` answers an empty
+chunk for a file whose bytes never reached the repository — so testing
+existence let one failed fetch poison the cache permanently: the empty file
+sat there and every later attempt skipped it. `is_staged()` is the test, the
+same one the upload side uses. With retries now possible, `download_file()`
+also clears the vault file before requesting chunks, since they are appended
+as they arrive and a second attempt would otherwise add to the first. That is
+the download counterpart of `upload_chunk()` truncating at chunk 0, done at
+the start of the transfer rather than on chunk 0 because the chunks are
+requested all at once and need not complete in order.
+
 #### The DocumentReference problem, and why it is a special case
 
 A document is three objects: `Document`, `RepresentationFile`, and the

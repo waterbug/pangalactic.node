@@ -3192,6 +3192,17 @@ class Main(QMainWindow):
             orb.log.debug('  (any received were already in the local db).')
         if not objs:
             return False
+        # A RepresentationFile is a record of a file, not the file.  This is
+        # the third place an incoming batch lands -- the other two are
+        # load_serialized_objects() and its force_ twin, which is where this
+        # was originally hooked in, on the belief that between them they had
+        # every route covered.  They have the *sync* routes.  Objects that
+        # arrive over pubsub, which is how a client that is already connected
+        # learns of another user's import, come through here instead:  the
+        # products and the file's record arrived and the file itself never
+        # did (author, observed 2026-08-29, importing on one client while a
+        # second was connected).
+        self.queue_viewable_files(objs)
         rep = '\n  '.join([(obj.name or obj.id or 'no name or id') +
                             " (" + obj.__class__.__name__ + ")"
                            for obj in objs])
@@ -7702,7 +7713,7 @@ class Main(QMainWindow):
         for rf in orb.get_file_closure(rep_file):
             if rf.oid == rep_file.oid:
                 continue
-            if os.path.exists(orb.get_vault_fpath(rf)):
+            if is_staged(rf):
                 continue
             orb.log.info(f'  - fetching component file '
                          f'"{rf.user_file_name}" ...')
@@ -7817,7 +7828,14 @@ class Main(QMainWindow):
                 continue
             if obj.oid in queued:
                 continue
-            if os.path.exists(orb.get_vault_fpath(obj)):
+            # is_staged() and not os.path.exists():  a download that failed
+            # leaves a short file, and download_chunk() answers an empty
+            # chunk for a file whose bytes never reached the repository -- so
+            # "the vault has something under that name" is not the same as
+            # "the vault has the file".  Testing existence alone let one
+            # failed fetch poison the cache: the empty file sat there and
+            # every later attempt skipped it.
+            if is_staged(obj):
                 continue
             queue.append(obj)
             queued.add(obj.oid)
@@ -7836,7 +7854,7 @@ class Main(QMainWindow):
             self.downloading_file_oid = ''
             return
         rep_file = queue.pop(0)
-        if os.path.exists(orb.get_vault_fpath(rep_file)):
+        if is_staged(rep_file):
             # arrived by another route while it waited -- opening a model
             # fetches its closure, for one
             self.next_viewable_file_download()
@@ -7869,6 +7887,20 @@ class Main(QMainWindow):
             orb.log.info(f'  of digital file: "{oid}"')
             self.downloaded_chunks = 0
             self.failed_chunks = 0
+            # Start the vault file empty:  the chunks are appended as they
+            # arrive, so a second attempt at a file that is already partly
+            # there would add to it rather than replace it, and the file
+            # would never become right no matter how often it was fetched.
+            # The same reason vger.upload_chunk() truncates at chunk 0 --
+            # done here rather than in on_chunk_download_success(), because
+            # the chunks are requested all at once and need not complete in
+            # order.
+            vault_fpath = orb.get_vault_fpath(digital_file)
+            try:
+                if os.path.exists(vault_fpath):
+                    os.remove(vault_fpath)
+            except OSError as e:
+                orb.log.error(f'  could not clear "{vault_fpath}": {e}')
             self.download_progress = ProgressDialog(title='File Download',
                                           label=f'downloading "{fname}" ...',
                                           parent=self)

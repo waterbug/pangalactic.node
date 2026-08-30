@@ -36,15 +36,27 @@ class FakeMain:
     """
     queue_viewable_files = Main.queue_viewable_files
     next_viewable_file_download = Main.next_viewable_file_download
+    on_received_objects = Main.on_received_objects
 
     def __init__(self):
         self.downloaded = []
         self.viewable_file_queue = []
         self.downloading_viewable_file = False
         self.downloading_file_oid = ''
+        self.mode = 'system'
+        self.sandbox = None
+        self.local_user = None
 
     def download_file(self, digital_file=None, **kw):
         self.downloaded.append(digital_file)
+
+    # what on_received_objects() does after queueing:  not under test here,
+    # and each needs a whole application behind it
+    def get_parmz(self, *args, **kw):
+        pass
+
+    def update_project_role_labels(self, *args, **kw):
+        pass
 
 
 @pytest.fixture
@@ -219,3 +231,89 @@ def test_12_a_file_that_arrived_meanwhile_is_skipped(main):
     main.next_viewable_file_download()
     assert second not in main.downloaded
     assert main.viewable_file_queue == []
+
+
+# ---------------------------------------------------------------------------
+# every route an incoming batch takes
+# ---------------------------------------------------------------------------
+
+def test_13_a_file_arriving_over_pubsub_is_fetched(main, monkeypatch):
+    """
+    CASE:  another user imports an assembly while this client is connected.
+
+    The objects arrive as a "new" pubsub message, which lands in
+    on_received_objects() -- not in load_serialized_objects(), where the
+    fetch was originally hooked in on the belief that the two loaders were
+    "where every incoming batch lands".  They are where every *sync* lands.
+    A connected client therefore received the products and the file's record
+    and never the file (author, observed 2026-08-29).
+    """
+    from pangalactic.core.serializers import serialize
+    rf = rep_file('arrived.stp')
+    sobjs = serialize(orb, [rf])
+    # it is already in the local db, so deserialize() would return nothing --
+    # what is under test is the queueing, so the batch is handed back as the
+    # deserializer would hand it back for an object the client does not have
+    monkeypatch.setattr('pangalactic.node.pangalaxian.deserialize',
+                        lambda *a, **kw: [rf])
+    main.on_received_objects(sobjs)
+    assert main.downloaded == [rf]
+
+
+def test_14_a_batch_with_nothing_to_fetch_is_harmless(main, monkeypatch):
+    """
+    CASE:  the ordinary pubsub message -- a modified product, say, with no
+    file in it.  Nothing is fetched and nothing raises.
+    """
+    from pangalactic.core.serializers import serialize
+    product = clone('HardwareProduct', id='pubsub-hw', name='Pubsub HW')
+    orb.save([product])
+    sobjs = serialize(orb, [product])
+    monkeypatch.setattr('pangalactic.node.pangalaxian.deserialize',
+                        lambda *a, **kw: [product])
+    main.on_received_objects(sobjs)
+    assert main.downloaded == []
+
+
+# ---------------------------------------------------------------------------
+# what counts as "already in the vault"
+# ---------------------------------------------------------------------------
+
+def sized_rep_file(name, size, wrote=None):
+    """
+    A RepresentationFile that records its size, with `wrote` bytes actually
+    in the vault (None for nothing at all).
+    """
+    rf = clone('RepresentationFile', user_file_name=name,
+               id=name.replace('.', '_'), name=name, file_size=size)
+    orb.save([rf])
+    if wrote is not None:
+        with open(orb.get_vault_fpath(rf), 'wb') as f:
+            f.write(wrote)
+    return rf
+
+
+def test_15_a_short_file_in_the_vault_is_fetched_again(main):
+    """
+    CASE:  a previous fetch failed and left a short file -- or an empty one,
+    which is what download_chunk() answers for a file whose bytes never
+    reached the repository.
+
+    Presence alone used to be the test, so that empty file sat in the vault
+    and every later attempt skipped it:  one failed fetch poisoned the cache
+    for good.
+    """
+    rf = sized_rep_file('short.stp', 100, wrote=b'')
+    main.queue_viewable_files([rf])
+    assert main.downloaded == [rf]
+
+
+def test_16_a_complete_file_in_the_vault_is_not(main):
+    """
+    CASE:  the file is there and is the length it says it is.  Nothing to do
+    -- and this is the case the size check must not break, since it is the
+    normal one for a client that has already fetched the file.
+    """
+    rf = sized_rep_file('complete.stp', 9, wrote=b'aaabbbccc')
+    main.queue_viewable_files([rf])
+    assert main.downloaded == []
