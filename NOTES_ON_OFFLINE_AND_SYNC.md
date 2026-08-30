@@ -400,13 +400,11 @@ call rather than anything a user could click, and the oid alone reveals only
 a file name, so it was never a leak in normal operation; it is fixed because
 the barrier should be permission rather than intent.
 
-**The rule is `access.may_fetch_file()`, and it is not a `get_perms()`
-check.** The first version of this was, and it was wrong — see below. The
-rule that works is the one that already decides who is *told* about an
-object: a client subscribes to `vger.channel.<org id>` for every organization
-it has a role in, so a cloaked object reaches exactly the people with a role
-in its owner and a public one reaches everybody. **You may fetch what you
-would have been sent.**
+`access.may_fetch_file()` decides it, and it asks `get_perms()` about the
+object the file represents — "authorization is the model's, since that is
+what gains a file", as `add_component_file()` puts it. It must not ask about
+the *file*: `RepresentationFile` is in `access.modifiables`, which grants
+every user view/modify/delete, so that gate would authorize everybody.
 
 | subject | member of the owner | outsider |
 |---|---|---|
@@ -419,36 +417,39 @@ Model — `new_component_file()` gives a component's own Model the
 *referencing* model's owner — so a member of the importing project can always
 fetch the whole set.
 
-#### Why not get_perms(), in either form
+#### The permissions hole this exposed
 
-Both obvious gates are wrong, in opposite directions, and the second one
-shipped:
+The gate as first written was correct in form and broken in fact, because
+`get_perms()` had nothing to say about a Model. `Model` and `Document` are
+`Product` subclasses but not `HardwareProduct`s, and the Product branch
+handled only `HardwareProduct` — so a cloaked one matched nothing, fell
+through to `[7]`, and answered the empty set. **No member of a project had
+even `view` on their own project's models and documents**; only the creator,
+by an earlier branch, and a global admin. Nothing depended on that until a
+download gate asked, and then a STEP import synced its products to the other
+members and its files reached none of them (author, observed 2026-08-29).
 
-- **On the file.** `RepresentationFile` is in `access.modifiables`, which
-  grants every user view/modify/delete. That authorizes everybody.
-- **On the Model or Document it belongs to.** Those are `Product` subclasses
-  but not `HardwareProduct`s, and the Product branch of `get_perms()` handles
-  only `HardwareProduct` — so a cloaked Model matches no branch and falls
-  through to an empty set. *Nobody* has `view` on it, not even a member of
-  the owning project; only its creator and a global admin get through, by
-  earlier branches. **This is what shipped on 2026-08-29 and it broke file
-  distribution**: a STEP import synced its products to the rest of the
-  project and its files reached no one.
-- **On the thing modelled.** Tempting as a fix for the above, and also wrong:
-  `get_perms()` returns `['view']` on a cloaked `HardwareProduct` to any user
-  at all, role or no role, so delegating there would be no gate.
+Fixed where it belongs rather than routed around (author's rule): a Product
+that is not a HardwareProduct now has an `else` branch granting `view`,
+`add docs` and `add models` to **any user with a role in the organization
+that owns it**. Product type has nothing to say about a model or a document —
+the discipline logic is about who may engineer a subsystem — so ownership
+decides. `modify` and `delete` are deliberately not granted: the creator
+keeps them by the earlier branch, and changing another user's model is not
+implied by membership of the project.
 
-The defect survived its tests because every `Person` in the test data has a
-role in H2G2, so what the tests took for an outsider was a member with an
-unmatching product type — and the member they tested with was the file's
-*creator*, which passes by a branch that has nothing to do with the project.
-`test_digital_files.py` now creates a Person with no role at all, and uses
-`buckaroo`, who is an ordinary member and created nothing.
+An interim fix reimplemented the rule inside `may_fetch_file()` in terms of
+`is_cloaked()` and a role lookup. That is gone; the function defers to
+`get_perms()`, so there is one definition of who may see an object and the
+bytes follow it.
 
-There is a real hole underneath this, left alone deliberately: a project
-member has **no** `get_perms()` view on a Model or Document owned by their
-own project. Nothing depended on it before this gate did, but it is worth
-fixing on its own terms rather than as a side effect of a download check.
+Two test traps let the defect ship, and both are still in the test data.
+Every `Person` in `create_test_users()` has a role in H2G2, so what the tests
+took for an outsider was a member with an unmatching product type; and the
+member they tested with was the local user, who is the *creator* of
+everything a test makes and passes by a branch that has nothing to do with
+the project. `test_digital_files.py` now creates a Person with no role at all
+and uses `buckaroo`, an ordinary member who created nothing.
 
 One client consequence had to be handled with it. `on_chunk_download_failure`
 returns None, which tells twisted the failure is handled, so the success
