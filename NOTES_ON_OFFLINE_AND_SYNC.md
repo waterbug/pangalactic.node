@@ -382,7 +382,22 @@ version of the thing, it is a false statement to every other client. So the
 bytes are copied into the local vault when the object is made, pushed *before*
 the objects (`push_staged_files()` sits ahead of
 `sync_user_created_objs_to_repo()` in the chain and the chain waits on it),
-and if an upload fails the objects are held back for the next sync.
+and if an upload fails the object is held back for the next sync.
+
+**Held back on both paths, which took two goes.** The immediate one refuses
+from the start: `save_new_file_objects()` does not send the objects unless
+the upload reported success. The sync did not — it pushed everything in
+`created_objects` regardless, so a failed upload followed by a sync produced
+exactly the state the rule forbids. `push_staged_files()` now records which
+files the repository asked for and did not get, and
+`sync_user_created_objs_to_repo()` leaves those oids out of what it offers.
+
+Leaving the oid out is the whole mechanism, and it has to be: the repository
+is then told nothing about the object, so it appears in none of the sync's
+lists and nothing happens to it. Sending it and filtering later is not an
+option — `on_sync_result()` *deletes* a local-only object it cannot
+attribute. The retry at the next sync is what repairs it, and by then
+`missing_vault_files()` will ask for the bytes again.
 
 **No queue of pending uploads.** The local vault is the record of what this
 machine has; `vger.missing_vault_files()` is the record of what the repository

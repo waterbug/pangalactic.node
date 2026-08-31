@@ -1411,10 +1411,31 @@ class Main(QMainWindow):
         # since get_perms() gives reference data "view only".  Harmless but
         # confusing, and it recurs on every sync for every refdata addition
         # until both ends have the same refdata.py.
+        # NOTE: a RepresentationFile whose bytes are not in the repository's
+        # vault is left out.  push_staged_files() runs immediately before
+        # this and the chain waits for its uploads, so anything still in
+        # `_files_missing_upstream` is a file the repository asked for and
+        # did not get.  Sending its object anyway would publish a file record
+        # that every other client can see and none can fetch -- the exact
+        # state the "bytes before objects" rule exists to prevent, which the
+        # immediate path (save_new_file_objects) already refused to create
+        # and this path used to create anyway.
+        #
+        # Leaving the oid out is enough:  the repository is told nothing
+        # about it, so it appears in none of the sync's lists and nothing
+        # happens to it.  It must NOT be sent and then withheld later --
+        # on_sync_result() deletes a local-only object it cannot attribute,
+        # and the retry at the next sync is what fixes this anyway.
+        withheld = getattr(self, '_files_missing_upstream', None) or set()
         oids = [o.oid for o in self.local_user.created_objects
                 if not (isinstance(o, orb.classes['ProjectSystemUsage'])
                         and o.project.oid == 'pgefobjects:SANDBOX')
-                and not is_reference_data(o)]
+                and not is_reference_data(o)
+                and o.oid not in withheld]
+        if withheld:
+            n = len(withheld)
+            orb.log.info(f'  - {n} file object(s) held back:  the repository '
+                         'does not have their bytes yet.')
         data = orb.get_mod_dts(oids=oids)
         orb.log.debug('       -> rpc: vger.sync_objects()')
         try:
@@ -7057,6 +7078,11 @@ class Main(QMainWindow):
             a Deferred firing when every file that needed sending has been
             answered for, or `data` if there was nothing to send.
         """
+        # start the record fresh:  it is read by
+        # sync_user_created_objs_to_repo(), which is chained immediately
+        # after this, and a set left over from an earlier sync would hold
+        # back a file that has since gone up
+        self._files_missing_upstream = set()
         if not state.get('connected'):
             return data
         rep_files = staged_files_of_local_user()
@@ -7099,8 +7125,39 @@ class Main(QMainWindow):
         orb.log.info(f'  sending {n} file(s) the repository does not have.')
         self.statusbar.showMessage(f'sending {n} file(s) to the repository '
                                    '...')
-        return DeferredList([self.upload_vault_file(rf) for rf in rep_files],
-                            consumeErrors=True)
+        # the repository has just said it lacks these;  each one that goes up
+        # is struck off, and whatever is left holds back its object
+        self._files_missing_upstream = {rf.oid for rf in rep_files}
+        d = DeferredList([self.upload_vault_file(rf) for rf in rep_files],
+                         consumeErrors=True)
+        d.addCallback(self.note_files_that_arrived, rep_files)
+        return d
+
+    def note_files_that_arrived(self, results, rep_files):
+        """
+        Strike off the files whose bytes reached the repository, leaving the
+        ones whose objects must be held back.
+
+        Args:
+            results (list of tuple):  the DeferredList's (success, value)
+                pairs, in the order the uploads were started
+            rep_files (list of RepresentationFile):  those uploads, in the
+                same order
+
+        Returns:
+            the results, so this can be chained
+        """
+        missing = getattr(self, '_files_missing_upstream', None)
+        if missing is None:
+            missing = self._files_missing_upstream = set()
+        for (ok, value), rep_file in zip(results or [], rep_files):
+            if ok and value:
+                missing.discard(rep_file.oid)
+        if missing:
+            n = len(missing)
+            orb.log.error(f'  {n} file(s) did not go up; their objects are '
+                          'held back until they do.')
+        return results
 
     def push_document_references(self, data=None):
         """

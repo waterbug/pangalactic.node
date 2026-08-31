@@ -75,6 +75,8 @@ class FakeClient:
     finish_vault_file_upload = Main.finish_vault_file_upload
     push_staged_files = Main.push_staged_files
     upload_missing_vault_files = Main.upload_missing_vault_files
+    note_files_that_arrived = Main.note_files_that_arrived
+    sync_user_created_objs_to_repo = Main.sync_user_created_objs_to_repo
     register_component_files = Main.register_component_files
     save_component_files = Main.save_component_files
     on_add_update_doc = Main.on_add_update_doc
@@ -758,6 +760,118 @@ class RefusedDownloadTest(unittest.TestCase):
         client = self.a_downloading_client()
         client.on_file_download_success(('rf-oid', 0, b'data'))
         self.assertTrue(client.next_download_started)
+
+
+class HeldBackFileObjectTest(unittest.TestCase):
+    """
+    The rule is that a RepresentationFile reaches the repository only with
+    its bytes.  save_new_file_objects() keeps it on the immediate path;  the
+    sync used to break it, pushing every object in created_objects whether or
+    not push_staged_files() had managed to send the file.
+    """
+
+    def setUp(self):
+        self.was_user = state.get('local_user_oid')
+        self.was_connected = state.get('connected')
+        state['local_user_oid'] = USER_OID
+        state['connected'] = True
+        self.tmpdir = os.path.join(orb.home, 'heldback_test_files')
+        if not os.path.exists(self.tmpdir):
+            os.makedirs(self.tmpdir)
+
+    def tearDown(self):
+        state['local_user_oid'] = self.was_user
+        state['connected'] = self.was_connected
+
+    def a_staged_file(self, name):
+        fpath = os.path.join(self.tmpdir, name)
+        with open(fpath, 'wb') as f:
+            f.write(b'ISO-10303-21; /* ' + name.encode() + b' */')
+        parms = {'file name': name,
+                 'file size': str(os.path.getsize(fpath)),
+                 'mime_type': 'application/step',
+                 'name': name.split('.')[0],
+                 'of_thing_oid': ASSEMBLY_OID,
+                 'owner_oid': 'H2G2', 'project_oid': 'H2G2'}
+        model, rep_file = new_model_with_file(MCAD, fpath, parms)
+        orb.save([model, rep_file])
+        orb.db.commit()
+        stage_in_vault(rep_file, fpath)
+        return rep_file
+
+    def a_syncing_client(self):
+        client = a_client()
+        client.local_user = orb.get(USER_OID)
+        return client
+
+    def test_01_a_file_that_did_not_go_up_holds_its_object_back(self):
+        """
+        CASE:  the upload failed.  Sending the object anyway would publish a
+        file record that every other client can see and none can fetch.
+        """
+        client = self.a_syncing_client()
+        rep_file = self.a_staged_file('held-back.stp')
+        client.push_staged_files(None)
+        client.upload_missing_vault_files([orb.get_vault_fname(rep_file)])
+        client.finish_vault_file_upload(False)      # the upload failed
+        client.sync_user_created_objs_to_repo(None)
+        name, args, kw = client.mbus.session.calls[-1]
+        expected = ['vger.sync_objects', False]
+        value = [name, rep_file.oid in args[0]]
+        self.assertEqual(expected, value)
+
+    def test_02_a_file_that_went_up_is_synced(self):
+        """
+        CASE:  the upload succeeded.  The neighbouring case that cannot pass
+        vacuously -- a test of the hold-back alone would pass just as well if
+        nothing were ever synced.
+        """
+        client = self.a_syncing_client()
+        rep_file = self.a_staged_file('went-up.stp')
+        client.push_staged_files(None)
+        client.upload_missing_vault_files([orb.get_vault_fname(rep_file)])
+        client.finish_vault_file_upload(True)       # the upload succeeded
+        client.sync_user_created_objs_to_repo(None)
+        name, args, kw = client.mbus.session.calls[-1]
+        expected = ['vger.sync_objects', True]
+        value = [name, rep_file.oid in args[0]]
+        self.assertEqual(expected, value)
+
+    def test_03_a_file_the_repository_already_has_is_synced(self):
+        """
+        CASE:  nothing to upload at all -- the repository reported no missing
+        files.  Nothing is held back.
+        """
+        client = self.a_syncing_client()
+        rep_file = self.a_staged_file('already-there.stp')
+        client.push_staged_files(None)
+        client.upload_missing_vault_files([])       # it has them all
+        client.sync_user_created_objs_to_repo(None)
+        name, args, kw = client.mbus.session.calls[-1]
+        expected = ['vger.sync_objects', True]
+        value = [name, rep_file.oid in args[0]]
+        self.assertEqual(expected, value)
+
+    def test_04_the_record_does_not_outlive_its_sync(self):
+        """
+        CASE:  a file held back by one sync, and gone up by the next.  The
+        set is rebuilt at the start of every push, so a stale entry cannot
+        hold back a file that has since arrived.
+        """
+        client = self.a_syncing_client()
+        rep_file = self.a_staged_file('next-time.stp')
+        client.push_staged_files(None)
+        client.upload_missing_vault_files([orb.get_vault_fname(rep_file)])
+        client.finish_vault_file_upload(False)
+        held_after_failure = rep_file.oid in client._files_missing_upstream
+        # the next sync:  the repository now has it, so it is not offered
+        client.push_staged_files(None)
+        client.upload_missing_vault_files([])
+        client.sync_user_created_objs_to_repo(None)
+        name, args, kw = client.mbus.session.calls[-1]
+        expected = [True, True]
+        value = [held_after_failure, rep_file.oid in args[0]]
+        self.assertEqual(expected, value)
 
 
 if __name__ == '__main__':
