@@ -2829,9 +2829,12 @@ class Main(QMainWindow):
             if subject == 'decloaked':
                 # NOTE: content of 'decloaked' msg changed in version 4.3
                 # -- it is now a tuple: (authid, list of serialized objects)
-                n = len(content)
-                orb.log.debug(f'received {n} "decloaked" object(s)')
+                # ... so the count is of "sobjs", not of "content", which is
+                # the 2-tuple and said "2 decloaked objects" for every
+                # message ever logged
                 authid, sobjs = content
+                n = len(sobjs)
+                orb.log.debug(f'received {n} "decloaked" object(s)')
                 if authid == userid:
                     # ignore -- result of my action
                     orb.log.info('  "decloaked" ignored -- was my action.')
@@ -7459,9 +7462,36 @@ class Main(QMainWindow):
         A STEP import records which occurrence of the file became which
         object, so that a later export can write changes back to the right
         place and a re-import of a changed file can be recognised as such.
-        That correspondence is stored on the RepresentationFile, which
-        vger.add_update_model() creates -- so it cannot be written when the
-        import runs, only when the rpc returns here.
+        That correspondence is stored on the RepresentationFile, which used
+        to be created by vger.add_update_model() -- so it could not be
+        written when the import ran, only when the rpc returned here.  The
+        object is built locally now (on_add_update_model), so this runs in
+        the middle of that handler, before the file has been sent anywhere.
+
+        **This writes locally and pushes nothing.**  It used to end with a
+        "modified object" signal, which was right while the repository
+        already had the RepresentationFile -- the rpc had just made it, and
+        that signal was the only way to send the correspondence after it.
+        Now the object has not been sent at all when this runs, and that
+        signal was a vger.save() of the RepresentationFile *alone*:
+
+        * before its Model, which had not been sent either.  The repository
+          could not resolve "of_object", so it stored the file with none --
+          and nothing ever repaired it, because when the pair arrived a
+          moment later the file was already there and unmodified.  An
+          orphaned file record is one that no one may fetch
+          (access.may_fetch_file) and that is cloaked by nothing
+          (access.is_cloaked), so a cloaked project's file was announced on
+          the public channel and then refused to everybody, including its
+          own project ("download not authorized", observed 2026-09-03).
+        * before its bytes, which upload_vault_file() sends after this
+          returns -- the one thing on_add_update_model() sequences its whole
+          tail to prevent.
+
+        Nothing is lost by not sending:  the correspondence is a data
+        element on the RepresentationFile, so it travels with the object
+        when save_new_file_objects() sends the pair, which happens once the
+        bytes are there.
 
         Args:
             rep_file_oid (str):  oid of the new RepresentationFile
@@ -7481,8 +7511,6 @@ class Main(QMainWindow):
         from pangalactic.node.step_plan import store_correspondence_map
         store_correspondence_map(rep_file, pending)
         orb.log.info(f'  - step correspondence stored on "{rep_file.id}"')
-        if state.get('connected'):
-            dispatcher.send(signal='modified object', obj=rep_file)
 
     def on_add_update_doc(self, fpath='', parms=None):
         """

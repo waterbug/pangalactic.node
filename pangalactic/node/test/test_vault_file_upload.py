@@ -87,6 +87,8 @@ class FakeClient:
     save_new_file_objects = Main.save_new_file_objects
     push_document_references = Main.push_document_references
     save_missing_document_references = Main.save_missing_document_references
+    on_add_update_model = Main.on_add_update_model
+    store_step_correspondence = Main.store_step_correspondence
 
     def __init__(self):
         self.mbus = SimpleNamespace(session=FakeSession())
@@ -695,6 +697,163 @@ class DocumentTest(unittest.TestCase):
         result = client.save_missing_document_references(answer)
         expected = [None, before]
         value = [result, len(client.mbus.session.calls)]
+        self.assertEqual(expected, value)
+
+
+class StepModelTest(unittest.TestCase):
+    """
+    The whole tail of "add update model":  a STEP import's Model, its
+    RepresentationFile, the correspondence written on it, and the one push
+    that sends them.
+
+    The rule the handler exists to keep is that **the objects go up after the
+    bytes, and together**.  A RepresentationFile that reaches the repository
+    on its own reaches it before its Model, and the repository then has a
+    file whose "of_object" resolves to nothing:  nothing cloaks it
+    (access.is_cloaked) and nobody may fetch it (access.may_fetch_file), so
+    it is announced on the public channel and then refused to everyone,
+    including its own project.  That is what "download not authorized" was,
+    observed on a two-client STEP import 2026-09-03.
+    """
+
+    def setUp(self):
+        self.was_user = state.get('local_user_oid')
+        self.was_connected = state.get('connected')
+        self.was_pending = state.get('step_pending_correspondence')
+        state['local_user_oid'] = USER_OID
+        self.tmpdir = os.path.join(orb.home, 'step_model_test_files')
+        if not os.path.exists(self.tmpdir):
+            os.makedirs(self.tmpdir)
+        # register_component_files() is not what is under test here, and a
+        # single self-contained file references nothing
+        from pangalactic.node import step_import
+        real = step_import.reference_closure
+        step_import.reference_closure = lambda path: []
+        self.addCleanup(setattr, step_import, 'reference_closure', real)
+
+    def tearDown(self):
+        state['local_user_oid'] = self.was_user
+        state['connected'] = self.was_connected
+        state['step_pending_correspondence'] = self.was_pending
+
+    def a_step_file(self, name):
+        fpath = os.path.join(self.tmpdir, name)
+        with open(fpath, 'wb') as f:
+            f.write(b'ISO-10303-21;\nHEADER;\nENDSEC;\nEND-ISO-10303-21;\n')
+        return fpath
+
+    def parms(self, fpath):
+        return {'file name': os.path.basename(fpath),
+                'file size': str(os.path.getsize(fpath)),
+                'mime_type': 'application/step',
+                'name': 'TO-5',
+                'description': 'a STEP model for testing',
+                'of_thing_oid': ASSEMBLY_OID,
+                'owner_oid': 'H2G2', 'project_oid': 'H2G2'}
+
+    def a_pending_correspondence(self, fpath):
+        """
+        What _register_step_model() leaves in state for the handler.
+        """
+        state['step_pending_correspondence'] = {'fpath': fpath,
+                                                'checksum': 'abc123',
+                                                'mode': 'create',
+                                                'map': {'#1': 'an-oid'}}
+
+    def test_01_nothing_is_pushed_before_the_bytes(self):
+        """
+        CASE:  a STEP import with a connection and a correspondence to store.
+
+        Storing the correspondence used to end with a "modified object"
+        signal, which is a vger.save() of the RepresentationFile alone --
+        sent before the Model, and before the bytes.  Nothing may go up
+        until the upload answers.
+        """
+        state['connected'] = True
+        fpath = self.a_step_file('pending-one.stp')
+        self.a_pending_correspondence(fpath)
+        client = a_client()
+        with mock.patch.object(pangalaxian, 'dispatcher') as fake:
+            client.on_add_update_model(mtype_oid=MCAD, fpath=fpath,
+                                       parms=self.parms(fpath))
+            expected = [1, False]
+            value = [len(client.uploads_started), fake.send.called]
+        self.assertEqual(expected, value)
+
+    def test_02_the_model_and_its_file_go_up_together(self):
+        """
+        CASE:  the upload succeeded.  One push, carrying both objects -- the
+        Model first, so that the repository can resolve "of_object" when it
+        deserializes the file.
+        """
+        state['connected'] = True
+        fpath = self.a_step_file('pending-two.stp')
+        self.a_pending_correspondence(fpath)
+        client = a_client()
+        with mock.patch.object(pangalaxian, 'dispatcher') as fake:
+            client.on_add_update_model(mtype_oid=MCAD, fpath=fpath,
+                                       parms=self.parms(fpath))
+            client.finish_vault_file_upload(True)
+            sends = fake.send.call_args_list
+        cnames = [o.__class__.__name__ for o in sends[0].kwargs['objs']]
+        expected = [1, ['Model', 'RepresentationFile']]
+        value = [len(sends), cnames]
+        self.assertEqual(expected, value)
+
+    def test_03_the_correspondence_travels_with_the_objects(self):
+        """
+        CASE:  the correspondence is written before the pair is sent, so it
+        is a data element of the RepresentationFile the push carries.  That
+        is why the separate save it used to do is not needed.
+        """
+        from pangalactic.node.step_plan import get_correspondence
+        state['connected'] = True
+        fpath = self.a_step_file('pending-three.stp')
+        self.a_pending_correspondence(fpath)
+        client = a_client()
+        with mock.patch.object(pangalaxian, 'dispatcher') as fake:
+            client.on_add_update_model(mtype_oid=MCAD, fpath=fpath,
+                                       parms=self.parms(fpath))
+            client.finish_vault_file_upload(True)
+            objs = fake.send.call_args.kwargs['objs']
+        rep_file = [o for o in objs
+                    if o.__class__.__name__ == 'RepresentationFile'][0]
+        stored = get_correspondence(rep_file)
+        expected = ['abc123', {'#1': 'an-oid'}, {}]
+        value = [stored.get('checksum'), stored.get('map'),
+                 state.get('step_pending_correspondence')]
+        self.assertEqual(expected, value)
+
+    def test_04_a_failed_upload_publishes_nothing(self):
+        """
+        CASE:  the bytes did not go up.  Neither object follows, so no file
+        record is created that nobody can fetch.
+        """
+        state['connected'] = True
+        fpath = self.a_step_file('pending-four.stp')
+        self.a_pending_correspondence(fpath)
+        client = a_client()
+        with mock.patch.object(pangalaxian, 'dispatcher') as fake:
+            client.on_add_update_model(mtype_oid=MCAD, fpath=fpath,
+                                       parms=self.parms(fpath))
+            client.finish_vault_file_upload(False)
+        fake.send.assert_not_called()
+
+    def test_05_offline_nothing_is_pushed_and_the_file_is_kept(self):
+        """
+        CASE:  the same import with no connection.  Both objects and the
+        correspondence are here, and nothing was sent anywhere.
+        """
+        state['connected'] = False
+        fpath = self.a_step_file('pending-five.stp')
+        self.a_pending_correspondence(fpath)
+        client = a_client()
+        with mock.patch.object(pangalaxian, 'dispatcher') as fake:
+            client.on_add_update_model(mtype_oid=MCAD, fpath=fpath,
+                                       parms=self.parms(fpath))
+            sent = fake.send.called
+        expected = [False, [], 2]
+        value = [sent, client.uploads_started, len(client.locally_created)]
         self.assertEqual(expected, value)
 
 
