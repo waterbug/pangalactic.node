@@ -78,7 +78,7 @@ class FakeClient:
     note_files_that_arrived = Main.note_files_that_arrived
     sync_user_created_objs_to_repo = Main.sync_user_created_objs_to_repo
     register_component_files = Main.register_component_files
-    save_component_files = Main.save_component_files
+    save_imported_file_set = Main.save_imported_file_set
     on_add_update_doc = Main.on_add_update_doc
     on_chunk_download_failure = Main.on_chunk_download_failure
     download_did_fail = Main.download_did_fail
@@ -479,11 +479,16 @@ class ComponentFileTest(unittest.TestCase):
         value = created[0].oid in client.locally_created
         self.assertEqual(expected, value)
 
-    def test_06_connected_the_bytes_are_queued(self):
+    def test_06_connected_it_uploads_and_publishes_nothing_itself(self):
         """
-        CASE:  the same import with a connection.  Every file's bytes are
-        queued, one at a time -- two uploads at once would overwrite each
-        other's chunks.
+        CASE:  the same import with a connection.  The objects and the
+        staged bytes are handed back to the caller;  nothing is uploaded and
+        nothing is pushed from here.
+
+        It used to start the components' uploads, which queued them ahead of
+        the root file's -- so their objects were pushed before the root
+        existed in the repository and every "component_file_of" naming it
+        was lost.
         """
         state['connected'] = True
         model, top_file, top = self.an_assembly_file('conn-top.stp')
@@ -491,11 +496,11 @@ class ComponentFileTest(unittest.TestCase):
         two = self.a_file('conn-two.stp')
         self.with_closure([(one, top), (two, top)])
         client = a_client()
-        client.register_component_files(top, top_file)
+        with mock.patch.object(pangalaxian, 'dispatcher') as fake:
+            objs, files = client.register_component_files(top, top_file)
         orb.db.commit()
-        expected = [1, 1]
-        value = [len(client.uploads_started),
-                 len(getattr(client, 'file_upload_queue', []))]
+        expected = [[], 2, False]
+        value = [client.uploads_started, len(files), fake.send.called]
         self.assertEqual(expected, value)
 
     def test_07_the_objects_go_when_every_file_is_there(self):
@@ -506,7 +511,7 @@ class ComponentFileTest(unittest.TestCase):
         client = a_client()
         objs = ['stand-in for the objects']
         with mock.patch.object(pangalaxian, 'dispatcher') as fake:
-            client.save_component_files(objs, [(True, True), (True, True)])
+            client.save_imported_file_set(objs, [(True, True), (True, True)])
         fake.send.assert_called_once_with(signal='new objects', objs=objs)
 
     def test_08_nothing_is_published_until_every_file_is_there(self):
@@ -521,7 +526,7 @@ class ComponentFileTest(unittest.TestCase):
         client = a_client()
         objs = ['stand-in for the objects']
         with mock.patch.object(pangalaxian, 'dispatcher') as fake:
-            client.save_component_files(objs, [(True, True), (True, False)])
+            client.save_imported_file_set(objs, [(True, True), (True, False)])
         fake.send.assert_not_called()
 
 
@@ -856,6 +861,120 @@ class StepModelTest(unittest.TestCase):
         value = [sent, client.uploads_started, len(client.locally_created)]
         self.assertEqual(expected, value)
 
+
+    # ---- a set of files is one push, after all of them --------------------
+    #
+    # A CAD assembly exported as a set names its files, and each component
+    # file names the file that references it in "component_file_of".  The
+    # four files a STEP assembly names directly all point at the root, so a
+    # batch without the root leaves all four unresolvable at the far end --
+    # the root's "component_files" is then empty there, nothing stages the
+    # set under the names its references use, and the subassemblies render as
+    # nothing while rendering perfectly when opened on their own.
+    #
+    # That is what two pushes did, and in the worst order:
+    # register_component_files() queued the components' uploads first, so
+    # they finished first and their objects went up before the root existed.
+
+    def with_closure(self, closure):
+        """
+        Make reference_closure() answer with the given (child, parent) pairs.
+        setUp() has already arranged for the real one to be restored.
+        """
+        from pangalactic.node import step_import
+        step_import.reference_closure = lambda path: closure
+
+    def test_06_the_root_file_is_uploaded_first(self):
+        """
+        CASE:  an import of a set.  The root's bytes are queued ahead of the
+        files it references -- it used to be queued after all of them.
+        """
+        state['connected'] = True
+        fpath = self.a_step_file('set-top.stp')
+        one = self.a_step_file('set-one.stp')
+        two = self.a_step_file('set-two.stp')
+        self.with_closure([(one, fpath), (two, fpath)])
+        self.a_pending_correspondence(fpath)
+        client = a_client()
+        with mock.patch.object(pangalaxian, 'dispatcher'):
+            client.on_add_update_model(mtype_oid=MCAD, fpath=fpath,
+                                       parms=self.parms(fpath))
+        first_up = client.uploads_started[0][0]
+        self.assertTrue(first_up.endswith('set-top.stp'), first_up)
+
+    def test_07_nothing_is_pushed_until_every_file_has_gone(self):
+        """
+        CASE:  the set's files go up one at a time.  No object may be pushed
+        while any file of the set is still to come.
+        """
+        state['connected'] = True
+        fpath = self.a_step_file('wait-top.stp')
+        one = self.a_step_file('wait-one.stp')
+        two = self.a_step_file('wait-two.stp')
+        self.with_closure([(one, fpath), (two, fpath)])
+        self.a_pending_correspondence(fpath)
+        client = a_client()
+        with mock.patch.object(pangalaxian, 'dispatcher') as fake:
+            client.on_add_update_model(mtype_oid=MCAD, fpath=fpath,
+                                       parms=self.parms(fpath))
+            after = []
+            for _ in range(3):
+                after.append(fake.send.called)
+                client.finish_vault_file_upload(True)
+            after.append(fake.send.called)
+        expected = [False, False, False, True]
+        self.assertEqual(expected, after)
+
+    def test_08_the_whole_set_goes_in_one_batch(self):
+        """
+        CASE:  every file arrived.  One push, carrying the root's Model and
+        file and every referenced file -- the root included, because that is
+        the object the referenced files name in "component_file_of".
+        """
+        state['connected'] = True
+        fpath = self.a_step_file('batch-top.stp')
+        one = self.a_step_file('batch-one.stp')
+        two = self.a_step_file('batch-two.stp')
+        self.with_closure([(one, fpath), (two, fpath)])
+        self.a_pending_correspondence(fpath)
+        client = a_client()
+        with mock.patch.object(pangalaxian, 'dispatcher') as fake:
+            client.on_add_update_model(mtype_oid=MCAD, fpath=fpath,
+                                       parms=self.parms(fpath))
+            for _ in range(3):
+                client.finish_vault_file_upload(True)
+            sends = fake.send.call_args_list
+        objs = sends[0].kwargs['objs']
+        names = sorted(getattr(o, 'user_file_name', '') for o in objs
+                       if o.__class__.__name__ == 'RepresentationFile')
+        cnames = sorted(o.__class__.__name__ for o in objs)
+        expected = [1,
+                    ['batch-one.stp', 'batch-top.stp', 'batch-two.stp'],
+                    ['Model', 'RepresentationFile', 'RepresentationFile',
+                     'RepresentationFile']]
+        value = [len(sends), names, cnames]
+        self.assertEqual(expected, value)
+
+    def test_09_one_file_that_did_not_go_holds_the_whole_set_back(self):
+        """
+        CASE:  one file of the set failed to upload.  Nothing is pushed --
+        not the ones that did arrive, and not the root:  a set is only
+        readable whole, and the next sync retries it bytes-first.
+        """
+        state['connected'] = True
+        fpath = self.a_step_file('held-top.stp')
+        one = self.a_step_file('held-one.stp')
+        two = self.a_step_file('held-two.stp')
+        self.with_closure([(one, fpath), (two, fpath)])
+        self.a_pending_correspondence(fpath)
+        client = a_client()
+        with mock.patch.object(pangalaxian, 'dispatcher') as fake:
+            client.on_add_update_model(mtype_oid=MCAD, fpath=fpath,
+                                       parms=self.parms(fpath))
+            client.finish_vault_file_upload(True)
+            client.finish_vault_file_upload(False)
+            client.finish_vault_file_upload(True)
+        fake.send.assert_not_called()
 
 class RefusedDownloadTest(unittest.TestCase):
     """

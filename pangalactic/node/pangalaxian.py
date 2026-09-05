@@ -6999,21 +6999,50 @@ class Main(QMainWindow):
         # a STEP import leaves its correspondence pending because the
         # RepresentationFile did not exist yet;  now it does
         self.store_step_correspondence(rep_file.oid, fpath)
-        self.register_component_files(fpath, rep_file)
+        set_objs, set_files = self.register_component_files(fpath, rep_file)
         if not state.get('connected'):
-            # Nothing else to do:  both objects are in created_objects and
-            # the bytes are in the vault, so the next sync sends them.  This
+            # Nothing else to do:  every object is in created_objects and
+            # every file is in the vault, so the next sync sends them.  This
             # is the case that used to lose the file attachment entirely.
             orb.log.info('  offline -- model and file will sync when '
                          'connected.')
             self.statusbar.showMessage(f'"{model.name}" saved here; it will '
                                        'be sent when you are connected')
             return
-        # Connected:  the same two steps the sync does, in the same order --
-        # the bytes, then the objects that describe them.
-        d = self.upload_vault_file(rep_file)
-        d.addCallback(lambda ok: self.save_new_file_objects(model, rep_file,
-                                                            ok))
+        # ------------------------------------------------------------------
+        # Connected:  every file of the set, and then -- only then -- every
+        # object of the set, in ONE push.
+        #
+        # Both halves of that matter, and each was got wrong in a different
+        # way.  Objects must not go up before their bytes, or the repository
+        # holds a file record nobody can fetch.  And the objects of a set
+        # must go up *together*, because they reference each other:  a
+        # component file names the file that references it, in
+        # "component_file_of", and the four files a STEP assembly names
+        # directly all point at the root file.
+        #
+        # This used to be two pushes, and in the wrong order.
+        # register_component_files() queued the components' uploads and sent
+        # their objects when those finished;  the root's upload was queued
+        # after them, so it finished last and the root's objects were pushed
+        # last.  The components therefore reached the repository first, and
+        # every "component_file_of" naming the root resolved to nothing --
+        # so the root's "component_files" was empty for every other client,
+        # nothing staged the set under the names its references use, and a
+        # subassembly rendered as nothing at all while rendering perfectly
+        # when opened on its own (author, observed on a FireSat import of
+        # s1-modified-214.stp, 2026-09-04).
+        #
+        # One batch is what makes the order among them irrelevant:
+        # DESERIALIZATION_ORDER puts Model before RepresentationFile, and
+        # deferred_fks resolves the file-to-file references within the
+        # class, so the whole set lands whole.
+        # ------------------------------------------------------------------
+        uploads = [self.upload_vault_file(rf)
+                   for rf in [rep_file] + list(set_files)]
+        d = DeferredList(uploads, consumeErrors=True)
+        d.addCallback(lambda results: self.save_imported_file_set(
+                            [model, rep_file] + list(set_objs), results))
         d.addErrback(self.on_failure)
 
     def save_new_file_objects(self, model, rep_file, uploaded, also=None):
@@ -7336,21 +7365,37 @@ class Main(QMainWindow):
     #
     # The objects are made here now, so there is nothing to wait for:  one
     # pass over reference_closure(), which returns parents before children
-    # for exactly this reason.  The uploads are queued behind one another as
-    # before -- read_and_upload_file() keeps the chunks, the path and the
-    # target oid in instance attributes, so two at once would overwrite each
-    # other -- but nothing depends on them any more, and offline there are
-    # simply no uploads to queue.
+    # for exactly this reason.
+    #
+    # The uploads and the push both moved out to on_add_update_model(), so
+    # that the root file is uploaded with the rest of the set and every
+    # object of the set is pushed in one batch afterwards.  Sending from
+    # here sent the components ahead of the root -- their uploads were
+    # queued first, so they finished first -- and every "component_file_of"
+    # naming the root was then unresolvable at the repository.  Uploads are
+    # still queued behind one another wherever they are started, because
+    # read_and_upload_file() keeps the chunks, the path and the target oid
+    # in instance attributes and two at once would overwrite each other.
     # ------------------------------------------------------------------
 
     def register_component_files(self, fpath, rep_file):
         """
         Create a RepresentationFile for every file that `fpath` references,
-        and send the bytes if there is a connection.
+        and stage each one's bytes in the local vault.
 
         Args:
             fpath (str):  the file just registered
             rep_file (RepresentationFile):  its RepresentationFile
+
+        Returns:
+            tuple:  (objs, files) -- the Models and RepresentationFiles
+            created, and the RepresentationFiles whose bytes were staged.
+            **Neither is uploaded or pushed here.**  The caller sends the
+            whole set, its root included, in one batch once every file has
+            gone up;  see on_add_update_model().  Uploading from here meant
+            the components' bytes were queued ahead of the root's and their
+            objects were therefore pushed before it existed, which left every
+            "component_file_of" naming the root null in the repository.
         """
         try:
             from pangalactic.node.step_import import reference_closure
@@ -7359,9 +7404,9 @@ class Main(QMainWindow):
             # pythonocc is not needed for this, but the module import is
             # still the client's only reason to touch step_import here
             orb.log.debug(f'  - component files: closure failed: {e}')
-            return
+            return ([], [])
         if not closure:
-            return
+            return ([], [])
         # imported here rather than at module scope:  step_dialogs is where
         # the constants live and importing it at start-up would pull in
         # nothing useful this early
@@ -7410,30 +7455,30 @@ class Main(QMainWindow):
             stage_in_vault(component, child)
             staged.append(component)
         if not created:
-            return
+            return ([], [])
         orb.save(created)
         orb.db.commit()
         for obj in created:
             self.add_locally_created(obj.oid)
         n = len(staged)
         orb.log.info(f'  - {n} component file(s) created locally.')
-        if not state.get('connected'):
-            orb.log.info('  - offline; they will sync when connected.')
-            return
-        # the bytes of each, then the objects -- the same order, and the same
-        # reason, as the file they belong to
-        d = DeferredList([self.upload_vault_file(rf) for rf in staged],
-                         consumeErrors=True)
-        d.addCallback(lambda results: self.save_component_files(created,
-                                                                results))
-        d.addErrback(self.on_failure)
+        return (created, staged)
 
-    def save_component_files(self, objs, results):
+    def save_imported_file_set(self, objs, results):
         """
-        Send the component files' objects, once their bytes are there.
+        Send every object an import made, once every one of its files has
+        arrived.
+
+        One push, for the root's Model and file together with the Models and
+        files of everything the root references.  The objects of a set
+        reference each other -- "component_file_of" points at the file that
+        names this one -- so a batch that carries only some of them leaves
+        the rest of those references unresolvable at the far end, and
+        nothing repairs them afterwards:  the objects arrive again only if
+        something changes them.
 
         Args:
-            objs (list):  the Models and RepresentationFiles created
+            objs (list):  every Model and RepresentationFile of the set
             results (list of tuple):  the DeferredList's (success, value)
                 pairs, one per upload
 
@@ -7445,11 +7490,10 @@ class Main(QMainWindow):
             # They stay local and stay in created_objects, so the next sync
             # tries again -- bytes first, again.  All of them are held back,
             # not only the one that failed:  a set is only readable whole.
-            orb.log.error('  ** not every component file went up; the '
+            orb.log.error('  ** not every file of the set went up; the '
                           'objects are held back until they do.')
-            self.statusbar.showMessage('some referenced files were not sent; '
-                                       'they will be retried at the next '
-                                       'sync')
+            self.statusbar.showMessage('some files were not sent; they will '
+                                       'be retried at the next sync')
             return results
         dispatcher.send(signal='new objects', objs=objs)
         return results
