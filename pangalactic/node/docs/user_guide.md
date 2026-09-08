@@ -418,24 +418,24 @@ orientation of each component within its assembly is what allows the mass
 distribution of a system to be computed, which is the input an attitude
 control simulation needs.
 
-To begin, select the **Import STEP Assembly** item in the **Tools** menu.  It
+To begin, select the **Import Product Data from a STEP File** item in the
+**Tools** menu.  It
 is available in both **System Modeler** and **Component Modeler** modes.
 
-<!-- SCREENSHOT: Tools menu with "Import STEP Assembly" highlighted -->
-![Tools / Import STEP Assembly](images/import_step_menu_item.png "Tools / Import STEP Assembly")
+![Tools / Import Product Data from a STEP File](images/import_step_menu_item.png "Tools / Import Product Data from a STEP File")
 
 ### Choose the File and What the Import Should Do
 
 The first dialog asks for the file and for what should be done with it.
 
-<!-- SCREENSHOT: the "Import a STEP Assembly" dialog, both options visible -->
-![Import STEP Assembly Dialog](images/import_step_dialog.png "Import STEP Assembly Dialog")
+![Import Product Data from a STEP File Dialog](images/import_step_dialog.png "Import Product Data from a STEP File Dialog")
 
 Click **Select STEP file ...** to choose the file, then choose one of two
 options.  They are quite different, and which one is right depends on whether
 the assembly already exists in **Pangalaxian**:
 
-* **Place the components of "..."** -- the assembly already exists here, and
+* **Add 3D placement and orientation for the components of "..."** -- the
+  assembly already exists here, and
   the file is the same design as it exists in **CAD**.  Each occurrence in the
   file is matched to a component the assembly already has, by **reference
   designator**, and the position of each is recorded.  *No products are
@@ -453,8 +453,7 @@ the assembly already exists in **Pangalaxian**:
 Nothing is created until you have seen what would be created.  The second
 dialog lists the import item by item:
 
-<!-- SCREENSHOT: the plan dialog for a "create" import, showing several rows -->
-![Import STEP Assembly Plan](images/import_step_plan.png "Import STEP Assembly Plan")
+![Import Product Data from a STEP File Plan](images/import_step_plan.png "Import Product Data from a STEP File Plan")
 
 Each row is one thing the import proposes to do, and each has a checkbox.  The
 columns are:
@@ -507,15 +506,21 @@ the import will *not* cover, which usually matters as much as what it will.  A
 run of **no such component** rows generally means the file is a different
 design from the assembly, or that the reference designators do not agree.
 
-Use **Accept all** and **Reject all** to set every checkbox at once, or click
-individual checkboxes.  An unconfirmed product also drops the usages that
-depend on it -- a usage cannot be created with one end missing -- so rejecting
-a product rejects everything below it.
+Click individual checkboxes to leave items out.  An unconfirmed product also
+drops the usages that depend on it -- a usage cannot be created with one end
+missing -- so rejecting a product rejects everything below it.
 
-When creating products and structure with a project selected, the dialog also
-offers to add the file's top-level assembly to the project as a system:
+When creating products and structure with a project selected, the dialog may
+also offer to add the file's top-level assembly to the project as a system:
 
 > **Add "..." to project ... as a system**
+
+This is offered only if you may add a system to the project -- that is, if
+you may modify the project:  a global administrator, or an
+**Administrator**, **Lead Engineer** or **Systems Engineer** on it.  Adding a
+system is a statement about the shape of the project rather than about one
+subsystem, so a discipline engineer will not see the option.  Neither will
+anyone working **disconnected**, since a project cannot be checked out.
 
 Leave this checked and the assembly will appear in the **System Tree**.
 Unchecked, the assembly is still created, but is reachable only through the

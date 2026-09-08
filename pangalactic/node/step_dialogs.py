@@ -27,6 +27,7 @@ from pangalactic.node.threads import Worker, threadpool
 from pydispatch import dispatcher
 
 from pangalactic.core import orb, state
+from pangalactic.core.access import may_add_system
 from pangalactic.node.step_plan import (ACU, CREATE, MATCHED, NEW, PLACE,
                                         PLACEMENT, PRODUCT, REUSED, UNMATCHED,
                                         UNPLACED, apply_creation,
@@ -190,7 +191,7 @@ class StepImportModeDialog(QDialog):
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
-        self.setWindowTitle('Import a STEP Assembly')
+        self.setWindowTitle('Import Product Data from a STEP File')
         self.assembly = assembly
         self.file_path = ''
         layout = QVBoxLayout(self)
@@ -206,8 +207,10 @@ class StepImportModeDialog(QDialog):
         form = QFormLayout()
         name = getattr(assembly, 'name', None)
         self.place_button = QRadioButton(
-            f'Place the components of "{name}"' if name
-            else 'Place the components of an existing assembly', self)
+            f'Add 3D placement and orientation for the components of '
+            f'"{name}"' if name
+            else 'Add 3D placement and orientation for the components of '
+                 'an existing assembly', self)
         self.place_button.setToolTip(
             'Match the file\'s occurrences to the components this assembly '
             'already has, and record where each one sits.  No products are '
@@ -300,7 +303,7 @@ class StepPlanDialog(QDialog):
         # product types offered in the TYPE column, sorted for a stable menu
         self.product_types = sorted(orb.get_by_type('ProductType'),
                                     key=lambda pt: pt.name or pt.id)
-        what = ('Place components' if mode == PLACE
+        what = ('Position and orient components' if mode == PLACE
                 else 'Create products and structure')
         self.setWindowTitle(f'{what} from {file_name}' if file_name else what)
         layout = QVBoxLayout(self)
@@ -326,8 +329,15 @@ class StepPlanDialog(QDialog):
         # CREATE only:  without a ProjectSystemUsage the imported assembly
         # exists but does not appear in the System Tree, which is where a
         # user looks for it first
+        # It is offered only to a user who may actually add one.  It used
+        # to be shown -- and checked -- to everybody, so a discipline
+        # engineer was invited to do something the repository would refuse:
+        # adding a system is a statement about the shape of the project, not
+        # about one subsystem.  access.may_add_system() decides;  when it
+        # says no the checkbox is not created at all, and the caller already
+        # tests "is not None" before reading it.
         self.add_system_checkbox = None
-        if mode == CREATE and project is not None:
+        if mode == CREATE and project is not None and may_add_system(project):
             root = next((i for i in items
                          if i.kind == PRODUCT and i.is_root), None)
             if root is not None:
@@ -385,16 +395,6 @@ class StepPlanDialog(QDialog):
             # set the button's initial enabled state and tooltip from the
             # (empty) selection, rather than duplicating them here
             self.on_table_selection_changed()
-
-        button_row = QHBoxLayout()
-        accept_all = QPushButton('Accept all', self)
-        accept_all.clicked.connect(lambda: self.set_all(True))
-        reject_all = QPushButton('Reject all', self)
-        reject_all.clicked.connect(lambda: self.set_all(False))
-        button_row.addWidget(accept_all)
-        button_row.addWidget(reject_all)
-        button_row.addStretch(1)
-        layout.addLayout(button_row)
 
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal,
@@ -595,18 +595,6 @@ class StepPlanDialog(QDialog):
         row = cell.row()
         if 0 <= row < len(self.items):
             self.items[row].confirmed = (cell.checkState() == Qt.Checked)
-
-    def set_all(self, confirmed):
-        """
-        Accept or reject every item that can be acted on.  Items that cannot
-        are untouched -- "accept all" must not appear to accept something
-        that will not happen.
-        """
-        for row, item in enumerate(self.items):
-            if not item.actionable:
-                continue
-            cell = self.table.item(row, self.CONFIRM)
-            cell.setCheckState(Qt.Checked if confirmed else Qt.Unchecked)
 
     def confirmed_items(self):
         """

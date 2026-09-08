@@ -3394,7 +3394,7 @@ class Main(QMainWindow):
                                 tip="42 Attitude Control System Modeler",
                                 modes=['system', 'component'])
         self.step_import_action = self.create_action(
-                                "Import STEP Assembly",
+                                "Import Product Data from a STEP File",
                                 slot=self.step_import,
                                 icon='box',
                                 tip="Import an assembly's structure and "

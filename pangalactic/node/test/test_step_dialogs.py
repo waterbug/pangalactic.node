@@ -19,7 +19,7 @@ from PyQt5.QtCore import Qt
 # set the orb
 import pangalactic.core.set_uberorb
 
-from pangalactic.core import orb
+from pangalactic.core import orb, state
 from pangalactic.core.serializers import deserialize
 from pangalactic.core.test.utils import create_test_users, create_test_project
 
@@ -158,28 +158,25 @@ def test_07_rechecking_a_row_confirms_it_again(plan, plan_dialog):
     assert plan[row].confirmed is True
 
 
-def test_08_accept_all_leaves_unactionable_items_alone(plan, plan_dialog):
+def _check_every_row(dlg):
     """
-    "Accept all" must not appear to accept something that will not happen.
-    """
-    plan_dialog.set_all(True)
-    for item in plan:
-        assert item.confirmed is item.actionable
+    Tick every confirm cell, including the rows that cannot be acted on.
 
-
-def test_09_reject_all_leaves_nothing_to_import(plan, plan_dialog):
+    This is what "Accept all" used to do -- except that it skipped the
+    unactionable rows, and it is gone:  every row arrives checked, so the
+    button only ever restored a state the user had just left, and "Reject
+    all" said what Cancel says.
     """
-    Rejecting everything leaves nothing to import.
-    """
-    plan_dialog.set_all(False)
-    assert plan_dialog.confirmed_items() == []
+    for row in range(len(dlg.items)):
+        dlg.table.item(row, dlg.CONFIRM).setCheckState(Qt.Checked)
 
 
 def test_10_confirmed_items_excludes_unactionable(plan, plan_dialog):
     """
-    confirmed_items() never offers an item that cannot be applied.
+    confirmed_items() never offers an item that cannot be applied, however
+    the checkboxes were set.
     """
-    plan_dialog.set_all(True)
+    _check_every_row(plan_dialog)
     assert all(i.actionable for i in plan_dialog.confirmed_items())
 
 
@@ -356,7 +353,27 @@ def test_22_choosing_a_type_updates_the_item(qtbot, create_plan):
     assert item.product_type is widget.itemData(other_index)
 
 
-# ---- "add as a system" option (CREATE only) ------------------------------
+# ---- "add as a system" option (CREATE only, and only for some users) -----
+#
+# Adding a system is a statement about the shape of the project rather than
+# about one subsystem, so it is not a discipline engineer's to make.  The
+# option used to be shown to everybody, and checked, which invited a user to
+# ask for something they were not authorized to do.  access.may_add_system()
+# decides;  these cover each answer it can give.
+
+@pytest.fixture
+def as_user():
+    """
+    Run a test as a given test user, and put the local user back after.
+    """
+    was = state.get('local_user_oid')
+
+    def _as(oid):
+        state['local_user_oid'] = oid
+
+    yield _as
+    state['local_user_oid'] = was
+
 
 def _create_plan():
     root = Occurrence(name='rig', ref_des='rig', prototype_key='dr',
@@ -365,11 +382,14 @@ def _create_plan():
     return plan_creation(root, reuse_products=False)
 
 
-def test_19_create_mode_offers_to_add_the_assembly_as_a_system(qtbot):
+def test_19_create_mode_offers_to_add_the_assembly_as_a_system(qtbot,
+                                                              as_user):
     """
-    In CREATE mode with a project, the option is offered and defaults on --
-    without it the assembly is created but never appears in the System Tree.
+    In CREATE mode with a project, the option is offered to a Systems
+    Engineer on it and defaults on -- without it the assembly is created but
+    never appears in the System Tree.
     """
+    as_user('test:zaphod')          # systems_engineer on H2G2
     dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is not None
@@ -387,11 +407,56 @@ def test_20_place_mode_does_not_offer_it(qtbot, plan):
     assert dlg.add_system_checkbox is None
 
 
-def test_21_no_project_means_no_option(qtbot):
+def test_21_no_project_means_no_option(qtbot, as_user):
     """
     With no current project there is nothing to add the assembly to.
     """
+    as_user('test:zaphod')
     dlg = StepPlanDialog(_create_plan(), CREATE, project=None)
+    qtbot.addWidget(dlg)
+    assert dlg.add_system_checkbox is None
+
+
+def test_21a_a_project_administrator_is_offered_it(qtbot, as_user):
+    """
+    An Administrator of the project may say what its systems are.
+    """
+    as_user('test:steve')           # Administrator on H2G2 (and globally)
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
+    qtbot.addWidget(dlg)
+    assert dlg.add_system_checkbox is not None
+
+
+def test_21b_a_discipline_engineer_is_not(qtbot, as_user):
+    """
+    A propulsion engineer may add and remove components of the propulsion
+    subsystem;  that is a different act from declaring the project's systems.
+    The option is not shown at all rather than shown and refused.
+    """
+    as_user('test:buckaroo')        # propulsion_engineer on H2G2
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
+    qtbot.addWidget(dlg)
+    assert dlg.add_system_checkbox is None
+
+
+def test_21c_a_lead_engineer_is_offered_it(qtbot, as_user):
+    """
+    A lead engineer may modify the project, so they may say what its systems
+    are -- access.may_add_system() defers to get_perms(), which admits
+    Administrator, lead_engineer and systems_engineer alike.
+    """
+    as_user('test:carefulwalker')   # lead_engineer on H2G2
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
+    qtbot.addWidget(dlg)
+    assert dlg.add_system_checkbox is not None
+
+
+def test_21d_no_local_user_means_no_option(qtbot, as_user):
+    """
+    Nobody is nobody:  an unidentified user is not authorized.
+    """
+    as_user(None)
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is None
 
