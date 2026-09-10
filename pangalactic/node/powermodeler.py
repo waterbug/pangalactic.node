@@ -332,9 +332,29 @@ class PowerModeler(QWidget):
         # orb.log.debug(f"  {n} items are selected.")
         self.sys_select_tree.expand(index)
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
+        obj = self.sys_select_tree.source_model.get_node(mapped_i).obj
+        if obj:
+            name = getattr(obj, 'name', '[no name]')
+            orb.log.debug(f"  - clicked object is {name}")
+        else:
+            orb.log.debug("  - clicked had no object")
+        if not isinstance(obj, orb.classes['Product']):
+            orb.log.debug("  - not a Product ... ignoring.")
+            self.sys_select_tree.clearSelection()
+            popup = QMessageBox(
+                  QMessageBox.Critical,
+                  "Not a Product",
+                  'This item is not a Product, so it cannot\n'
+                  'have an associated power mode.',
+                  QMessageBox.Ok, self)
+            popup.show()
+            return
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
-        name = get_link_name(link)
-        orb.log.debug(f"  - clicked item usage is {name}")
+        if link:
+            name = get_link_name(link)
+            orb.log.debug(f"  - clicked item usage is {name}")
+        else:
+            orb.log.debug("  - clicked item had no usage (link)")
         TBD = orb.get('pgefobjects:TBD')
         product = None
         # attr = '[none]'
