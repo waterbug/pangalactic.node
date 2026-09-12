@@ -403,6 +403,12 @@ class StepPlanDialog(QDialog):
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
+        # optimize size for visibility of contents
+        height = min(self.table.rowCount() * 50 + 100, self.parent().height())
+        width = sum([self.table.columnWidth(i) for i in
+                     range(self.table.columnCount())]) + 40
+        orb.log.debug(f'* setting StepPlanDialog size to ({width}, {height})')
+        self.resize(width, height)
 
     def _summary(self):
         """
