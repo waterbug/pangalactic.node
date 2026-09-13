@@ -31,8 +31,10 @@ from pangalactic.core.access import may_add_system
 from pangalactic.node.step_plan import (ACU, CREATE, MATCHED, NEW, PLACE,
                                         PLACEMENT, PRODUCT, REUSED, UNMATCHED,
                                         UNPLACED, apply_creation,
-                                        apply_placements, file_has_changed,
+                                        apply_placements, file_has_assembly,
+                                        file_has_changed,
                                         get_correspondence, plan_creation,
+                                        prior_imports,
                                         plan_placements, product_key,
                                         set_correspondence)
 
@@ -183,6 +185,10 @@ class StepImportModeDialog(QDialog):
     not.
     """
 
+    PLACE_TIP = ("Match the file's occurrences to the components this "
+                 "assembly already has, and record where each one sits.  "
+                 "No products are created.")
+
     def __init__(self, assembly=None, parent=None):
         """
         Keyword Args:
@@ -211,23 +217,15 @@ class StepImportModeDialog(QDialog):
             f'"{name}"' if name
             else 'Add 3D placement and orientation for the components of '
                  'an existing assembly', self)
-        self.place_button.setToolTip(
-            'Match the file\'s occurrences to the components this assembly '
-            'already has, and record where each one sits.  No products are '
-            'created.')
+        self.place_button.setToolTip(self.PLACE_TIP)
         self.create_button = QRadioButton(
             'Create products and assembly structure from the file', self)
         self.create_button.setToolTip(
             'Propose a product for each distinct part in the file and a '
             'usage for each occurrence of one.  For a design that exists '
             'only in CAD.')
-        if assembly is None:
-            self.place_button.setEnabled(False)
-            self.place_button.setToolTip(
-                'Select an assembly first to place its components.')
-            self.create_button.setChecked(True)
-        else:
-            self.place_button.setChecked(True)
+        self._file_has_assembly = True      # nothing chosen yet
+        self._update_place_option(initial=True)
         form.addRow(self.place_button)
         form.addRow(self.create_button)
         layout.addLayout(form)
@@ -255,6 +253,43 @@ class StepImportModeDialog(QDialog):
         self.buttons.button(QDialogButtonBox.Ok).setEnabled(
                                                     bool(self.file_path))
 
+    def _update_place_option(self, initial=False):
+        """
+        Offer the placement option only where it could do something.
+
+        Two things have to be true.  There must be an assembly selected to
+        position the components *of*, which has always been tested here.  And
+        the file must have components to position:  some STEP files carry a
+        single part and no structure -- conrod.stp in the test data is one --
+        and offering to position the components of a file that has none
+        offers nothing (author, 2026-09-13).
+
+        The option is disabled with the reason in its tooltip rather than
+        hidden, so that a user who expected it can see why it is not there.
+        Choosing a single-part file also moves the selection to "create", so
+        the dialog is never left with a disabled option checked.
+
+        Keyword Args:
+            initial (bool):  True while building the dialog, when the
+                placement option is the default if it is available at all.
+                Afterwards the user's choice stands:  a file that *can* be
+                placed does not re-check the option they moved away from.
+        """
+        if self.assembly is None:
+            reason = 'Select an assembly first to position its components.'
+        elif not self._file_has_assembly:
+            fname = os.path.basename(self.file_path)
+            reason = (f'"{fname}" contains a single part and no assembly '
+                      'structure, so it has no components to position.')
+        else:
+            reason = ''
+        self.place_button.setEnabled(not reason)
+        self.place_button.setToolTip(reason or self.PLACE_TIP)
+        if reason:
+            self.create_button.setChecked(True)
+        elif initial:
+            self.place_button.setChecked(True)
+
     def on_browse(self):
         """
         Select the STEP file, starting where the last one was found.
@@ -267,6 +302,8 @@ class StepImportModeDialog(QDialog):
             self.file_path = fpath
             state['last_step_path'] = os.path.dirname(fpath)
             self.file_label.setText(os.path.basename(fpath))
+            self._file_has_assembly = file_has_assembly(fpath)
+            self._update_place_option()
         self._update_ok()
 
 
@@ -646,6 +683,197 @@ class StepFileChangedDialog(QDialog):
         form.addRow(self.buttons)
 
 
+class StepSameNameDialog(QDialog):
+    """
+    Ask whether a file that shares a name with one already imported is the
+    same product or a different one.
+
+    Only the user can answer it.  Two STEP files of the same name may be
+    successive revisions of one product or two unrelated designs that were
+    exported under the same name, and nothing in either file says which --
+    STEP carries no provenance.  The consequences differ completely, so the
+    import asks rather than assumes.
+    """
+
+    def __init__(self, prior, file_name='', parent=None):
+        """
+        Args:
+            prior (PriorImport):  what was imported under this name before
+
+        Keyword Args:
+            file_name (str):  the name both files share
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        self.setWindowTitle('A file of this name has been imported')
+        layout = QVBoxLayout(self)
+        summary = QLabel(
+            f'<p><b>{file_name}</b> has been imported before, and this file '
+            f'is not the same one.</p>'
+            f'<p>The earlier import produced {_describe(prior)}.</p>'
+            '<p>Which is this?</p>', self)
+        summary.setWordWrap(True)
+        layout.addWidget(summary)
+
+        self.same_button = QRadioButton(
+            'The same product -- this file is a later revision of it', self)
+        self.same_button.setToolTip(
+            'The design has changed and the file describes the same product '
+            'at a later point in its life.')
+        self.different_button = QRadioButton(
+            'A different product that happens to have the same file name',
+            self)
+        self.different_button.setToolTip(
+            'Two unrelated designs exported under the same name.')
+        self.same_button.setChecked(True)
+        layout.addWidget(self.same_button)
+        layout.addWidget(self.different_button)
+
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal,
+            self)
+        self.buttons.button(QDialogButtonBox.Ok).setText('Continue')
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+
+    @property
+    def same_product(self):
+        return self.same_button.isChecked()
+
+
+def _describe(prior):
+    """
+    Name what an earlier import produced, and where it lives.
+
+    Args:
+        prior (PriorImport):  the earlier import
+
+    Returns:
+        str:  a phrase for use inside a sentence
+    """
+    product = getattr(prior.product, 'id', '') or '[an unnamed product]'
+    name = getattr(prior.product, 'name', '')
+    what = f'<b>{product}</b>' + (f' ("{name}")' if name else '')
+    where = (f' in project <b>{prior.project.id}</b>' if prior.project
+             else '')
+    when = f', imported {prior.imported[:10]}' if prior.imported else ''
+    return f'{what}{where}{when}'
+
+
+# The two courses Configuration Management allows when a file has already
+# produced a product.  Said in full wherever an import is refused, because
+# the refusal is only useful if it says what to do instead.
+REUSE_OR_DISTINGUISH = (
+    '<p>If it is the same product, use the one that already exists rather '
+    'than creating a second.</p>'
+    '<p>If it is meant to be a distinct product, open the file in your CAD '
+    'tool, rename the product and its metadata, export it as a new STEP '
+    'file, and import that.  It will then be managed as a product in its '
+    'own right.</p>')
+
+
+def _refuse_import(title, message, parent=None):
+    """
+    Say why an import will not happen, and stop.
+
+    Returns:
+        bool:  False, always -- so callers can "return _refuse_import(...)".
+    """
+    orb.log.info(f'  - step import refused: {title}')
+    dlg = OptionNotification(title, message, parent=parent)
+    dlg.exec_()
+    return False
+
+
+def check_prior_imports(path, file_name, project=None, parent=None):
+    """
+    Decide whether a CREATE import may go on, given what the file has
+    already produced.
+
+    A file that has been imported once has made a product.  Importing it
+    again in CREATE mode would make a second, and two products built from
+    one file are not two products -- they are one product the repository
+    cannot tell apart from itself.  So:
+
+    * the same file, by checksum -- refused.  There is already a product for
+      it, whatever it is now called.
+    * a file of the same name with different contents -- the user is asked
+      whether it is the same product.
+        - a different product:  refused, and not overridable.  Two designs
+          cannot be told apart by a name that means both;  rename the file.
+        - the same product, in another project:  refused, with the same two
+          courses as above.  A product belongs where it was created.
+        - the same product, in this project:  a new version of it is what is
+          wanted.  Creating one from an import is not built yet, so this is
+          refused too, saying so.
+
+    Args:
+        path (str):  the file about to be imported
+        file_name (str):  its name
+
+    Keyword Args:
+        project (Project):  the current project
+        parent (QWidget):  parent for the dialogs
+
+    Returns:
+        bool:  True if the import may go on
+    """
+    prior = prior_imports(fname=file_name, checksum=_checksum(path))
+    if not prior:
+        return True
+    first = prior[0]
+    if first.same_file:
+        return _refuse_import(
+            'This file has already been imported',
+            f'<p><b>{file_name}</b> has already been imported, and produced '
+            f'{_describe(first)}.</p>'
+            '<p>Nothing will be imported.</p>' + REUSE_OR_DISTINGUISH,
+            parent=parent)
+    dlg = StepSameNameDialog(first, file_name=file_name, parent=parent)
+    if not dlg.exec_():
+        return False
+    if not dlg.same_product:
+        return _refuse_import(
+            'Two products cannot share a file name',
+            f'<p><b>{file_name}</b> is not the file that was imported under '
+            f'that name, and you have said it is a different product.</p>'
+            f'<p>That name already means {_describe(first)}, so a second '
+            'product of the same name could not be told from it.</p>'
+            '<p>Rename the file and import it again.</p>',
+            parent=parent)
+    here = (project is not None and first.project is not None
+            and project.oid == first.project.oid)
+    if not here:
+        where = (f'project <b>{first.project.id}</b>' if first.project
+                 else 'another project')
+        return _refuse_import(
+            'That product belongs to another project',
+            f'<p>{_describe(first)} was created from a file of this name, '
+            f'and it belongs to {where}.</p>'
+            '<p>Importing it here would make a second product that is the '
+            'same design, which is what Configuration Management exists to '
+            'prevent.</p>' + REUSE_OR_DISTINGUISH,
+            parent=parent)
+    # NOTE: the one case that should proceed rather than refuse.  The file is
+    # a later revision of a product in this project, so what is wanted is a
+    # new *version* of that product:  another HardwareProduct with the same
+    # id and name, the version the user gives it, and iteration 0, keeping
+    # the existing one and its structure untouched.  That path is not built
+    # yet, so this refuses rather than silently making a duplicate -- which
+    # is the outcome this whole check exists to prevent.
+    return _refuse_import(
+        'This would need a new version',
+        f'<p><b>{file_name}</b> is a later revision of {_describe(first)}, '
+        'which is in this project.</p>'
+        '<p>What is wanted is a new <b>version</b> of that product, keeping '
+        'the existing one and everything built on it.  Importing the file '
+        'again would instead create a second product alongside it.</p>'
+        '<p>Creating a version from an import is not available yet, so '
+        'nothing has been imported.</p>',
+        parent=parent)
+
+
 def run_step_import(assembly=None, rep_file=None, parent=None):
     """
     Drive a STEP import from end to end:  choose the file and mode, read it,
@@ -695,6 +923,14 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     # would overwrite that import's correspondence with this one's.
     if rep_file is None and mode == PLACE:
         rep_file = _stored_step_file(assembly, path)
+
+    # A CREATE import makes new products, so what the file has already made
+    # is what decides whether it may:  see check_prior_imports().
+    if mode == CREATE and not check_prior_imports(
+                            path, file_name,
+                            project=orb.get(state.get('project')),
+                            parent=parent):
+        return None
 
     if rep_file is not None and file_has_changed(rep_file,
                                                  _checksum(path)):

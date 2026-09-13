@@ -29,7 +29,8 @@ from pangalactic.node.step_plan import (ACU, CREATE, MATCHED, NEW, PLACE,
                                         UNPLACED, apply_creation,
                                         apply_placements, file_has_changed,
                                         get_correspondence, plan_creation,
-                                        plan_placements, set_correspondence)
+                                        plan_placements, prior_imports,
+                                        set_correspondence)
 
 DATA = test_data_module.__path__[0]
 AS1 = os.path.join(DATA, 'as1-id-203.stp')
@@ -792,3 +793,121 @@ class StepPlanTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# ---- what a file has already produced ------------------------------------
+#
+# A file that has been imported once has made a product.  Importing it again
+# either means that product -- in which case it should be reused -- or means a
+# different one, in which case it needs to be a different file.  Deciding that
+# needs to know what the earlier import produced and where it lives, and the
+# earlier import may have been into another project entirely, so the search
+# cannot start from an assembly.
+
+class PriorImportsTest(unittest.TestCase):
+    """
+    prior_imports() matches by content and by name, and says which.
+    """
+
+    def _imported(self, name, checksum, product=None):
+        """
+        A stored STEP file with a correspondence, as an import leaves it.
+        """
+        from pangalactic.core.placements import new_thing
+        thing = product or orb.get('test:spacecraft0')
+        model = new_thing('Model', id=f'{name}-model', name=name,
+                          of_thing=thing,
+                          type_of_model=orb.get('pgefobjects:ModelType.MCAD'),
+                          owner=getattr(thing, 'owner', None))
+        rf = new_thing('RepresentationFile', id=f'{name}-file', name=name,
+                       of_object=model, user_file_name=f'{name}.stp')
+        set_correspondence(rf, apply_placements([]), CREATE,
+                           checksum=checksum)
+        orb.db.commit()
+        return rf
+
+    def test_01_a_file_never_imported_has_no_prior_imports(self):
+        """CASE:  nothing matches by either test."""
+        self.assertEqual([], prior_imports(fname='nothing-like-this.stp',
+                                           checksum='no-such-checksum'))
+
+    def test_02_the_same_file_is_found_by_its_checksum(self):
+        """
+        CASE:  byte-for-byte the file that was imported, whatever it is
+        called now.
+        """
+        self._imported('by-content', 'sum-aaa')
+        found = prior_imports(fname='renamed-since.stp', checksum='sum-aaa')
+        expected = [1, True, 'by-content.stp']
+        value = [len(found), found[0].same_file, found[0].file_name]
+        self.assertEqual(expected, value)
+
+    def test_03_a_changed_file_is_found_by_its_name(self):
+        """
+        CASE:  a file of that name was imported and this one differs from
+        it -- the product has changed, or two unrelated files share a name.
+        """
+        self._imported('by-name', 'sum-bbb')
+        found = prior_imports(fname='by-name.stp', checksum='sum-different')
+        expected = [1, False]
+        value = [len(found), found[0].same_file]
+        self.assertEqual(expected, value)
+
+    def test_04_the_product_and_project_come_with_it(self):
+        """
+        CASE:  the caller has to be able to say what the earlier import
+        produced and where it lives.
+        """
+        self._imported('with-product', 'sum-ccc')
+        found = prior_imports(fname='with-product.stp', checksum='sum-ccc')
+        spacecraft = orb.get('test:spacecraft0')
+        expected = [spacecraft.oid, getattr(spacecraft.owner, 'oid', None)]
+        value = [found[0].product.oid,
+                 getattr(found[0].project, 'oid', None)]
+        self.assertEqual(expected, value)
+
+    def test_05_content_matches_rank_before_name_matches(self):
+        """
+        CASE:  both kinds matched.  The same file is the more relevant
+        answer, so a caller taking the first gets it.
+        """
+        self._imported('shared-name', 'sum-ddd')
+        renamed = self._imported('other-name', 'sum-eee')
+        renamed.user_file_name = 'shared-name.stp'
+        orb.db.commit()
+        found = prior_imports(fname='shared-name.stp', checksum='sum-eee')
+        self.assertTrue(found[0].same_file)
+        self.assertFalse(found[-1].same_file)
+
+    def test_06_a_file_with_no_correspondence_says_nothing(self):
+        """
+        CASE:  a RepresentationFile attached some other way.  It was not a
+        STEP import and is no evidence about one.
+        """
+        from pangalactic.core.placements import new_thing
+        new_thing('RepresentationFile', id='not-an-import',
+                  name='not an import', user_file_name='quiet.stp')
+        orb.db.commit()
+        self.assertEqual([], prior_imports(fname='quiet.stp',
+                                           checksum='anything'))
+
+    def test_07_an_import_into_another_project_is_still_found(self):
+        """
+        CASE:  the case the whole function exists for -- the earlier import
+        was into a different project, so no assembly the user is looking at
+        would lead to it.
+        """
+        from pangalactic.core.clone import clone
+        other = clone('Project', oid='test:OTHERPROJ', id='OTHERPROJ',
+                      name='Another Project')
+        elsewhere = clone('HardwareProduct', oid='test:elsewhere',
+                          id='elsewhere', name='Made Elsewhere', owner=other)
+        orb.db.commit()
+        self._imported('cross-project', 'sum-fff', product=elsewhere)
+        found = prior_imports(fname='cross-project.stp', checksum='sum-fff')
+        # compared by oid:  a project-owned HardwareProduct has its id
+        # rewritten to the project's convention (orb.fix_hwproduct_id), so
+        # the id it was created with is not the id it keeps
+        expected = ['OTHERPROJ', 'test:elsewhere']
+        value = [found[0].project.id, found[0].product.oid]
+        self.assertEqual(expected, value)

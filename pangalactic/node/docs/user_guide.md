@@ -440,8 +440,10 @@ the assembly already exists in **Pangalaxian**:
   file is matched to a component the assembly already has, by **reference
   designator**, and the position of each is recorded.  *No products are
   created and no structure is changed* -- only placements are added.  This
-  option is available only when an assembly is selected; if none is, it is
-  disabled and says so.
+  option is available only when an assembly is selected *and* the file has
+  components to position.  Some **STEP** files carry a single part and no
+  assembly structure;  there is nothing in such a file to place, so the
+  option is disabled and says why.
 
 * **Create products and assembly structure from the file** -- the design
   exists only in **CAD**.  A product is proposed for each distinct part in the
@@ -552,10 +554,57 @@ uploaded to the repository so that others on the project can get it.
 
 The correspondence between the file and the objects created from it is also
 stored, so that a later import of the same file knows what it produced the
-first time.  If you import a file that has changed since it was last
-imported, **Pangalaxian** notices and asks before going on.
+first time.  That correspondence is what the placement option reads:  when you
+later choose **Add 3D placement and orientation for the components of ...**
+and select a file that has changed since it was last imported for that
+assembly, **Pangalaxian** notices and asks before going on.
 
 <!-- SCREENSHOT: the "file has changed" dialog -->
+
+Note that the check belongs to the placement option.  Creating products and
+structure from a file does not consult a stored correspondence, because the
+products it creates are new ones:  a stored file of the same name belongs to
+some earlier import and is not the file of the assembly being created.
+
+### A File That Has Already Been Imported
+
+A **STEP** file that has been imported once has produced a product.  Importing
+it again to create products would produce a second one, and two products built
+from one file are not two products -- they are one product the repository
+cannot tell apart from itself.  **Pangalaxian** therefore checks, before
+anything is created, what the file has already produced, and says so.
+
+The check is by content *and* by name, because they mean different things.
+
+**The same file again.**  If the file is byte-for-byte one that has been
+imported -- whatever it is called now -- the import is refused, naming the
+product it produced and the project that has it.  Two courses are open:
+
+* if it is the same product, use the one that already exists rather than
+  creating a second;
+* if it is meant to be a distinct product, open the file in your **CAD** tool,
+  rename the product and its metadata, export it as a new **STEP** file, and
+  import that.  It will then be managed as a product in its own right.
+
+**A file of the same name, with different contents.**  Only you can say what
+this is, so **Pangalaxian** asks:
+
+> The same product -- this file is a later revision of it
+>
+> A different product that happens to have the same file name
+
+*A different product* is refused and cannot be overridden:  that name already
+means the earlier product, so a second one of the same name could not be told
+from it.  Rename the file and import it again.
+
+*The same product*, where the product belongs to another project, is refused
+with the same two courses as above -- a product belongs where it was created.
+
+*The same product*, in the current project, is what a new **version** of that
+product is for:  another product with the same name, its own version, keeping
+the existing one and everything built on it.  Creating a version from an
+import is not available yet, so this is refused as well rather than left to
+create a duplicate.
 
 ### Files That Come as a Set
 

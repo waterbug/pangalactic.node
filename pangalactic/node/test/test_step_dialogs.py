@@ -15,6 +15,7 @@ import shutil
 import pytest
 
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QWidget
 
 # set the orb
 import pangalactic.core.set_uberorb
@@ -73,8 +74,26 @@ def create_plan():
 
 
 @pytest.fixture
-def plan_dialog(qtbot, plan):
-    dlg = StepPlanDialog(plan, PLACE, file_name='rover.stp')
+def dialog_parent(qtbot):
+    """
+    A parent for the dialogs under test.
+
+    StepPlanDialog sizes itself against its parent's height, as it does in
+    the application:  run_step_import() is only ever called with the main
+    window as parent (pangalaxian.step_import), so a parentless plan dialog
+    is not a case the application has.  The tests therefore supply a parent
+    rather than have the dialog defend against the absence of one.
+    """
+    w = QWidget()
+    w.resize(1200, 900)
+    qtbot.addWidget(w)
+    return w
+
+
+@pytest.fixture
+def plan_dialog(qtbot, plan, dialog_parent):
+    dlg = StepPlanDialog(plan, PLACE, file_name='rover.stp',
+                         parent=dialog_parent)
     qtbot.addWidget(dlg)
     return dlg
 
@@ -224,7 +243,7 @@ def test_14_changed_file_dialog_offers_rematch_or_cancel(qtbot):
 
 # ---- orchestration -------------------------------------------------------
 
-def test_15_import_returns_none_if_mode_dialog_cancelled(qtbot, monkeypatch):
+def test_15_import_returns_none_if_mode_dialog_cancelled(qtbot, monkeypatch, dialog_parent):
     """
     Cancelling at the first dialog does nothing at all -- no file is read.
     """
@@ -233,11 +252,12 @@ def test_15_import_returns_none_if_mode_dialog_cancelled(qtbot, monkeypatch):
     read_called = []
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: read_called.append(1))
-    assert sd.run_step_import(assembly=orb.get(ASSEMBLY_OID)) is None
+    assert sd.run_step_import(assembly=orb.get(ASSEMBLY_OID),
+                              parent=dialog_parent) is None
     assert read_called == []
 
 
-def test_16_import_returns_none_if_plan_rejected(qtbot, monkeypatch, tmp_path):
+def test_16_import_returns_none_if_plan_rejected(qtbot, monkeypatch, tmp_path, dialog_parent):
     """
     Rejecting the plan applies nothing, even though the file was read and a
     plan was made.
@@ -256,12 +276,13 @@ def test_16_import_returns_none_if_plan_rejected(qtbot, monkeypatch, tmp_path):
     applied = []
     monkeypatch.setattr(sd, 'apply_placements',
                         lambda *a, **k: applied.append(1))
-    assert sd.run_step_import(assembly=orb.get(ASSEMBLY_OID)) is None
+    assert sd.run_step_import(assembly=orb.get(ASSEMBLY_OID),
+                              parent=dialog_parent) is None
     assert applied == []
 
 
 def test_17_unreadable_file_is_reported_not_raised(qtbot, monkeypatch,
-                                                   tmp_path):
+                                                   tmp_path, dialog_parent):
     """
     A file that cannot be read gives the user a message rather than a
     traceback.
@@ -275,7 +296,8 @@ def test_17_unreadable_file_is_reported_not_raised(qtbot, monkeypatch,
     shown = []
     monkeypatch.setattr(sd.OptionNotification, 'exec_',
                         lambda self: shown.append(self.windowTitle()))
-    assert sd.run_step_import(assembly=orb.get(ASSEMBLY_OID)) is None
+    assert sd.run_step_import(assembly=orb.get(ASSEMBLY_OID),
+                              parent=dialog_parent) is None
     assert shown == ['STEP import failed']
 
 
@@ -290,12 +312,12 @@ def test_18_checksum_of_a_missing_file_is_empty(qtbot):
 
 # ---- product type assignment ---------------------------------------------
 
-def test_19_new_products_get_a_type_combo(qtbot, create_plan):
+def test_19_new_products_get_a_type_combo(qtbot, create_plan, dialog_parent):
     """
     A row proposing a new product carries a combo box to assign its type,
     since STEP implies none and the plan can only propose a placeholder.
     """
-    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp')
+    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp', parent=dialog_parent)
     qtbot.addWidget(dlg)
     from pangalactic.node.step_plan import PRODUCT, NEW
     new_products = [(row, item) for row, item in enumerate(create_plan)
@@ -307,13 +329,13 @@ def test_19_new_products_get_a_type_combo(qtbot, create_plan):
         assert widget.currentData() is item.product_type
 
 
-def test_20_reused_products_get_no_combo(qtbot, create_plan):
+def test_20_reused_products_get_no_combo(qtbot, create_plan, dialog_parent):
     """
     A REUSED row does not offer to change the type -- that product's type
     belongs to what is already in the repository.
     """
     from pangalactic.node.step_plan import PRODUCT, REUSED
-    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp')
+    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp', parent=dialog_parent)
     qtbot.addWidget(dlg)
     reused_rows = [row for row, item in enumerate(create_plan)
                   if item.kind == PRODUCT and item.status == REUSED]
@@ -322,13 +344,13 @@ def test_20_reused_products_get_no_combo(qtbot, create_plan):
         assert dlg.table.cellWidget(row, dlg.TYPE) is None
 
 
-def test_21_combo_defaults_to_unclassified(qtbot, create_plan):
+def test_21_combo_defaults_to_unclassified(qtbot, create_plan, dialog_parent):
     """
     Before the user touches it, the combo shows the "unclassified"
     placeholder the plan proposed -- not silently a different type.
     """
     from pangalactic.node.step_plan import PRODUCT, NEW
-    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp')
+    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp', parent=dialog_parent)
     qtbot.addWidget(dlg)
     unclassified = orb.get('pgefobjects:ProductType.unclassified')
     row = [row for row, item in enumerate(create_plan)
@@ -337,13 +359,13 @@ def test_21_combo_defaults_to_unclassified(qtbot, create_plan):
     assert widget.currentData().oid == unclassified.oid
 
 
-def test_22_choosing_a_type_updates_the_item(qtbot, create_plan):
+def test_22_choosing_a_type_updates_the_item(qtbot, create_plan, dialog_parent):
     """
     Picking a type in the combo reaches the PlanItem, so apply_creation()
     sees it -- the dialog holds the actual item, not a display copy.
     """
     from pangalactic.node.step_plan import PRODUCT, NEW
-    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp')
+    dlg = StepPlanDialog(create_plan, CREATE, file_name='rig.stp', parent=dialog_parent)
     qtbot.addWidget(dlg)
     row, item = [(row, item) for row, item in enumerate(create_plan)
                 if item.kind == PRODUCT and item.status == NEW][0]
@@ -351,6 +373,102 @@ def test_22_choosing_a_type_updates_the_item(qtbot, create_plan):
     other_index = 1 if widget.count() > 1 else 0
     widget.setCurrentIndex(other_index)
     assert item.product_type is widget.itemData(other_index)
+
+
+# ---- the placement option is offered only when it could do something -----
+#
+# Some STEP files carry a single part and no structure -- conrod.stp in the
+# test data is one -- and there is nothing in such a file to place.
+
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+
+
+def _mode_dialog(qtbot, assembly, fpath):
+    """
+    A mode dialog with a file already chosen, without going through the file
+    chooser.
+    """
+    from pangalactic.node import step_dialogs as sd
+    dlg = sd.StepImportModeDialog(assembly=assembly)
+    qtbot.addWidget(dlg)
+    dlg.file_path = fpath
+    dlg._file_has_assembly = sd.file_has_assembly(fpath)
+    dlg._update_place_option()
+    return dlg
+
+
+def test_22_a_file_with_no_assembly_cannot_be_placed(qtbot):
+    """
+    CASE: a single-part file.  There are no components to position, so the
+    option is disabled, says why, and the selection moves to "create".
+    """
+    dlg = _mode_dialog(qtbot, orb.get('test:spacecraft0'),
+                       os.path.join(DATA, 'conrod.stp'))
+    expected = [False, True, True]
+    value = [dlg.place_button.isEnabled(),
+             dlg.create_button.isChecked(),
+             'single part' in dlg.place_button.toolTip()]
+    assert expected == value
+
+
+def test_23_a_file_with_an_assembly_can_be_placed(qtbot):
+    """
+    CASE: a file with assembly usages, and an assembly selected.  The option
+    stays available.
+    """
+    dlg = _mode_dialog(qtbot, orb.get('test:spacecraft0'),
+                       os.path.join(DATA, 'head_asm.stp'))
+    assert dlg.place_button.isEnabled()
+
+
+def test_24_choosing_a_placeable_file_does_not_undo_the_users_choice(qtbot):
+    """
+    CASE: the user moved to "create", then chose a file that could have been
+    placed.  Their choice stands -- only an unavailable option forces one.
+    """
+    dlg = _mode_dialog(qtbot, orb.get('test:spacecraft0'),
+                       os.path.join(DATA, 'conrod.stp'))
+    assert dlg.create_button.isChecked()
+    dlg.file_path = os.path.join(DATA, 'head_asm.stp')
+    dlg._file_has_assembly = True
+    dlg._update_place_option()
+    expected = [True, True]
+    value = [dlg.place_button.isEnabled(), dlg.create_button.isChecked()]
+    assert expected == value
+
+
+def test_25_no_assembly_still_disables_it(qtbot):
+    """
+    CASE: an assembly file but nothing selected to place it into.  The older
+    of the two reasons, unchanged.
+    """
+    dlg = _mode_dialog(qtbot, None, os.path.join(DATA, 'head_asm.stp'))
+    expected = [False, True]
+    value = [dlg.place_button.isEnabled(),
+             'Select an assembly first' in dlg.place_button.toolTip()]
+    assert expected == value
+
+
+def test_26_file_has_assembly_reads_real_files(qtbot):
+    """
+    CASE: the test itself.  Counting products would not do -- as1-oc-214.stp
+    has thirteen assembly usages and no entity written as "=PRODUCT(".
+    """
+    from pangalactic.node import step_dialogs as sd
+    expected = [False, True, True, False]
+    value = [sd.file_has_assembly(os.path.join(DATA, f))
+             for f in ('conrod.stp', 'head_asm.stp', 'as1-oc-214.stp',
+                       'boot.stp')]
+    assert expected == value
+
+
+def test_27_an_unreadable_file_does_not_withdraw_the_option(qtbot):
+    """
+    CASE: the file cannot be read.  An option is not withdrawn on a guess;
+    the import reports the failure properly a moment later.
+    """
+    from pangalactic.node import step_dialogs as sd
+    assert sd.file_has_assembly(os.path.join(DATA, 'no-such-file.stp'))
 
 
 # ---- "add as a system" option (CREATE only, and only for some users) -----
@@ -382,81 +500,81 @@ def _create_plan():
     return plan_creation(root, reuse_products=False)
 
 
-def test_19_create_mode_offers_to_add_the_assembly_as_a_system(qtbot,
-                                                              as_user):
+def test_19_create_mode_offers_to_add_the_assembly_as_a_system(
+                                        qtbot, as_user, dialog_parent):
     """
     In CREATE mode with a project, the option is offered to a Systems
     Engineer on it and defaults on -- without it the assembly is created but
     never appears in the System Tree.
     """
     as_user('test:zaphod')          # systems_engineer on H2G2
-    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'), parent=dialog_parent)
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is not None
     assert dlg.add_system_checkbox.isChecked()
     assert 'Dialog Rig' in dlg.add_system_checkbox.text()
 
 
-def test_20_place_mode_does_not_offer_it(qtbot, plan):
+def test_20_place_mode_does_not_offer_it(qtbot, plan, dialog_parent):
     """
     PLACE mode places components of an assembly that already exists, so there
     is nothing to add to the project.
     """
-    dlg = StepPlanDialog(plan, PLACE, project=orb.get('H2G2'))
+    dlg = StepPlanDialog(plan, PLACE, project=orb.get('H2G2'), parent=dialog_parent)
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is None
 
 
-def test_21_no_project_means_no_option(qtbot, as_user):
+def test_21_no_project_means_no_option(qtbot, as_user, dialog_parent):
     """
     With no current project there is nothing to add the assembly to.
     """
     as_user('test:zaphod')
-    dlg = StepPlanDialog(_create_plan(), CREATE, project=None)
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=None, parent=dialog_parent)
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is None
 
 
-def test_21a_a_project_administrator_is_offered_it(qtbot, as_user):
+def test_21a_a_project_administrator_is_offered_it(qtbot, as_user, dialog_parent):
     """
     An Administrator of the project may say what its systems are.
     """
     as_user('test:steve')           # Administrator on H2G2 (and globally)
-    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'), parent=dialog_parent)
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is not None
 
 
-def test_21b_a_discipline_engineer_is_not(qtbot, as_user):
+def test_21b_a_discipline_engineer_is_not(qtbot, as_user, dialog_parent):
     """
     A propulsion engineer may add and remove components of the propulsion
     subsystem;  that is a different act from declaring the project's systems.
     The option is not shown at all rather than shown and refused.
     """
     as_user('test:buckaroo')        # propulsion_engineer on H2G2
-    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'), parent=dialog_parent)
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is None
 
 
-def test_21c_a_lead_engineer_is_offered_it(qtbot, as_user):
+def test_21c_a_lead_engineer_is_offered_it(qtbot, as_user, dialog_parent):
     """
     A lead engineer may modify the project, so they may say what its systems
     are -- access.may_add_system() defers to get_perms(), which admits
     Administrator, lead_engineer and systems_engineer alike.
     """
     as_user('test:carefulwalker')   # lead_engineer on H2G2
-    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'), parent=dialog_parent)
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is not None
 
 
-def test_21d_no_local_user_means_no_option(qtbot, as_user):
+def test_21d_no_local_user_means_no_option(qtbot, as_user, dialog_parent):
     """
     Nobody is nobody:  an unidentified user is not authorized.
     """
     as_user(None)
-    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'))
+    dlg = StepPlanDialog(_create_plan(), CREATE, project=orb.get('H2G2'), parent=dialog_parent)
     qtbot.addWidget(dlg)
     assert dlg.add_system_checkbox is None
 
@@ -464,7 +582,7 @@ def test_21d_no_local_user_means_no_option(qtbot, as_user):
 # ---- registering the STEP file as an MCAD model --------------------------
 
 def test_19_create_import_registers_an_mcad_model(qtbot, monkeypatch,
-                                                  tmp_path):
+                                                  tmp_path, dialog_parent):
     """
     A CREATE import asks for a Model of the imported assembly, with the STEP
     file as its RepresentationFile, by sending the same "add update model"
@@ -492,13 +610,16 @@ def test_19_create_import_registers_an_mcad_model(qtbot, monkeypatch,
                                               str(step_file)) or 1))
     monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
                         raising=False)
+    # what a file has already produced is check_prior_imports()' subject,
+    # not this test's;  covered from test_29 onwards
+    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: root)
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 1)
     was = state.get('connected')
     state['connected'] = True
     try:
-        result = sd.run_step_import(assembly=None)
+        result = sd.run_step_import(assembly=None, parent=dialog_parent)
     finally:
         state['connected'] = was
     assert result is not None
@@ -514,7 +635,7 @@ def test_19_create_import_registers_an_mcad_model(qtbot, monkeypatch,
 
 def test_20_correspondence_waits_for_the_representation_file(qtbot,
                                                              monkeypatch,
-                                                             tmp_path):
+                                                             tmp_path, dialog_parent):
     """
     The correspondence cannot be written when the import runs -- the
     RepresentationFile does not exist yet -- so it is left in state, and
@@ -540,13 +661,16 @@ def test_20_correspondence_waits_for_the_representation_file(qtbot,
                                               str(step_file)) or 1))
     monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
                         raising=False)
+    # what a file has already produced is check_prior_imports()' subject,
+    # not this test's;  covered from test_29 onwards
+    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: root)
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 1)
     was = state.get('connected')
     state['connected'] = True
     try:
-        sd.run_step_import(assembly=None)
+        sd.run_step_import(assembly=None, parent=dialog_parent)
     finally:
         state['connected'] = was
     pending = state.get('step_pending_correspondence') or {}
@@ -566,7 +690,7 @@ def test_20_correspondence_waits_for_the_representation_file(qtbot,
 
 
 def test_20a_an_offline_import_still_registers_the_file(qtbot, monkeypatch,
-                                                        tmp_path):
+                                                        tmp_path, dialog_parent):
     """
     CASE:  a CREATE import made while disconnected.
 
@@ -595,13 +719,16 @@ def test_20a_an_offline_import_still_registers_the_file(qtbot, monkeypatch,
                                               str(step_file)) or 1))
     monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
                         raising=False)
+    # what a file has already produced is check_prior_imports()' subject,
+    # not this test's;  covered from test_29 onwards
+    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: root)
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 1)
     was = state.get('connected')
     state['connected'] = False
     try:
-        result = sd.run_step_import(assembly=None)
+        result = sd.run_step_import(assembly=None, parent=dialog_parent)
     finally:
         state['connected'] = was
     assert result is not None
@@ -613,7 +740,7 @@ def test_20a_an_offline_import_still_registers_the_file(qtbot, monkeypatch,
 
 
 def test_21_import_stops_when_a_referenced_file_is_missing(qtbot, monkeypatch,
-                                                           tmp_path):
+                                                           tmp_path, dialog_parent):
     """
     A STEP file that names other files is refused unless they are beside it.
 
@@ -630,13 +757,16 @@ def test_21_import_stops_when_a_referenced_file_is_missing(qtbot, monkeypatch,
                                               str(alone)) or 1))
     monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
                         raising=False)
+    # what a file has already produced is check_prior_imports()' subject,
+    # not this test's;  covered from test_29 onwards
+    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
     read = []
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: read.append(1))
     shown = []
     monkeypatch.setattr(sd.OptionNotification, 'exec_',
                         lambda self: shown.append(self.windowTitle()))
-    result = sd.run_step_import(assembly=None)
+    result = sd.run_step_import(assembly=None, parent=dialog_parent)
     assert result is None
     assert shown == ['Referenced files are missing']
     # it stopped before reading anything
@@ -644,7 +774,7 @@ def test_21_import_stops_when_a_referenced_file_is_missing(qtbot, monkeypatch,
 
 
 def test_22_import_proceeds_when_the_set_is_complete(qtbot, monkeypatch,
-                                                     tmp_path):
+                                                     tmp_path, dialog_parent):
     """
     The same file, with its companions beside it, is not refused -- the check
     must not block a legitimate set.
@@ -666,11 +796,14 @@ def test_22_import_proceeds_when_the_set_is_complete(qtbot, monkeypatch,
                                               str(top)) or 1))
     monkeypatch.setattr(sd.StepImportModeDialog, 'mode', sd.CREATE,
                         raising=False)
+    # what a file has already produced is check_prior_imports()' subject,
+    # not this test's;  covered from test_29 onwards
+    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 0)
     shown = []
     monkeypatch.setattr(sd.OptionNotification, 'exec_',
                         lambda self: shown.append(self.windowTitle()))
-    sd.run_step_import(assembly=None)
+    sd.run_step_import(assembly=None, parent=dialog_parent)
     # cancelled at the plan dialog, but never refused for missing files
     assert 'Referenced files are missing' not in shown
 
@@ -831,18 +964,18 @@ def bulk_plan():
 
 
 @pytest.fixture
-def bulk_dialog(qtbot, bulk_plan):
-    dlg = StepPlanDialog(bulk_plan, CREATE, file_name='bulk.stp')
+def bulk_dialog(qtbot, bulk_plan, dialog_parent):
+    dlg = StepPlanDialog(bulk_plan, CREATE, file_name='bulk.stp', parent=dialog_parent)
     qtbot.addWidget(dlg)
     return dlg
 
 
-def test_26_bulk_row_is_absent_in_place_mode(qtbot, plan):
+def test_26_bulk_row_is_absent_in_place_mode(qtbot, plan, dialog_parent):
     """
     CASE:  a PLACE plan.  Nothing is created, so there is no type to set and
     the bulk row is not built.
     """
-    dlg = StepPlanDialog(plan, PLACE, file_name='rover.stp')
+    dlg = StepPlanDialog(plan, PLACE, file_name='rover.stp', parent=dialog_parent)
     qtbot.addWidget(dlg)
     assert dlg.type_combo is None
     assert dlg.type_combos == {}
@@ -999,12 +1132,12 @@ def test_35_apply_to_selected_says_how_many_it_will_set(bulk_dialog):
     assert 'skipped' in tip
 
 
-def test_36_no_select_all_box_in_place_mode(qtbot, plan):
+def test_36_no_select_all_box_in_place_mode(qtbot, plan, dialog_parent):
     """
     CASE:  a PLACE plan.  Nothing has a type to set, so neither the bulk row
     nor the select-all box is built.
     """
-    dlg = StepPlanDialog(plan, PLACE, file_name='rover.stp')
+    dlg = StepPlanDialog(plan, PLACE, file_name='rover.stp', parent=dialog_parent)
     qtbot.addWidget(dlg)
     assert dlg.select_all_checkbox is None
 
@@ -1078,7 +1211,7 @@ def test_39_the_most_recently_imported_file_wins(qtbot):
     assert _stored_step_file(assembly, '/tmp/twice.stp') is newer
 
 
-def test_40_a_changed_file_stops_a_place_import(qtbot, monkeypatch, tmp_path):
+def test_40_a_changed_file_stops_a_place_import(qtbot, monkeypatch, tmp_path, dialog_parent):
     """
     CASE:  re-importing a file that has changed since it was imported.  The
     warning is raised without the caller having supplied anything, and
@@ -1104,19 +1237,24 @@ def test_40_a_changed_file_stops_a_place_import(qtbot, monkeypatch, tmp_path):
     read = []
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: read.append(1))
-    assert sd.run_step_import(assembly=assembly) is None
+    assert sd.run_step_import(assembly=assembly, parent=dialog_parent) is None
     assert asked == ['This file has changed']
     assert read == []
 
 
 def test_41_a_create_import_does_not_adopt_the_stored_file(qtbot, monkeypatch,
-                                                           tmp_path):
+                                                           tmp_path, dialog_parent):
     """
     CASE:  CREATE mode with an assembly selected and a stored file of the
-    same name.  No warning:  CREATE builds a new assembly and registers a
-    file of its own, so the stored file belongs to an earlier import and
-    neither describes what is about to happen nor may have its correspondence
-    overwritten by it.
+    same name.  The *changed-file* dialog is not used:  CREATE builds a new
+    assembly and registers a file of its own, so the stored file belongs to
+    an earlier import and neither describes what is about to happen nor may
+    have its correspondence overwritten by it.
+
+    What a stored file of the same name does mean in CREATE mode is asked by
+    check_prior_imports() instead -- is this the same product? -- which is a
+    different question with different consequences.  Stubbed here so that
+    this test keeps to its own subject;  test_29 onwards cover it.
     """
     from pangalactic.node import step_dialogs as sd
     from pangalactic.node.step_plan import set_correspondence, ImportResult
@@ -1137,5 +1275,190 @@ def test_41_a_create_import_does_not_adopt_the_stored_file(qtbot, monkeypatch,
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: occ('root'))
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 0)
-    assert sd.run_step_import(assembly=assembly) is None
+    monkeypatch.setattr(sd, 'check_prior_imports',
+                        lambda *a, **k: True)
+    assert sd.run_step_import(assembly=assembly, parent=dialog_parent) is None
     assert asked == []
+
+
+# ---- a file that has already produced a product --------------------------
+#
+# Importing a file twice in CREATE mode would make a second product from one
+# file, and two products built from one file are not two products -- they are
+# one product the repository cannot tell apart from itself.  check_prior_
+# imports() decides;  these cover each answer it can give.
+
+@pytest.fixture
+def prior_import(tmp_path):
+    """
+    A file that has been imported, and the objects that import produced.
+    """
+    from pangalactic.core.placements import new_thing
+    from pangalactic.node.step_plan import set_correspondence, apply_placements
+
+    def _make(file_name='already.stp', checksum='sum-xyz', product=None):
+        thing = product or orb.get('test:spacecraft0')
+        model = new_thing('Model', id=f'{file_name}-model', name=file_name,
+                          of_thing=thing,
+                          type_of_model=orb.get('pgefobjects:ModelType.MCAD'),
+                          owner=getattr(thing, 'owner', None))
+        rf = new_thing('RepresentationFile', id=f'{file_name}-rf',
+                       name=file_name, of_object=model,
+                       user_file_name=file_name)
+        set_correspondence(rf, apply_placements([]), CREATE,
+                           checksum=checksum)
+        orb.db.commit()
+        return rf
+    return _make
+
+
+def _a_file(tmp_path, name, text='ISO-10303-21;\nEND-ISO-10303-21;\n'):
+    fpath = tmp_path / name
+    fpath.write_text(text)
+    return str(fpath)
+
+
+def test_28_a_file_never_imported_may_be_imported(qtbot, tmp_path):
+    """CASE: nothing matches, so nothing is in the way."""
+    from pangalactic.node import step_dialogs as sd
+    path = _a_file(tmp_path, 'brand-new.stp')
+    assert sd.check_prior_imports(path, 'brand-new.stp') is True
+
+
+def test_29_the_same_file_again_is_refused(qtbot, monkeypatch, tmp_path,
+                                           prior_import, dialog_parent):
+    """
+    CASE: byte-for-byte the file that was imported.  There is already a
+    product for it;  the import is refused and the user is told what to do
+    instead.
+    """
+    from pangalactic.node import step_dialogs as sd
+    path = _a_file(tmp_path, 'twice.stp')
+    prior_import(file_name='twice.stp', checksum=sd._checksum(path))
+    shown = {}
+    monkeypatch.setattr(sd, 'OptionNotification',
+                        lambda title, msg, parent=None: _FakeDialog(
+                                                    shown, title, msg))
+    value = sd.check_prior_imports(path, 'twice.stp', parent=dialog_parent)
+    expected = [False, True, True]
+    assert expected == [value,
+                        'already been imported' in shown['title'],
+                        'distinct product' in shown['message']]
+
+
+def test_30_a_different_product_of_the_same_name_is_refused(
+                        qtbot, monkeypatch, tmp_path, prior_import,
+                        dialog_parent):
+    """
+    CASE: the user says it is a different product.  Two designs cannot be
+    told apart by a name that means both, and the refusal cannot be
+    overridden.
+    """
+    from pangalactic.node import step_dialogs as sd
+    path = _a_file(tmp_path, 'collide.stp', 'ISO-10303-21; /* other */\n')
+    prior_import(file_name='collide.stp', checksum='a-different-sum')
+    shown = {}
+    monkeypatch.setattr(sd, 'OptionNotification',
+                        lambda title, msg, parent=None: _FakeDialog(
+                                                    shown, title, msg))
+    monkeypatch.setattr(sd.StepSameNameDialog, 'exec_', lambda self: 1)
+    monkeypatch.setattr(sd.StepSameNameDialog, 'same_product',
+                        property(lambda self: False))
+    value = sd.check_prior_imports(path, 'collide.stp', parent=dialog_parent)
+    expected = [False, True]
+    assert expected == [value, 'share a file name' in shown['title']]
+
+
+def test_31_cancelling_the_question_stops_the_import(
+                        qtbot, monkeypatch, tmp_path, prior_import,
+                        dialog_parent):
+    """CASE: the user cancels rather than answering."""
+    from pangalactic.node import step_dialogs as sd
+    path = _a_file(tmp_path, 'cancelled.stp', 'ISO-10303-21; /* x */\n')
+    prior_import(file_name='cancelled.stp', checksum='another-sum')
+    monkeypatch.setattr(sd.StepSameNameDialog, 'exec_', lambda self: 0)
+    assert sd.check_prior_imports(path, 'cancelled.stp',
+                                  parent=dialog_parent) is False
+
+
+def test_32_the_same_product_in_another_project_is_refused(
+                        qtbot, monkeypatch, tmp_path, prior_import,
+                        dialog_parent):
+    """
+    CASE: the product this file made belongs to another project.  A product
+    belongs where it was created;  importing it here would make a second one
+    of the same design.
+    """
+    from pangalactic.core.clone import clone
+    from pangalactic.node import step_dialogs as sd
+    other = clone('Project', oid='test:OTHERPROJ2', id='OTHERPROJ2',
+                  name='Somewhere Else')
+    elsewhere = clone('HardwareProduct', oid='test:elsewhere2',
+                      id='elsewhere2', name='Made Elsewhere', owner=other)
+    orb.db.commit()
+    path = _a_file(tmp_path, 'crossproj.stp', 'ISO-10303-21; /* y */\n')
+    prior_import(file_name='crossproj.stp', checksum='yet-another-sum',
+                 product=elsewhere)
+    shown = {}
+    monkeypatch.setattr(sd, 'OptionNotification',
+                        lambda title, msg, parent=None: _FakeDialog(
+                                                    shown, title, msg))
+    monkeypatch.setattr(sd.StepSameNameDialog, 'exec_', lambda self: 1)
+    value = sd.check_prior_imports(path, 'crossproj.stp',
+                                   project=orb.get('H2G2'),
+                                   parent=dialog_parent)
+    expected = [False, True]
+    assert expected == [value, 'another project' in shown['title']]
+
+
+def test_33_a_later_revision_here_asks_for_a_version(
+                        qtbot, monkeypatch, tmp_path, prior_import,
+                        dialog_parent):
+    """
+    CASE: a later revision of a product in this project.  A new version is
+    what is wanted;  until that is built the import is refused rather than
+    left to make a duplicate.
+    """
+    from pangalactic.node import step_dialogs as sd
+    path = _a_file(tmp_path, 'revised.stp', 'ISO-10303-21; /* z */\n')
+    prior_import(file_name='revised.stp', checksum='older-sum')
+    shown = {}
+    monkeypatch.setattr(sd, 'OptionNotification',
+                        lambda title, msg, parent=None: _FakeDialog(
+                                                    shown, title, msg))
+    monkeypatch.setattr(sd.StepSameNameDialog, 'exec_', lambda self: 1)
+    spacecraft = orb.get('test:spacecraft0')
+    value = sd.check_prior_imports(path, 'revised.stp',
+                                   project=spacecraft.owner,
+                                   parent=dialog_parent)
+    expected = [False, True]
+    assert expected == [value, 'new version' in shown['title']]
+
+
+def test_34_the_question_dialog_offers_both_answers(qtbot, prior_import,
+                                                    dialog_parent):
+    """
+    CASE: the dialog itself.  Only the user can say which case it is, so
+    both answers are offered and neither is assumed.
+    """
+    from pangalactic.node import step_dialogs as sd
+    rf = prior_import(file_name='asked.stp', checksum='asked-sum')
+    from pangalactic.node.step_plan import PriorImport, get_correspondence
+    prior = PriorImport(rf, get_correspondence(rf), False)
+    dlg = sd.StepSameNameDialog(prior, file_name='asked.stp',
+                                parent=dialog_parent)
+    qtbot.addWidget(dlg)
+    expected = [True, False]
+    value = [dlg.same_product, dlg.different_button.isChecked()]
+    assert expected == value
+
+
+class _FakeDialog:
+    """Records what an OptionNotification was asked to show."""
+
+    def __init__(self, shown, title, message):
+        shown['title'] = title
+        shown['message'] = message
+
+    def exec_(self):
+        return 1

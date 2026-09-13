@@ -20,6 +20,7 @@ commitment.  `pangalactic.node.step_dialogs` presents a plan; this module
 decides what is in one.
 """
 import json
+import re
 
 from pangalactic.core import orb, state
 from pangalactic.core.names import get_acu_id, get_acu_name
@@ -558,6 +559,51 @@ def apply_creation(items, owner=None, project=None, NOW=None,
 # ---------------------------------------------------------------------------
 
 # id of the DataElementDefinition in pangalactic.core.refdata
+# An assembly is a file in which something is used as a component of
+# something else, which in Part 21 is a NEXT_ASSEMBLY_USAGE_OCCURRENCE.  The
+# same pattern part21.preparse() greps for, and the same reason:  it is the
+# one entity that says "this file has structure".
+#
+# Counting products will not do it.  as1-oc-214.stp in the test data has
+# thirteen assembly usages and not one entity written as "=PRODUCT(" --
+# Part 21 permits whitespace the naive pattern misses, and some files
+# describe their products by other means.  The usages are what matters here
+# anyway:  without them there is nothing to place.
+NAUO_PATTERN = re.compile(
+        r'#\s*\d+\s*=\s*NEXT_ASSEMBLY_USAGE_OCCURRENCE\s*\(',
+        re.IGNORECASE)
+
+
+def file_has_assembly(path):
+    """
+    Say whether a STEP file describes an assembly -- whether anything in it
+    is used as a component of anything else.
+
+    Some STEP files carry a single part and no structure:  conrod.stp in the
+    test data is one.  There is nothing in such a file to place, so offering
+    to position and orient its components offers nothing.
+
+    Read as text rather than through pythonocc:  this is asked as soon as the
+    file is chosen, to decide what the dialog may offer, and reading a large
+    assembly properly takes long enough to need a progress dialog.
+
+    Args:
+        path (str):  the file
+
+    Returns:
+        bool:  True if the file contains at least one assembly usage.  True
+        also if the file cannot be read -- an option is not withdrawn on the
+        strength of a guess, and the import itself reports the failure
+        properly a moment later.
+    """
+    try:
+        with open(path, 'r', errors='replace') as f:
+            return bool(NAUO_PATTERN.search(f.read()))
+    except OSError as e:
+        orb.log.debug(f'  - file_has_assembly: cannot read "{path}": {e}')
+        return True
+
+
 CORRESPONDENCE_DEID = 'step_correspondence'
 
 # bumped if the stored structure changes in a way readers must notice
@@ -587,6 +633,94 @@ def get_correspondence(rep_file):
                         f'"{getattr(rep_file, "id", "?")}", ignoring it')
         return {}
     return stored if isinstance(stored, dict) else {}
+
+
+class PriorImport:
+    """
+    An import a STEP file has already had, and what it produced.
+
+    Attributes:
+        rep_file (RepresentationFile):  the stored copy of that file
+        file_name (str):  the name it was imported under
+        product (Product or None):  the thing the import created -- the
+            RepresentationFile's Model's "of_thing"
+        project (Project or None):  the project that owns the product, where
+            it is owned by one
+        imported (str):  when, as recorded in the correspondence
+        same_file (bool):  the file about to be imported is byte-for-byte the
+            one that was imported then
+    """
+
+    def __init__(self, rep_file, correspondence, same_file):
+        self.rep_file = rep_file
+        self.correspondence = correspondence
+        self.same_file = same_file
+        self.file_name = getattr(rep_file, 'user_file_name', '')
+        self.imported = correspondence.get('imported', '')
+        model = getattr(rep_file, 'of_object', None)
+        self.product = getattr(model, 'of_thing', None)
+        owner = getattr(self.product, 'owner', None)
+        self.project = (owner if isinstance(owner, orb.classes['Project'])
+                        else None)
+
+    def __repr__(self):
+        what = 'same file' if self.same_file else 'same name'
+        pid = getattr(self.product, 'id', None) or '[no product]'
+        return f'<PriorImport {self.file_name!r} {what} -> {pid}>'
+
+
+def prior_imports(fname='', checksum=''):
+    """
+    Every import already recorded for a STEP file, matched by content or by
+    name.
+
+    Configuration management, not curiosity:  a file that has been imported
+    once has produced a product, and importing it again either means that
+    product (in which case it should be reused) or means a different one (in
+    which case it needs to be a different file).  Deciding that needs to know
+    what the first import produced and where it lives, and the caller cannot
+    know which assembly to look on -- the whole point is that the earlier
+    import may have been into another project entirely.  So this looks at
+    every stored correspondence rather than at one assembly's models, which
+    is what `_stored_step_file()` in step_dialogs does for the narrower
+    question a PLACE import asks.
+
+    Matching is by checksum *and* by name because they mean different things:
+
+    * same checksum -- the very same file, whatever it is called.  There is
+      already a product for it.
+    * same name, different checksum -- a file of that name has been imported
+      and this one differs from it.  Either the product has changed, or two
+      unrelated files have been given the same name.
+
+    A RepresentationFile with no stored correspondence is skipped:  it was
+    attached some other way and says nothing about a STEP import.
+
+    Keyword Args:
+        fname (str):  the file's name, as it would be stored
+        checksum (str):  sha-256 of the file about to be imported
+
+    Returns:
+        list of PriorImport:  the ones matched by content first, then the
+        ones matched only by name;  each group most recently imported first,
+        so a caller taking the first has the most relevant one.
+    """
+    by_content, by_name = [], []
+    for rep_file in orb.get_by_type('RepresentationFile'):
+        stored = get_correspondence(rep_file)
+        if not stored:
+            continue
+        was = stored.get('checksum') or ''
+        same_file = bool(was and checksum and was == checksum)
+        same_name = bool(fname
+                         and getattr(rep_file, 'user_file_name', '') == fname)
+        if same_file:
+            by_content.append(PriorImport(rep_file, stored, True))
+        elif same_name:
+            by_name.append(PriorImport(rep_file, stored, False))
+    for group in (by_content, by_name):
+        group.sort(key=lambda p: p.imported, reverse=True)
+    return by_content + by_name
 
 
 def store_correspondence_map(rep_file, pending):
