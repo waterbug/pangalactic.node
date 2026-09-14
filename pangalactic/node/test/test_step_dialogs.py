@@ -612,7 +612,8 @@ def test_19_create_import_registers_an_mcad_model(qtbot, monkeypatch,
                         raising=False)
     # what a file has already produced is check_prior_imports()' subject,
     # not this test's;  covered from test_29 onwards
-    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
+    monkeypatch.setattr(sd, 'check_prior_imports',
+                        lambda *a, **k: (True, None, ''))
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: root)
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 1)
@@ -663,7 +664,8 @@ def test_20_correspondence_waits_for_the_representation_file(qtbot,
                         raising=False)
     # what a file has already produced is check_prior_imports()' subject,
     # not this test's;  covered from test_29 onwards
-    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
+    monkeypatch.setattr(sd, 'check_prior_imports',
+                        lambda *a, **k: (True, None, ''))
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: root)
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 1)
@@ -721,7 +723,8 @@ def test_20a_an_offline_import_still_registers_the_file(qtbot, monkeypatch,
                         raising=False)
     # what a file has already produced is check_prior_imports()' subject,
     # not this test's;  covered from test_29 onwards
-    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
+    monkeypatch.setattr(sd, 'check_prior_imports',
+                        lambda *a, **k: (True, None, ''))
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: root)
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 1)
@@ -759,7 +762,8 @@ def test_21_import_stops_when_a_referenced_file_is_missing(qtbot, monkeypatch,
                         raising=False)
     # what a file has already produced is check_prior_imports()' subject,
     # not this test's;  covered from test_29 onwards
-    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
+    monkeypatch.setattr(sd, 'check_prior_imports',
+                        lambda *a, **k: (True, None, ''))
     read = []
     monkeypatch.setattr('pangalactic.node.step_import.read_assembly',
                         lambda *a, **k: read.append(1))
@@ -798,7 +802,8 @@ def test_22_import_proceeds_when_the_set_is_complete(qtbot, monkeypatch,
                         raising=False)
     # what a file has already produced is check_prior_imports()' subject,
     # not this test's;  covered from test_29 onwards
-    monkeypatch.setattr(sd, 'check_prior_imports', lambda *a, **k: True)
+    monkeypatch.setattr(sd, 'check_prior_imports',
+                        lambda *a, **k: (True, None, ''))
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 0)
     shown = []
     monkeypatch.setattr(sd.OptionNotification, 'exec_',
@@ -1276,7 +1281,7 @@ def test_41_a_create_import_does_not_adopt_the_stored_file(qtbot, monkeypatch,
                         lambda *a, **k: occ('root'))
     monkeypatch.setattr(sd.StepPlanDialog, 'exec_', lambda self: 0)
     monkeypatch.setattr(sd, 'check_prior_imports',
-                        lambda *a, **k: True)
+                        lambda *a, **k: (True, None, ''))
     assert sd.run_step_import(assembly=assembly, parent=dialog_parent) is None
     assert asked == []
 
@@ -1322,7 +1327,7 @@ def test_28_a_file_never_imported_may_be_imported(qtbot, tmp_path):
     """CASE: nothing matches, so nothing is in the way."""
     from pangalactic.node import step_dialogs as sd
     path = _a_file(tmp_path, 'brand-new.stp')
-    assert sd.check_prior_imports(path, 'brand-new.stp') is True
+    assert sd.check_prior_imports(path, 'brand-new.stp') == (True, None, '')
 
 
 def test_29_the_same_file_again_is_refused(qtbot, monkeypatch, tmp_path,
@@ -1339,7 +1344,8 @@ def test_29_the_same_file_again_is_refused(qtbot, monkeypatch, tmp_path,
     monkeypatch.setattr(sd, 'OptionNotification',
                         lambda title, msg, parent=None: _FakeDialog(
                                                     shown, title, msg))
-    value = sd.check_prior_imports(path, 'twice.stp', parent=dialog_parent)
+    value = sd.check_prior_imports(path, 'twice.stp',
+                                   parent=dialog_parent)[0]
     expected = [False, True, True]
     assert expected == [value,
                         'already been imported' in shown['title'],
@@ -1364,7 +1370,8 @@ def test_30_a_different_product_of_the_same_name_is_refused(
     monkeypatch.setattr(sd.StepSameNameDialog, 'exec_', lambda self: 1)
     monkeypatch.setattr(sd.StepSameNameDialog, 'same_product',
                         property(lambda self: False))
-    value = sd.check_prior_imports(path, 'collide.stp', parent=dialog_parent)
+    value = sd.check_prior_imports(path, 'collide.stp',
+                                   parent=dialog_parent)[0]
     expected = [False, True]
     assert expected == [value, 'share a file name' in shown['title']]
 
@@ -1378,7 +1385,7 @@ def test_31_cancelling_the_question_stops_the_import(
     prior_import(file_name='cancelled.stp', checksum='another-sum')
     monkeypatch.setattr(sd.StepSameNameDialog, 'exec_', lambda self: 0)
     assert sd.check_prior_imports(path, 'cancelled.stp',
-                                  parent=dialog_parent) is False
+                                  parent=dialog_parent)[0] is False
 
 
 def test_32_the_same_product_in_another_project_is_refused(
@@ -1406,33 +1413,77 @@ def test_32_the_same_product_in_another_project_is_refused(
     monkeypatch.setattr(sd.StepSameNameDialog, 'exec_', lambda self: 1)
     value = sd.check_prior_imports(path, 'crossproj.stp',
                                    project=orb.get('H2G2'),
-                                   parent=dialog_parent)
+                                   parent=dialog_parent)[0]
     expected = [False, True]
     assert expected == [value, 'another project' in shown['title']]
 
 
-def test_33_a_later_revision_here_asks_for_a_version(
+def test_33_a_later_revision_here_becomes_a_new_version(
                         qtbot, monkeypatch, tmp_path, prior_import,
                         dialog_parent):
     """
-    CASE: a later revision of a product in this project.  A new version is
-    what is wanted;  until that is built the import is refused rather than
-    left to make a duplicate.
+    CASE: a later revision of a product in this project.  This is the one
+    case that proceeds -- as a new version of that product, with the version
+    string the user gives it.
     """
     from pangalactic.node import step_dialogs as sd
     path = _a_file(tmp_path, 'revised.stp', 'ISO-10303-21; /* z */\n')
     prior_import(file_name='revised.stp', checksum='older-sum')
-    shown = {}
-    monkeypatch.setattr(sd, 'OptionNotification',
-                        lambda title, msg, parent=None: _FakeDialog(
-                                                    shown, title, msg))
     monkeypatch.setattr(sd.StepSameNameDialog, 'exec_', lambda self: 1)
+    monkeypatch.setattr(sd.StepNewVersionDialog, 'exec_', lambda self: 1)
+    monkeypatch.setattr(sd.StepNewVersionDialog, 'version',
+                        property(lambda self: ' B '))
     spacecraft = orb.get('test:spacecraft0')
-    value = sd.check_prior_imports(path, 'revised.stp',
-                                   project=spacecraft.owner,
-                                   parent=dialog_parent)
-    expected = [False, True]
-    assert expected == [value, 'new version' in shown['title']]
+    (proceed, versioned, version) = sd.check_prior_imports(
+                                        path, 'revised.stp',
+                                        project=spacecraft.owner,
+                                        parent=dialog_parent)
+    expected = [True, spacecraft.oid, 'B']
+    assert expected == [proceed, versioned.oid, version]
+
+
+def test_33a_cancelling_the_version_dialog_stops_the_import(
+                        qtbot, monkeypatch, tmp_path, prior_import,
+                        dialog_parent):
+    """CASE: the user thinks better of it at the version dialog."""
+    from pangalactic.node import step_dialogs as sd
+    path = _a_file(tmp_path, 'revised2.stp', 'ISO-10303-21; /* q */\n')
+    prior_import(file_name='revised2.stp', checksum='older-sum-2')
+    monkeypatch.setattr(sd.StepSameNameDialog, 'exec_', lambda self: 1)
+    monkeypatch.setattr(sd.StepNewVersionDialog, 'exec_', lambda self: 0)
+    spacecraft = orb.get('test:spacecraft0')
+    assert sd.check_prior_imports(path, 'revised2.stp',
+                                  project=spacecraft.owner,
+                                  parent=dialog_parent)[0] is False
+
+
+def test_33b_the_version_dialog_needs_a_new_version_string(
+                        qtbot, prior_import, dialog_parent):
+    """
+    CASE: the dialog itself.  A version has to be called something, and
+    something other than what the product is called now -- the same string
+    would not distinguish the two.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from PyQt5.QtWidgets import QDialogButtonBox
+    spacecraft = orb.get('test:spacecraft0')
+    was = spacecraft.version
+    spacecraft.version = 'A'
+    orb.db.commit()
+    try:
+        dlg = sd.StepNewVersionDialog(spacecraft, file_name='v.stp',
+                                      parent=dialog_parent)
+        qtbot.addWidget(dlg)
+        ok = dlg.buttons.button(QDialogButtonBox.Ok)
+        states = [ok.isEnabled()]              # empty
+        dlg.version_field.setText('A')
+        states.append(ok.isEnabled())          # the version it already has
+        dlg.version_field.setText('B')
+        states.append(ok.isEnabled())
+        assert states == [False, False, True]
+    finally:
+        spacecraft.version = was
+        orb.db.commit()
 
 
 def test_34_the_question_dialog_offers_both_answers(qtbot, prior_import,

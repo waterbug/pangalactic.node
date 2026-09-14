@@ -18,8 +18,9 @@ from PyQt5.QtCore import QEventLoop, Qt
 from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
                              QDialogButtonBox, QFileDialog, QFormLayout,
-                             QHBoxLayout, QLabel, QPushButton, QRadioButton,
-                             QTableWidget, QTableWidgetItem, QVBoxLayout)
+                             QHBoxLayout, QLabel, QLineEdit, QPushButton,
+                             QRadioButton, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout)
 
 from pangalactic.node.dialogs import OptionNotification, ProgressDialog
 from pangalactic.node.threads import Worker, threadpool
@@ -761,6 +762,73 @@ def _describe(prior):
     return f'{what}{where}{when}'
 
 
+class StepNewVersionDialog(QDialog):
+    """
+    Ask what to call the new version of a product a revised file describes.
+
+    The version string is the user's to choose:  projects number their
+    revisions by their own conventions, and nothing in a STEP file implies
+    one.  The current version is shown so that the next one can be chosen
+    against it.  "version_sequence" is not asked about -- it is the
+    repository's own ordering and is incremented for them.
+    """
+
+    def __init__(self, product, file_name='', parent=None):
+        """
+        Args:
+            product (Product):  the product being versioned
+
+        Keyword Args:
+            file_name (str):  the file the new version is being read from
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        self.product = product
+        self.setWindowTitle('New version')
+        layout = QVBoxLayout(self)
+        current = getattr(product, 'version', None) or '[no version]'
+        blurb = QLabel(
+            f'<p><b>{file_name}</b> is a later revision of '
+            f'<b>{getattr(product, "id", "")}</b> '
+            f'("{getattr(product, "name", "")}").</p>'
+            f'<p>Importing it will create a new <b>version</b> of that '
+            f'product, assembled as the file describes.  The existing '
+            f'version and everything built on it are left as they are.</p>'
+            f'<p>Its current version is <b>{current}</b>.</p>', self)
+        blurb.setWordWrap(True)
+        layout.addWidget(blurb)
+
+        form = QFormLayout()
+        self.version_field = QLineEdit(self)
+        self.version_field.setPlaceholderText('e.g. B')
+        self.version_field.textChanged.connect(self._update_ok)
+        form.addRow(QLabel('New version:', self), self.version_field)
+        layout.addLayout(form)
+
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal,
+            self)
+        self.buttons.button(QDialogButtonBox.Ok).setText('Import')
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+        self._update_ok()
+
+    def _update_ok(self):
+        """
+        A version has to be called something, and something else:  a version
+        string the product already has would not distinguish the two.
+        """
+        wanted = self.version.strip()
+        current = (getattr(self.product, 'version', None) or '').strip()
+        self.buttons.button(QDialogButtonBox.Ok).setEnabled(
+                                        bool(wanted) and wanted != current)
+
+    @property
+    def version(self):
+        return self.version_field.text()
+
+
 # The two courses Configuration Management allows when a file has already
 # produced a product.  Said in full wherever an import is refused, because
 # the refusal is only useful if it says what to do instead.
@@ -778,12 +846,13 @@ def _refuse_import(title, message, parent=None):
     Say why an import will not happen, and stop.
 
     Returns:
-        bool:  False, always -- so callers can "return _refuse_import(...)".
+        tuple:  the "refused" answer, so callers can
+        "return _refuse_import(...)".
     """
     orb.log.info(f'  - step import refused: {title}')
     dlg = OptionNotification(title, message, parent=parent)
     dlg.exec_()
-    return False
+    return (False, None, '')
 
 
 def check_prior_imports(path, file_name, project=None, parent=None):
@@ -817,11 +886,14 @@ def check_prior_imports(path, file_name, project=None, parent=None):
         parent (QWidget):  parent for the dialogs
 
     Returns:
-        bool:  True if the import may go on
+        tuple:  (proceed, new_version_of, version).  `proceed` is False if
+        the import must not go on.  `new_version_of` is the product this
+        import makes a new version of, and `version` the version string the
+        user gave it;  both are empty for an ordinary import.
     """
     prior = prior_imports(fname=file_name, checksum=_checksum(path))
     if not prior:
-        return True
+        return (True, None, '')
     first = prior[0]
     if first.same_file:
         return _refuse_import(
@@ -832,7 +904,7 @@ def check_prior_imports(path, file_name, project=None, parent=None):
             parent=parent)
     dlg = StepSameNameDialog(first, file_name=file_name, parent=parent)
     if not dlg.exec_():
-        return False
+        return (False, None, '')
     if not dlg.same_product:
         return _refuse_import(
             'Two products cannot share a file name',
@@ -855,23 +927,21 @@ def check_prior_imports(path, file_name, project=None, parent=None):
             'same design, which is what Configuration Management exists to '
             'prevent.</p>' + REUSE_OR_DISTINGUISH,
             parent=parent)
-    # NOTE: the one case that should proceed rather than refuse.  The file is
-    # a later revision of a product in this project, so what is wanted is a
-    # new *version* of that product:  another HardwareProduct with the same
-    # id and name, the version the user gives it, and iteration 0, keeping
-    # the existing one and its structure untouched.  That path is not built
-    # yet, so this refuses rather than silently making a duplicate -- which
-    # is the outcome this whole check exists to prevent.
-    return _refuse_import(
-        'This would need a new version',
-        f'<p><b>{file_name}</b> is a later revision of {_describe(first)}, '
-        'which is in this project.</p>'
-        '<p>What is wanted is a new <b>version</b> of that product, keeping '
-        'the existing one and everything built on it.  Importing the file '
-        'again would instead create a second product alongside it.</p>'
-        '<p>Creating a version from an import is not available yet, so '
-        'nothing has been imported.</p>',
-        parent=parent)
+    # The one case that proceeds:  a later revision of a product in this
+    # project is a new *version* of it.
+    product = first.product
+    if product is None:
+        return _refuse_import(
+            'That file belongs to an import that left nothing',
+            f'<p>A file named <b>{file_name}</b> has been imported, but the '
+            'product it made can no longer be found, so there is nothing to '
+            'make a version of.</p>'
+            '<p>Rename the file and import it as a new product.</p>',
+            parent=parent)
+    dlg = StepNewVersionDialog(product, file_name=file_name, parent=parent)
+    if not dlg.exec_():
+        return (False, None, '')
+    return (True, product, dlg.version.strip())
 
 
 def run_step_import(assembly=None, rep_file=None, parent=None):
@@ -925,12 +995,16 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
         rep_file = _stored_step_file(assembly, path)
 
     # A CREATE import makes new products, so what the file has already made
-    # is what decides whether it may:  see check_prior_imports().
-    if mode == CREATE and not check_prior_imports(
+    # is what decides whether it may -- and, where it is a later revision of
+    # something here, what it makes instead:  see check_prior_imports().
+    new_version_of, version = None, ''
+    if mode == CREATE:
+        (proceed, new_version_of, version) = check_prior_imports(
                             path, file_name,
                             project=orb.get(state.get('project')),
-                            parent=parent):
-        return None
+                            parent=parent)
+        if not proceed:
+            return None
 
     if rep_file is not None and file_has_changed(rep_file,
                                                  _checksum(path)):
@@ -990,7 +1064,7 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     if mode == PLACE:
         items = plan_placements(root, assembly)
     else:
-        items = plan_creation(root)
+        items = plan_creation(root, new_version_of=new_version_of)
     if not any(i.actionable for i in items):
         dlg = OptionNotification(
                 'Nothing to import',
@@ -1033,7 +1107,8 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
                           plan_dlg.add_system_checkbox.isChecked())
             result = apply_creation(items,
                                     project=project if add_system else None,
-                                    progress=on_progress)
+                                    progress=on_progress,
+                                    version=version)
         apply_progress.setLabelText('saving ...')
         if result.objects:
             orb.save(result.objects)

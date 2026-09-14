@@ -13,7 +13,7 @@ import unittest
 import pangalactic.core.set_uberorb
 
 from pangalactic.core import orb
-from pangalactic.core.placements import get_placement
+from pangalactic.core.placements import get_placement, new_thing
 from pangalactic.core.serializers import deserialize
 from pangalactic.core.test import data as test_data_module
 from pangalactic.core.test.utils import create_test_users, create_test_project
@@ -910,4 +910,137 @@ class PriorImportsTest(unittest.TestCase):
         # the id it was created with is not the id it keeps
         expected = ['OTHERPROJ', 'test:elsewhere']
         value = [found[0].project.id, found[0].product.oid]
+        self.assertEqual(expected, value)
+
+
+# ---- importing a later revision as a new version -------------------------
+#
+# The file is a revision of a product that is already here.  What is wanted
+# is a new *version* of that product -- another product with the same id and
+# name, its own version, iteration 0 -- keeping the existing one and
+# everything built on it.
+#
+# Only the assembled product is versioned.  A component that has not changed
+# is the same component, so it keeps its own version and its own structure:
+# the top-level usages are created, because their assembly is now the new
+# version, and everything below is left alone, both ends of it being
+# unchanged.
+
+class NewVersionImportTest(unittest.TestCase):
+
+    def _existing(self, name='Versioned Thing', version='A'):
+        from pangalactic.core.clone import clone
+        p = clone('HardwareProduct', id=f'{name}-id', name=name,
+                  version=version, version_sequence=1, save_hw=False)
+        p.version = version
+        p.version_sequence = 1
+        orb.db.commit()
+        return p
+
+    def test_01_the_root_item_is_a_new_version(self):
+        """CASE:  the root stands for a version, not a new product."""
+        was = self._existing(name='Root Thing')
+        root = occ('root', prototype_key='root', prototype_name='Root Thing',
+                   children=[occ('A', prototype_key='pa', prototype_name='Part A')])
+        items = plan_creation(root, new_version_of=was)
+        root_item = next(i for i in items if i.kind == PRODUCT and i.is_root)
+        expected = [NEW, was.oid, True]
+        value = [root_item.status,
+                 root_item.new_version_of.oid,
+                 'new version' in root_item.note]
+        self.assertEqual(expected, value)
+
+    def test_02_only_top_level_usages_are_proposed(self):
+        """
+        CASE:  a two-level file.  The sub-assembly is an existing product
+        being reused, so its own components are already there;  proposing
+        them again would give it two of each.
+        """
+        was = self._existing(name='Two Level')
+        from pangalactic.core.clone import clone
+        sub = clone('HardwareProduct', id='sub-asm-id', name='Sub Asm',
+                    public=True, save_hw=False)
+        orb.db.commit()
+        root = occ('root', prototype_key='root2', prototype_name='Two Level',
+                   children=[occ('S', prototype_key='sub', prototype_name='Sub Asm',
+                                 children=[occ('N', prototype_key='nut', prototype_name='Nut')])])
+        items = plan_creation(root, new_version_of=was)
+        acu_paths = [i.path for i in items if i.kind == ACU]
+        self.assertEqual(['S'], acu_paths)
+
+    def test_03_an_ordinary_import_still_proposes_every_usage(self):
+        """
+        CASE:  no versioning and nothing reused.  Every product is new, so
+        every usage is proposed -- the rule changes nothing here.
+        """
+        root = occ('root', prototype_key='ant', prototype_name='All New Top',
+                   children=[occ('S', prototype_key='ans', prototype_name='All New Sub',
+                                 children=[occ('N', prototype_key='ann',
+                                               prototype_name='All New Nut')])])
+        items = plan_creation(root, reuse_products=False)
+        acu_paths = sorted(i.path for i in items if i.kind == ACU)
+        self.assertEqual(['S', 'S/N'], acu_paths)
+
+    def test_04_applying_it_makes_a_version_not_a_copy(self):
+        """
+        CASE:  the new product carries the version the user gave it, an
+        incremented sequence and iteration 0, and keeps the id and name.
+        """
+        was = self._existing(name='Applied Thing', version='A')
+        root = occ('root', prototype_key='app', prototype_name='Applied Thing',
+                   children=[occ('A', prototype_key='appart', prototype_name='Applied Part')])
+        items = plan_creation(root, new_version_of=was)
+        result = apply_creation(items, version='B')
+        orb.db.commit()
+        new = next(o for o in result.created
+                   if getattr(o, 'name', '') == 'Applied Thing')
+        expected = ['B', 2, 0, was.id, was.name]
+        value = [new.version, new.version_sequence, new.iteration,
+                 new.id, new.name]
+        self.assertEqual(expected, value)
+
+    def test_05_the_old_version_keeps_its_components(self):
+        """
+        CASE:  the point of a version.  Nothing about the existing product
+        is touched -- not its version, and not what it is assembled from.
+        """
+        was = self._existing(name='Untouched Thing', version='A')
+        from pangalactic.core.clone import clone
+        part = clone('HardwareProduct', id='untouched-part',
+                     name='Untouched Part', public=True, save_hw=False)
+        old_acu = new_thing('Acu', id='untouched-acu', name='untouched acu',
+                            assembly=was, component=part,
+                            reference_designator='A')
+        orb.db.commit()
+        root = occ('root', prototype_key='unt', prototype_name='Untouched Thing',
+                   children=[occ('A', prototype_key='unpart', prototype_name='Untouched Part')])
+        items = plan_creation(root, new_version_of=was)
+        apply_creation(items, version='B')
+        orb.db.commit()
+        expected = ['A', 1, [old_acu.oid]]
+        value = [was.version, was.version_sequence,
+                 [a.oid for a in was.components]]
+        self.assertEqual(expected, value)
+
+    def test_06_the_new_version_gets_its_own_top_level_usages(self):
+        """
+        CASE:  the new version is assembled from the file, and its usages
+        point at the components that already exist rather than copies of
+        them.
+        """
+        was = self._existing(name='Assembled Thing', version='A')
+        from pangalactic.core.clone import clone
+        part = clone('HardwareProduct', id='assembled-part',
+                     name='Assembled Part', public=True, save_hw=False)
+        orb.db.commit()
+        root = occ('root', prototype_key='asm', prototype_name='Assembled Thing',
+                   children=[occ('A', prototype_key='asmpart', prototype_name='Assembled Part')])
+        items = plan_creation(root, new_version_of=was)
+        result = apply_creation(items, version='B')
+        orb.db.commit()
+        new = next(o for o in result.created
+                   if getattr(o, 'name', '') == 'Assembled Thing')
+        acus = list(new.components)
+        expected = [1, part.oid, new.oid]
+        value = [len(acus), acus[0].component.oid, acus[0].assembly.oid]
         self.assertEqual(expected, value)

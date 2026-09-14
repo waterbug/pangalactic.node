@@ -77,7 +77,8 @@ class PlanItem:
 
     def __init__(self, kind, status, path='', occurrence=None, acu=None,
                  product=None, note='', confirmed=None, key='',
-                 parent_occurrence=None, product_type=None, is_root=False):
+                 parent_occurrence=None, product_type=None, is_root=False,
+                 new_version_of=None):
         self.kind = kind
         self.status = status
         self.path = path
@@ -93,6 +94,11 @@ class PlanItem:
         # True for the PRODUCT item standing for the file's top-level
         # assembly -- the only one that could become a system of the project
         self.is_root = is_root
+        # for a PRODUCT item that is a new *version* of something, the
+        # product it is a version of.  The item is still NEW -- a version is
+        # a new object -- but it is created by versioning that one rather
+        # than from nothing.
+        self.new_version_of = new_version_of
         self.confirmed = (status in (MATCHED, NEW, REUSED)
                           if confirmed is None else confirmed)
 
@@ -191,7 +197,7 @@ def _plan_level(occurrences, assembly, path, items, seen):
                                        'that reference designator'))
 
 
-def plan_creation(root, reuse_products=True):
+def plan_creation(root, reuse_products=True, new_version_of=None):
     """
     Plan a CREATE import:  a HardwareProduct per distinct prototype and an Acu
     per occurrence.
@@ -203,15 +209,41 @@ def plan_creation(root, reuse_products=True):
         reuse_products (bool):  if True, a prototype whose name matches
             exactly one existing HardwareProduct is proposed as a reuse of it
             rather than as a new product
+        new_version_of (Product):  if given, the file is a later revision of
+            this product, and the import makes a new *version* of it rather
+            than a new product.  Components are then reused wherever their
+            name matches, since only the assembled product is versioned --
+            see the Acu rule below.
 
     Returns:
         list of PlanItem:  the product items first, then the Acu items, so a
         reviewer sees what will exist before what will be assembled
     """
     unclassified = orb.get('pgefobjects:ProductType.unclassified')
+    # A version import reuses everything it can:  a component that has not
+    # changed is the same component, and only the product being versioned
+    # gets a new version.
+    #
+    # NOTE: "has not changed" is decided by _find_product(), which matches on
+    # name -- so a sub-assembly that was revised but kept its name is treated
+    # as unchanged, and its own revision is not carried in.  Accepted for now
+    # (author, 2026-09-13);  doing better means comparing the file's
+    # structure against the stored correspondence, which is a larger piece of
+    # work and complicated further by components that come from referenced
+    # external files.
+    reuse_products = reuse_products or new_version_of is not None
     product_items = {}
     for key, name in root.prototypes().items():
         is_root = (key == root.prototype_key)
+        if is_root and new_version_of is not None:
+            v = getattr(new_version_of, 'version', None) or '[no version]'
+            item = PlanItem(PRODUCT, NEW, path=name, key=key, is_root=True,
+                            product=new_version_of,
+                            new_version_of=new_version_of,
+                            note=f'new version of "{new_version_of.id}" '
+                                 f'(currently {v})')
+            product_items[key] = item
+            continue
         existing = _find_product(name) if reuse_products else None
         if existing is not None:
             item = PlanItem(PRODUCT, REUSED, path=name, product=existing,
@@ -224,29 +256,44 @@ def plan_creation(root, reuse_products=True):
                                  'assign a product type below')
         product_items[key] = item
     acu_items = []
-    _plan_acus(root, root.children, '', acu_items, set())
+    _plan_acus(root, root.children, '', acu_items, set(), product_items)
     return list(product_items.values()) + acu_items
 
 
-def _plan_acus(parent_occ, occurrences, path, items, seen):
+def _plan_acus(parent_occ, occurrences, path, items, seen, product_items):
     """
-    Propose an Acu per occurrence, once per distinct prototype.
+    Propose an Acu per occurrence, once per distinct prototype, wherever the
+    assembly end of it is a product this import creates.
 
     The reader expands the tree by descending into a prototype at every use
     of it, so the children of a prototype used six times appear six times.
     They are one product with one set of components, though:  planning an Acu
     per occurrence would hang six copies of "nut" off the one nut-bolt
     assembly.  `seen` holds the prototypes already accounted for.
+
+    **An Acu is proposed only where its assembly is being created.**  If the
+    assembly end is an existing product the import is reusing, that product
+    already has its components and creating them again would give it two of
+    each.  For an ordinary import every product is new, so every Acu is
+    proposed and this changes nothing;  for a version import only the
+    versioned product is new, so the top-level usages are created -- they
+    must be, since their assembly is now the new version -- and everything
+    below is left as it stands, both ends of it being unchanged (author's
+    rule, 2026-09-13).
     """
+    parent_item = product_items.get(getattr(parent_occ, 'prototype_key',
+                                            None))
+    parent_is_new = getattr(parent_item, 'status', None) == NEW
     for occ in occurrences:
         here = f'{path}/{occ.ref_des}' if path else occ.ref_des
-        items.append(PlanItem(ACU, NEW, path=here, occurrence=occ,
-                              parent_occurrence=parent_occ,
-                              note=f'{occ.ref_des} of '
-                                   f'"{occ.prototype_name}"'))
+        if parent_is_new:
+            items.append(PlanItem(ACU, NEW, path=here, occurrence=occ,
+                                  parent_occurrence=parent_occ,
+                                  note=f'{occ.ref_des} of '
+                                       f'"{occ.prototype_name}"'))
         if occ.children and occ.prototype_key not in seen:
             seen.add(occ.prototype_key)
-            _plan_acus(occ, occ.children, here, items, seen)
+            _plan_acus(occ, occ.children, here, items, seen, product_items)
 
 
 def _find_product(name):
@@ -443,7 +490,7 @@ def add_project_system(product, project, NOW=None):
 
 
 def apply_creation(items, owner=None, project=None, NOW=None,
-                   progress=None):
+                   progress=None, version=''):
     """
     Apply the confirmed items of a CREATE plan:  create the products that do
     not exist, then the Acus that assemble them, then place them.
@@ -465,6 +512,10 @@ def apply_creation(items, owner=None, project=None, NOW=None,
             Tree.  Without it the assembly is created but is reachable only
             through the Hardware Library.
         NOW (datetime):  timestamp for the new objects
+        version (str):  the version string for a PRODUCT item that is a new
+            version of an existing product.  clone() sets "version" to None
+            for every Product it copies, deliberately -- a copy is not a
+            version -- so it is assigned afterwards rather than passed in.
         progress (callable):  called as progress(done, total) after each item
             is handled, so a caller can drive a progress bar.  The items are
             walked twice -- once for products, once for usages -- so `total`
@@ -495,6 +546,48 @@ def apply_creation(items, owner=None, project=None, NOW=None,
         if item.status == REUSED:
             products[item.key] = item.product
             result.mapping[product_key(item)] = item.product.oid
+            continue
+        if item.new_version_of is not None:
+            # A new version of an existing product:  another product with
+            # the same id and name, the version the user gave it, and
+            # iteration 0.  The one it is a version of is left exactly as it
+            # is, with its own components still hanging off it.
+            #
+            # include_components=False, because the usages are the import's
+            # to make:  the file says what this version is assembled from,
+            # which is the whole reason for importing it.  Letting clone()
+            # copy the old version's components would give the new one two
+            # of everything.
+            was = item.new_version_of
+            seq = was.version_sequence
+            product = clone(was, save_hw=False, include_components=False,
+                            version_sequence=(seq if isinstance(seq, int)
+                                              else 0) + 1)
+            # Three attributes clone() decides for itself, because it makes
+            # copies and a copy is neither a version nor the thing it was
+            # copied from:  it names the result "clone of X", gives it its
+            # own id, and nulls "version".  A version is the one case where
+            # all three are wrong -- it is the same item, identified the
+            # same way, at a later point in its life -- so they are set
+            # here.  PgxnObject.on_new_version() keeps the id for the same
+            # reason.
+            #
+            # Keeping the id is the STEP reading of what a version is.  STEP
+            # carries the principal identifier on the PRODUCT entity and the
+            # version on a separate PRODUCT_DEFINITION_FORMATION, whose own
+            # "id" attribute *is* the version of the product it belongs to.
+            # This ontology collapses PRODUCT, PRODUCT_DEFINITION and
+            # PRODUCT_DEFINITION_FORMATION into one Product class (author),
+            # so the two identifiers land on one object:  "id" stays the
+            # product's, and "version" carries the formation's.  A new
+            # version is therefore the same id with a different version, not
+            # a new id.
+            product.id = was.id
+            product.name = was.name
+            product.version = version
+            products[item.key] = product
+            result.created.append(product)
+            result.mapping[product_key(item)] = product.oid
             continue
         # public=False is set explicitly rather than left to default:  an
         # unset "public" reads as cloaked only by falling through the last

@@ -600,11 +600,22 @@ from it.  Rename the file and import it again.
 *The same product*, where the product belongs to another project, is refused
 with the same two courses as above -- a product belongs where it was created.
 
-*The same product*, in the current project, is what a new **version** of that
-product is for:  another product with the same name, its own version, keeping
-the existing one and everything built on it.  Creating a version from an
-import is not available yet, so this is refused as well rather than left to
-create a duplicate.
+*The same product*, in the current project, is the one case that goes ahead --
+as a new **version** of that product.  **Pangalaxian** shows you the version it
+carries now and asks what to call the new one:
+
+<!-- SCREENSHOT: the "New version" dialog -->
+
+The import then creates another product with the same **id** and **name**, the
+version you gave it, and an iteration of 0.  The existing version is left
+exactly as it is, with everything built on it.
+
+Only the assembled product is versioned.  A component that has not changed is
+the same component:  it keeps its own version, and the new version's usages
+point at it rather than at a copy.  So the file's top-level components get new
+usages -- they must, since the assembly they belong to is now the new version
+-- while everything deeper is left as it stands, both ends of it being
+unchanged.
 
 ### Files That Come as a Set
 
