@@ -665,10 +665,12 @@ class StepFileChangedDialog(QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle('This file has changed')
-        msg = (f'<b>"{file_name}" is not the file that was imported')
-        msg += f' on {imported}' if imported else ''
+        msg = (f'<b>"{file_name}" does not have the same content<br>'
+               'as the file that was imported')
+        msg += f' on {imported}' if imported else ' previously'
         msg += '.</b><br><br>Parts may have been added, removed or renamed '
-        msg += 'since then, so the components matched last time may no '
+        msg += 'since then,<br>'
+        msg += 'so the components matched last time may no '
         msg += 'longer be the right ones.<br><br>Re-match it now, and review '
         msg += 'the result before anything is moved?'
         form = QFormLayout(self)
@@ -758,7 +760,7 @@ def _describe(prior):
     what = f'<b>{product}</b>' + (f' ("{name}")' if name else '')
     where = (f' in project <b>{prior.project.id}</b>' if prior.project
              else '')
-    when = f', imported {prior.imported[:10]}' if prior.imported else ''
+    when = f',<br>imported {prior.imported[:10]}' if prior.imported else ''
     return f'{what}{where}{when}'
 
 
@@ -833,12 +835,14 @@ class StepNewVersionDialog(QDialog):
 # produced a product.  Said in full wherever an import is refused, because
 # the refusal is only useful if it says what to do instead.
 REUSE_OR_DISTINGUISH = (
-    '<p>If it is the same product, use the one that already exists rather '
-    'than creating a second.</p>'
-    '<p>If it is meant to be a distinct product, open the file in your CAD '
-    'tool, rename the product and its metadata, export it as a new STEP '
-    'file, and import that.  It will then be managed as a product in its '
-    'own right.</p>')
+    '<ul>'
+    '<p><li>If it is the same product, use the one that already exists<br>'
+    'in the Hardware Library rather than creating a second copy.</li></p>'
+    '<p><li>If it is meant to be a distinct product, open the file in your<br>'
+    'CAD tool, rename the product and its metadata, export it as a new<br>'
+    'STEP file, and import that from that file.  It will then be<br>'
+    'managed as a separate product.</li>'
+    '</ul>')
 
 
 def _refuse_import(title, message, parent=None):
@@ -898,9 +902,9 @@ def check_prior_imports(path, file_name, project=None, parent=None):
     if first.same_file:
         return _refuse_import(
             'This file has already been imported',
-            f'<p><b>{file_name}</b> has already been imported, and produced '
+            f'<p><b>{file_name}</b> has already been imported, and produced<br>'
             f'{_describe(first)}.</p>'
-            '<p>Nothing will be imported.</p>' + REUSE_OR_DISTINGUISH,
+            '<p>Nothing will be imported:</p>' + REUSE_OR_DISTINGUISH,
             parent=parent)
     dlg = StepSameNameDialog(first, file_name=file_name, parent=parent)
     if not dlg.exec_():
@@ -921,10 +925,10 @@ def check_prior_imports(path, file_name, project=None, parent=None):
                  else 'another project')
         return _refuse_import(
             'That product belongs to another project',
-            f'<p>{_describe(first)} was created from a file of this name, '
+            f'<p>{_describe(first)} was created from a file of this name,<br>'
             f'and it belongs to {where}.</p>'
-            '<p>Importing it here would make a second product that is the '
-            'same design, which is what Configuration Management exists to '
+            '<p>Importing it here would make a second product that is the<br>'
+            'same design, which is what Configuration Management exists to<br>'
             'prevent.</p>' + REUSE_OR_DISTINGUISH,
             parent=parent)
     # The one case that proceeds:  a later revision of a product in this
