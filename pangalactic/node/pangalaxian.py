@@ -8299,10 +8299,25 @@ class Main(QMainWindow):
         # imported here rather than at module scope so that start-up does not
         # pull in pythonocc
         from pangalactic.node.step_dialogs import run_step_import
-        product = self.product
-        if getattr(product, 'oid', '') == 'pgefobjects:TBD':
-            # the placeholder is not an assembly to place into
+        if state.get('mode') == 'component':
+            # "Component Modeler" mode ...
+            product = self.product
+            if getattr(product, 'oid', '') == 'pgefobjects:TBD':
+                # the placeholder is not an assembly to place into
+                product = None
+        elif state.get('mode') == 'system':
+            system_oid = state.get('system', {}).get(state.get('project'))
+            selected_system = orb.get(system_oid)
+            # "System Modeler" mode ...
+            if (isinstance(selected_system, orb.classes['Product']) and
+                getattr(selected_system, 'oid', '') != 'pgefobjects:TBD'):
+                product = selected_system
+            else:
+                product = None
+        else:
             product = None
+        prod_id = getattr(product, 'id', "None")
+        orb.log.info(f'* calling run_step_import() with assembly "{prod_id}"')
         run_step_import(assembly=product, parent=self)
 
     def sc_42_modeler(self):
