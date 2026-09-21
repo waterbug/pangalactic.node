@@ -32,6 +32,23 @@ from pangalactic.core.utils.datetimes import dtstamp
 # modes
 PLACE = 'place'
 CREATE = 'create'
+# MODEL_ONLY:  the file becomes a Model of a product that already exists,
+# with a RepresentationFile for it and for every file it references, and no
+# products or assembly structure are created from it at all.
+#
+# Wanted more often than it sounds.  An assembly in a STEP file may be
+# synthetic -- its components pieces of a manufacturing process rather than
+# products anyone specifies or reuses.  Or they may be real products the
+# file cannot identify:  nothing in it says which specification a part is
+# built to, so the products created would be indistinguishable from any
+# others made the same way, and without mass or material properties they
+# could not contribute to a moment-of-inertia calculation either.  In both
+# cases the geometry is worth keeping and the structure is not (author,
+# 2026-09-20).
+#
+# This mode has no plan:  there is nothing to review, because nothing is
+# proposed beyond the file itself.
+MODEL_ONLY = 'model_only'
 
 # item kinds
 PLACEMENT = 'placement'
@@ -786,8 +803,12 @@ def prior_imports(fname='', checksum=''):
       and this one differs from it.  Either the product has changed, or two
       unrelated files have been given the same name.
 
-    A RepresentationFile with no stored correspondence is skipped:  it was
-    attached some other way and says nothing about a STEP import.
+    A RepresentationFile with no stored correspondence is **not** skipped.
+    It was attached some other way -- "Add Model" in the object editor leaves
+    none -- and it is still a file this product's model is made of, which is
+    what the caller is asking about.  Its own "checksum" attribute stands in
+    for the correspondence's, being the same hash of the same bytes;  a file
+    with neither is matched by name alone.
 
     Keyword Args:
         fname (str):  the file's name, as it would be stored
@@ -801,16 +822,15 @@ def prior_imports(fname='', checksum=''):
     by_content, by_name = [], []
     for rep_file in orb.get_by_type('RepresentationFile'):
         stored = get_correspondence(rep_file)
-        if not stored:
-            continue
-        was = stored.get('checksum') or ''
+        was = (stored.get('checksum') if stored else '') or ''
+        was = was or (getattr(rep_file, 'checksum', '') or '')
         same_file = bool(was and checksum and was == checksum)
         same_name = bool(fname
                          and getattr(rep_file, 'user_file_name', '') == fname)
         if same_file:
-            by_content.append(PriorImport(rep_file, stored, True))
+            by_content.append(PriorImport(rep_file, stored or {}, True))
         elif same_name:
-            by_name.append(PriorImport(rep_file, stored, False))
+            by_name.append(PriorImport(rep_file, stored or {}, False))
     for group in (by_content, by_name):
         group.sort(key=lambda p: p.imported, reverse=True)
     return by_content + by_name

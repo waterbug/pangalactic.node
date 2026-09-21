@@ -430,7 +430,9 @@ class ComponentFileTest(unittest.TestCase):
         state['connected'] = False
         model, top_file, top = self.an_assembly_file('prod-top.stp')
         sub = self.a_file('prod-sub.stp')
-        state['step_component_products'] = {sub: ASSEMBLY_OID}
+        # keyed on the file it was left for, and consumed once
+        state['step_component_products'] = {'fpath': top,
+                                            'map': {sub: ASSEMBLY_OID}}
         self.with_closure([(sub, top)])
         client = a_client()
         client.register_component_files(top, top_file)
@@ -440,6 +442,46 @@ class ComponentFileTest(unittest.TestCase):
         value = [sub_file.of_object.of_thing.oid,
                  sub_file.of_object.oid == model.oid]
         self.assertEqual(expected, value)
+
+    def test_03a_a_mapping_left_for_another_file_is_not_used(self):
+        """
+        CASE:  a mapping left in state by an earlier import, and a different
+        file being registered now.
+
+        Nothing cleared it, so an "Add Model" done after a STEP import read
+        that import's {path: product} map, and any referenced file whose
+        path matched got a Model of *that* import's product.  Importing
+        twice from one directory collides exactly.
+        """
+        state['connected'] = False
+        model, top_file, top = self.an_assembly_file('stale-top.stp')
+        sub = self.a_file('stale-sub.stp')
+        state['step_component_products'] = {'fpath': '/some/other/file.stp',
+                                            'map': {sub: ASSEMBLY_OID}}
+        self.with_closure([(sub, top)])
+        client = a_client()
+        client.register_component_files(top, top_file)
+        orb.db.commit()
+        sub_file = top_file.component_files[0]
+        # it joined this model, not a Model of the other import's product
+        self.assertEqual(model.oid, sub_file.of_object.oid)
+
+    def test_03b_the_mapping_is_consumed_once(self):
+        """
+        CASE:  the same mapping must not serve a second registration.  It is
+        taken and cleared before anything else, including the early returns
+        for a file that references nothing.
+        """
+        state['connected'] = False
+        model, top_file, top = self.an_assembly_file('once-top.stp')
+        sub = self.a_file('once-sub.stp')
+        state['step_component_products'] = {'fpath': top,
+                                            'map': {sub: ASSEMBLY_OID}}
+        self.with_closure([(sub, top)])
+        client = a_client()
+        client.register_component_files(top, top_file)
+        orb.db.commit()
+        self.assertEqual({}, state.get('step_component_products'))
 
     def test_04_a_missing_file_does_not_strand_the_rest(self):
         """

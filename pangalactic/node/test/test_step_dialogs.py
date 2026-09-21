@@ -1513,3 +1513,113 @@ class _FakeDialog:
 
     def exec_(self):
         return 1
+
+
+# ---- importing a file as a model, with no assembly structure -------------
+#
+# An assembly in a STEP file may be synthetic -- its components pieces of a
+# manufacturing process rather than products anyone specifies or reuses -- or
+# the components may be real products the file cannot identify.  In both
+# cases the geometry is worth keeping and the structure is not.
+
+def test_35_the_model_only_option_needs_a_product(qtbot, dialog_parent):
+    """
+    CASE: nothing selected.  There is nothing for the file to be a model
+    *of*, so the option is disabled and says why.
+    """
+    from pangalactic.node import step_dialogs as sd
+    dlg = sd.StepImportModeDialog(assembly=None, parent=dialog_parent)
+    qtbot.addWidget(dlg)
+    expected = [False, True]
+    value = [dlg.model_button.isEnabled(),
+             'model of first' in dlg.model_button.toolTip()]
+    assert expected == value
+
+
+def test_36_a_caller_may_say_which_mode_it_expects(qtbot, dialog_parent):
+    """
+    CASE: "Add Model" in the object editor asks for a model of the object
+    being edited.  It starts there -- and the other modes stay available,
+    a caller saying what it expects not being the same as deciding.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from pangalactic.node.step_plan import MODEL_ONLY
+    dlg = sd.StepImportModeDialog(assembly=orb.get(ASSEMBLY_OID),
+                                  default_mode=MODEL_ONLY,
+                                  parent=dialog_parent)
+    qtbot.addWidget(dlg)
+    expected = [MODEL_ONLY, True]
+    value = [dlg.mode, dlg.create_button.isEnabled()]
+    assert expected == value
+
+
+def test_37_a_single_part_file_does_not_unseat_model_only(qtbot, tmp_path,
+                                                          dialog_parent):
+    """
+    CASE: a file with no assembly, with "model only" chosen.  Placement
+    becomes unavailable, but "model only" is a perfectly good answer for
+    such a file and must not be overridden.
+    """
+    from pangalactic.node import step_dialogs as sd
+    from pangalactic.node.step_plan import MODEL_ONLY
+    dlg = sd.StepImportModeDialog(assembly=orb.get(ASSEMBLY_OID),
+                                  default_mode=MODEL_ONLY,
+                                  parent=dialog_parent)
+    qtbot.addWidget(dlg)
+    dlg.file_path = os.path.join(DATA, 'conrod.stp')
+    dlg._file_has_assembly = False
+    dlg._update_place_option()
+    expected = [False, MODEL_ONLY]
+    value = [dlg.place_button.isEnabled(), dlg.mode]
+    assert expected == value
+
+
+def test_38_a_file_of_another_product_may_not_be_added(qtbot, monkeypatch,
+                                                       tmp_path,
+                                                       prior_import,
+                                                       dialog_parent):
+    """
+    CASE: the file already describes another product.  Adding it here would
+    give two products the same geometry under the same name, and nothing
+    afterwards could tell which of them a copy of the file belongs to.
+    Refused, with the remedy: copy it under a different name.
+    """
+    from pangalactic.node import step_dialogs as sd
+    path = _a_file(tmp_path, 'taken.stp')
+    prior_import(file_name='taken.stp', checksum=sd._checksum(path))
+    shown = {}
+    monkeypatch.setattr(sd, 'OptionNotification',
+                        lambda title, msg, parent=None: _FakeDialog(
+                                                    shown, title, msg))
+    other = orb.get('test:spacecraft1') or orb.get('H2G2')
+    value = sd.check_model_attachment(path, 'taken.stp', other,
+                                      parent=dialog_parent)
+    expected = [False, True, True]
+    assert expected == [value,
+                        'another product' in shown['title'],
+                        'different name' in shown['message']]
+
+
+def test_39_another_file_of_the_same_product_is_allowed(qtbot, tmp_path,
+                                                        prior_import,
+                                                        dialog_parent):
+    """
+    CASE: the same product, a second file.  That is what the one-to-many
+    between Model and RepresentationFile is for -- a set of files, or a
+    stylesheet beside the geometry.
+    """
+    from pangalactic.node import step_dialogs as sd
+    path = _a_file(tmp_path, 'mine.stp')
+    prior_import(file_name='mine.stp', checksum=sd._checksum(path))
+    mine = orb.get('test:spacecraft0')
+    assert sd.check_model_attachment(path, 'mine.stp', mine,
+                                     parent=dialog_parent) is True
+
+
+def test_40_an_unclaimed_file_may_be_added(qtbot, tmp_path, dialog_parent):
+    """CASE: a file no product has.  Nothing in the way."""
+    from pangalactic.node import step_dialogs as sd
+    path = _a_file(tmp_path, 'unclaimed.stp')
+    assert sd.check_model_attachment(path, 'unclaimed.stp',
+                                     orb.get('test:spacecraft0'),
+                                     parent=dialog_parent) is True

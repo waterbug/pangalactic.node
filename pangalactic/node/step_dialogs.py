@@ -31,7 +31,8 @@ from pangalactic.core import orb, state
 from pangalactic.core.access import may_add_system
 from pangalactic.node.step_plan import (ACU, CREATE, MATCHED, NEW, PLACE,
                                         PLACEMENT, PRODUCT, REUSED, UNMATCHED,
-                                        UNPLACED, apply_creation,
+                                        MODEL_ONLY, UNPLACED,
+                                        ImportResult, apply_creation,
                                         apply_placements, file_has_assembly,
                                         file_has_changed,
                                         get_correspondence, plan_creation,
@@ -190,11 +191,23 @@ class StepImportModeDialog(QDialog):
                  "assembly already has, and record where each one sits.  "
                  "No products are created.")
 
-    def __init__(self, assembly=None, parent=None):
+    MODEL_TIP = ("Keep the file as the product's CAD model and nothing "
+                 "else.  No products are proposed for what is in it and no "
+                 "assembly structure is created.  Files the model refers to "
+                 "are kept with it, so a CAD tool or viewer can assemble it.")
+
+    def __init__(self, assembly=None, default_mode='', parent=None):
         """
         Keyword Args:
             assembly (Product):  the assembly to place, if there is one
-                selected.  Without it, placing is not offered.
+                selected.  Without it, placing is not offered -- and neither
+                is importing the file as a model, there being nothing to be
+                a model *of*.
+            default_mode (str):  the mode to start on, where the caller knows
+                which is wanted.  "Add Model" in the object editor knows:  it
+                is asking for a model of the object being edited, which is
+                MODEL_ONLY.  The others stay available -- a caller saying
+                what it expects is not the same as deciding for the user.
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
@@ -225,10 +238,23 @@ class StepImportModeDialog(QDialog):
             'Propose a product for each distinct part in the file and a '
             'usage for each occurrence of one.  For a design that exists '
             'only in CAD.')
+        self.model_button = QRadioButton(
+            f'Add the file as a CAD model of "{name}", with no assembly '
+            'structure' if name
+            else 'Add the file as a CAD model of an existing product, with '
+                 'no assembly structure', self)
+        self.model_button.setToolTip(self.MODEL_TIP)
         self._file_has_assembly = True      # nothing chosen yet
         self._update_place_option(initial=True)
+        if assembly is None:
+            self.model_button.setEnabled(False)
+            self.model_button.setToolTip(
+                'Select the product this file is a model of first.')
+        elif default_mode == MODEL_ONLY:
+            self.model_button.setChecked(True)
         form.addRow(self.place_button)
         form.addRow(self.create_button)
+        form.addRow(self.model_button)
         layout.addLayout(form)
 
         self.buttons = QDialogButtonBox(
@@ -242,9 +268,13 @@ class StepImportModeDialog(QDialog):
     @property
     def mode(self):
         """
-        The chosen mode:  PLACE or CREATE.
+        The chosen mode:  PLACE, CREATE or MODEL_ONLY.
         """
-        return PLACE if self.place_button.isChecked() else CREATE
+        if self.place_button.isChecked():
+            return PLACE
+        if self.model_button.isChecked():
+            return MODEL_ONLY
+        return CREATE
 
     def _update_ok(self):
         """
@@ -287,7 +317,12 @@ class StepImportModeDialog(QDialog):
         self.place_button.setEnabled(not reason)
         self.place_button.setToolTip(reason or self.PLACE_TIP)
         if reason:
-            self.create_button.setChecked(True)
+            # move off an option that cannot be used.  "create" is the
+            # fallback -- except for a user (or a caller) who chose "model
+            # only", which is a perfectly good answer for a file with no
+            # assembly in it and must not be overridden by this.
+            if not self.model_button.isChecked():
+                self.create_button.setChecked(True)
         elif initial:
             self.place_button.setChecked(True)
 
@@ -840,8 +875,8 @@ REUSE_OR_DISTINGUISH = (
     'in the Hardware Library rather than creating a second copy.</li></p>'
     '<p><li>If it is meant to be a distinct product, open the file in your<br>'
     'CAD tool, rename the product and its metadata, export it as a new<br>'
-    'STEP file, and import that from that file.  It will then be<br>'
-    'managed as a separate product.</li>'
+    'STEP file, and import the product model from that file.  It will then<br>'
+    'be managed as a separate product.</li>'
     '</ul>')
 
 
@@ -857,6 +892,121 @@ def _refuse_import(title, message, parent=None):
     dlg = OptionNotification(title, message, parent=parent)
     dlg.exec_()
     return (False, None, '')
+
+
+def _missing_refs_message(file_name, missing):
+    """
+    Say which referenced files are not here, and where they come from.
+
+    The user is not assumed to have exported the file -- they may well have
+    received it -- so this says where the missing files come from and what
+    they must be called, rather than implying they should already have them.
+    See NOTES_ON_STEP_EXTERNAL_REFS.md.
+    """
+    lines = ''.join(
+        f'<br>&nbsp;&nbsp;<b>{name}</b>, referenced by '
+        f'{os.path.basename(referrer)}'
+        for name, referrer in missing[:10])
+    more = ('<br>&nbsp;&nbsp;... and %d more'
+            % (len(missing) - 10)) if len(missing) > 10 else ''
+    return (f'"{file_name}" is part of a set:  it refers to files '
+            f'that are not beside it.{lines}{more}<br><br>The import '
+            'cannot continue without them.  They come from wherever this '
+            'file came from, and must be placed in the same directory '
+            'under exactly these names -- that is how a STEP reader '
+            'finds them.')
+
+
+def _referenced_files_are_here(path, file_name, parent=None):
+    """
+    Say whether every file this one refers to is beside it, refusing if not.
+
+    A file that names other files needs them beside it:  a STEP reader
+    resolves each reference relative to the file that makes it.  Stop rather
+    than import, because the alternative is silent -- OCC does not follow the
+    references, so the assembly would arrive with its subassemblies empty and
+    nothing would say so.
+
+    Asked with missing_references() rather than by reading the file, since
+    that is all this needs and reading a large assembly takes long enough to
+    want a progress dialog.  The full import asks the same question as part
+    of the read it has to do anyway.
+
+    Returns:
+        bool:  True if the set is complete
+    """
+    from pangalactic.node.step_import import missing_references
+    missing = missing_references(path)
+    if not missing:
+        return True
+    orb.log.info(f'  - step: {len(missing)} referenced file(s) missing.')
+    dlg = OptionNotification('Referenced files are missing',
+                             _missing_refs_message(file_name, missing),
+                             parent=parent)
+    dlg.exec_()
+    return False
+
+
+def _file_size(path):
+    """
+    The file's size in bytes, or 0 if it cannot be measured.
+    """
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return 0
+
+
+def check_model_attachment(path, file_name, product, parent=None):
+    """
+    Decide whether a file may be added as a model of a product.
+
+    One file, one product.  A file already carried by another product's model
+    describes that product;  adding it to a second says two products have the
+    same geometry and the same name for it, and nothing afterwards could tell
+    which of them a given copy of the file belongs to -- the vault names a
+    file for the object that describes it, and a CAD tool resolves a
+    referenced file by name alone.
+
+    Refused rather than warned (author, 2026-09-20).  The way to give another
+    product the same geometry is to copy the file under a different name and
+    add that:  the name is what has to differ.
+
+    Adding it again to the *same* product is not this:  that is a second file
+    of one model, which is what the one-to-many between Model and
+    RepresentationFile is for.
+
+    Args:
+        path (str):  the file about to be added
+        file_name (str):  its name
+        product (Product):  the product it would be a model of
+
+    Keyword Args:
+        parent (QWidget):  parent for the dialog
+
+    Returns:
+        bool:  True if the file may be added
+    """
+    mine = getattr(product, 'oid', None)
+    for prior in prior_imports(fname=file_name, checksum=_checksum(path)):
+        if getattr(prior.product, 'oid', None) == mine:
+            # another file of this product's own model, or this one again
+            continue
+        how = ('is already the model of' if prior.same_file
+               else 'is already the name of the model of')
+        _refuse_import(
+            'That file belongs to another product',
+            f'<p><b>{file_name}</b> {how} {_describe(prior)}.</p>'
+            '<p>One file describes one product.  Adding it here would give '
+            'two products the same geometry under the same name, and nothing '
+            'afterwards could tell which of them a copy of the file belongs '
+            'to -- a CAD tool resolves a referenced file by its name alone.'
+            '</p>'
+            '<p>To give this product the same geometry, copy the file under a '
+            'different name and add that.</p>',
+            parent=parent)
+        return False
+    return True
 
 
 def check_prior_imports(path, file_name, project=None, parent=None):
@@ -948,7 +1098,8 @@ def check_prior_imports(path, file_name, project=None, parent=None):
     return (True, product, dlg.version.strip())
 
 
-def run_step_import(assembly=None, rep_file=None, parent=None):
+def run_step_import(assembly=None, rep_file=None, default_mode='',
+                    parent=None):
     """
     Drive a STEP import from end to end:  choose the file and mode, read it,
     plan, let the user confirm, apply, save.
@@ -959,6 +1110,10 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     Args:
         assembly (Product):  the assembly to place, if one is selected.
             Without it, only creating is offered.
+        default_mode (str):  the mode to start the dialog on, where the
+            caller knows which is wanted -- "Add Model" in the object editor
+            asks for a model of the object being edited, so it starts on
+            MODEL_ONLY.  The other modes stay available.
         rep_file (RepresentationFile):  the stored STEP file, if the caller
             already knows it.  Given it, the correspondence is stored and a
             changed file is noticed.  A PLACE import that is not given one
@@ -979,11 +1134,46 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     # happen there.
     from pangalactic.node import step_import       # noqa: F401
 
-    mode_dlg = StepImportModeDialog(assembly=assembly, parent=parent)
+    mode_dlg = StepImportModeDialog(assembly=assembly,
+                                    default_mode=default_mode, parent=parent)
     if not mode_dlg.exec_():
         return None
     path, mode = mode_dlg.file_path, mode_dlg.mode
     file_name = os.path.basename(path)
+
+    # ------------------------------------------------------------------
+    # MODEL_ONLY:  the file becomes a model of the selected product and
+    # nothing else is created from it.  There is no plan, because nothing is
+    # proposed beyond the file;  what remains of the import is the two
+    # checks that apply to any file -- may this product have it, and are the
+    # files it refers to here -- and then the same "add update model" signal
+    # every other way of adding a model sends, which builds the objects,
+    # keeps the bytes and pushes the set once they are up.
+    # ------------------------------------------------------------------
+    if mode == MODEL_ONLY:
+        if not check_model_attachment(path, file_name, assembly,
+                                      parent=parent):
+            return None
+        if not _referenced_files_are_here(path, file_name, parent=parent):
+            return None
+        orb.log.info(f'  - step: adding "{file_name}" as a model of '
+                     f'"{assembly.id}"')
+        dispatcher.send(signal='add update model',
+                        mtype_oid=MCAD_MODEL_TYPE_OID, fpath=path,
+                        parms={'file name': file_name,
+                               'file size': str(_file_size(path)),
+                               'mime_type': STEP_MIME_TYPE,
+                               'name': assembly.name,
+                               'description': f'CAD model of '
+                                              f'"{assembly.id}"',
+                               'of_thing_oid': assembly.oid,
+                               'owner_oid': getattr(assembly.owner, 'oid',
+                                                    '') or '',
+                               'project_oid': state.get('project') or ''})
+        # nothing was planned and nothing was refused:  an empty result says
+        # the import happened and proposed nothing, which is not the same as
+        # the None a cancellation answers with
+        return ImportResult()
 
     # A PLACE import is usually re-reading a file the assembly already
     # carries, but which file that is cannot be known before this point --
@@ -1047,21 +1237,9 @@ def run_step_import(assembly=None, rep_file=None, parent=None):
     missing, root = read_result
     if missing:
         orb.log.info(f'  - step: {len(missing)} referenced file(s) missing.')
-        lines = ''.join(
-            f'<br>&nbsp;&nbsp;<b>{name}</b>, referenced by '
-            f'{os.path.basename(referrer)}'
-            for name, referrer in missing[:10])
-        more = ('<br>&nbsp;&nbsp;... and %d more'
-                % (len(missing) - 10)) if len(missing) > 10 else ''
-        dlg = OptionNotification(
-                'Referenced files are missing',
-                f'"{file_name}" is part of a set:  it refers to files '
-                f'that are not beside it.{lines}{more}<br><br>The import '
-                'cannot continue without them.  They come from wherever this '
-                'file came from, and must be placed in the same directory '
-                'under exactly these names -- that is how a STEP reader '
-                'finds them.',
-                parent=parent)
+        dlg = OptionNotification('Referenced files are missing',
+                                 _missing_refs_message(file_name, missing),
+                                 parent=parent)
         dlg.exec_()
         return None
 
@@ -1268,8 +1446,16 @@ def _register_step_model(path, items, result, parent=None):
     # import has just created a Product for that prototype.  Pairing them up
     # is what lets each file become the Model of its own product rather than
     # a loose attachment to the assembly's.
-    state['step_component_products'] = _component_product_oids(path, items,
-                                                               result)
+    # Keyed on the file it belongs to, and consumed once:  this is left in
+    # state for a handler that has not run yet, exactly as the
+    # correspondence above is, and it has to be as careful.  Without the
+    # path it could not be told from the *previous* import's mapping, and
+    # register_component_files() would give a file of this model a Model of
+    # some product from that one -- which is what happened, since nothing
+    # cleared it (author, 2026-09-20).
+    state['step_component_products'] = {
+                        'fpath': path,
+                        'map': _component_product_oids(path, items, result)}
     orb.log.info(f'  - step: registering MCAD model of "{assembly.id}"')
     dispatcher.send(signal='add update model',
                     mtype_oid=MCAD_MODEL_TYPE_OID, fpath=path, parms=parms)

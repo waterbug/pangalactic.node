@@ -7397,6 +7397,16 @@ class Main(QMainWindow):
             objects were therefore pushed before it existed, which left every
             "component_file_of" naming the root null in the repository.
         """
+        # Taken and cleared first, before any early return below:  it is
+        # left in state by a STEP import for this one call, and a mapping
+        # that outlives the import it came from is worse than none.  The
+        # path it was left for is checked, so an "Add Model" that happens to
+        # reference a file the previous import also referenced does not pick
+        # up that import's products.
+        pending = state.get('step_component_products') or {}
+        state['step_component_products'] = {}
+        products = (pending.get('map') or {}) if (
+                        pending.get('fpath') == fpath) else {}
         try:
             from pangalactic.node.step_import import reference_closure
             closure = reference_closure(fpath)
@@ -7413,10 +7423,13 @@ class Main(QMainWindow):
         from pangalactic.node.step_dialogs import (MCAD_MODEL_TYPE_OID,
                                                    STEP_MIME_TYPE)
         orb.log.info(f'  - {len(closure)} referenced file(s) to register.')
-        # which product does each referenced file model?  The file says so --
-        # main_body_back_prt.stp *is* the model of MAIN_BODY_BACK -- and the
-        # import has just created a Product for that prototype.
-        products = state.get('step_component_products') or {}
+        # "products" was taken above.  It says which product each referenced
+        # file models -- the file says so, main_body_back_prt.stp *is* the
+        # model of MAIN_BODY_BACK, and the import has just created a Product
+        # for that prototype.  It is empty for an import that created no
+        # products, and then every referenced file joins the model of the
+        # file that references it, which is what new_component_file() does
+        # when it is told no "of_thing".
         # the RepresentationFile each path became, so a child can find its
         # parent's;  parents come first, so it is always already here
         by_path = {fpath: rep_file}

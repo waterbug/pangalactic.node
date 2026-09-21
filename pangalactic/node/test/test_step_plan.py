@@ -879,17 +879,45 @@ class PriorImportsTest(unittest.TestCase):
         self.assertTrue(found[0].same_file)
         self.assertFalse(found[-1].same_file)
 
-    def test_06_a_file_with_no_correspondence_says_nothing(self):
+    def test_06_a_file_attached_without_a_correspondence_is_found(self):
         """
-        CASE:  a RepresentationFile attached some other way.  It was not a
-        STEP import and is no evidence about one.
+        CASE:  a RepresentationFile attached some other way -- "Add Model"
+        in the object editor leaves no correspondence.  It is still a file
+        this product's model is made of, which is what the caller is asking
+        about, so it counts.
+
+        Its own "checksum" attribute stands in for the correspondence's,
+        being the same hash of the same bytes.
         """
         from pangalactic.core.placements import new_thing
+        model = new_thing('Model', id='attached-model', name='attached',
+                          of_thing=orb.get('test:spacecraft0'),
+                          type_of_model=orb.get('pgefobjects:ModelType.MCAD'))
         new_thing('RepresentationFile', id='not-an-import',
-                  name='not an import', user_file_name='quiet.stp')
+                  name='not an import', of_object=model,
+                  user_file_name='attached.stp', checksum='sum-attached')
         orb.db.commit()
-        self.assertEqual([], prior_imports(fname='quiet.stp',
-                                           checksum='anything'))
+        by_name = prior_imports(fname='attached.stp', checksum='no-match')
+        by_content = prior_imports(fname='other-name.stp',
+                                   checksum='sum-attached')
+        expected = [1, False, 1, True]
+        value = [len(by_name), by_name[0].same_file,
+                 len(by_content), by_content[0].same_file]
+        self.assertEqual(expected, value)
+
+    def test_06a_a_file_with_neither_is_matched_by_name_alone(self):
+        """
+        CASE:  no correspondence and no checksum.  A name is all there is,
+        and "cannot compare" is not "differs".
+        """
+        from pangalactic.core.placements import new_thing
+        new_thing('RepresentationFile', id='nameless-sum',
+                  name='no checksum', user_file_name='bare.stp')
+        orb.db.commit()
+        found = prior_imports(fname='bare.stp', checksum='anything')
+        expected = [1, False]
+        value = [len(found), found[0].same_file]
+        self.assertEqual(expected, value)
 
     def test_07_an_import_into_another_project_is_still_found(self):
         """

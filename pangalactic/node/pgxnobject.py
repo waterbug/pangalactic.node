@@ -1560,9 +1560,24 @@ class PgxnObject(QDialog):
         return model_dict
 
     def add_model(self, model_type_id=None):
-        dlg = ModelImportDialog(of_thing=self.obj, model_type_id=model_type_id,
-                                parent=self)
-        dlg.show()
+        """
+        Add a CAD model of this object from a file.
+
+        Goes through the same import the Tools menu runs, started on the
+        mode that asks for a model of the object being edited and nothing
+        else.  It used to open ModelImportDialog directly, which sends the
+        same "add update model" signal and so built the same objects -- but
+        it reached that signal without any of the checks the import makes
+        first:  whether the files this one refers to are beside it (a set
+        with missing members was imported in part, silently), and whether
+        the file already describes some other product.
+        """
+        # imported here rather than at module scope so that start-up does not
+        # pull in pythonocc
+        from pangalactic.node.step_dialogs import run_step_import
+        from pangalactic.node.step_plan import MODEL_ONLY
+        run_step_import(assembly=self.obj, default_mode=MODEL_ONLY,
+                        parent=self)
 
     def add_doc(self, model_type_id=None):
         dlg = DocImportDialog(rel_obj=self.obj, parent=self)

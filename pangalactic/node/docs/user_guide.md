@@ -450,6 +450,33 @@ the assembly already exists in **Pangalaxian**:
   file, and a usage for each occurrence of one, together with its placement.
   Use this to bring a design in for the first time.
 
+* **Add the file as a CAD model of "..." , with no assembly structure** --
+  keep the geometry and nothing else.  The file becomes the selected
+  product's **MCAD Model**, with a **RepresentationFile** for it and for every
+  file it refers to;  no products are proposed for what is inside it and no
+  assembly structure is created.  This option needs a product selected, but
+  unlike the placement option it does not need the file to contain an
+  assembly.
+
+  This is often what you want even when the file *does* contain one.  The
+  assembly may be synthetic -- its components pieces of a manufacturing
+  process rather than products anyone specifies or reuses.  Or the components
+  may be real products that the file cannot identify:  nothing in a **STEP**
+  file says which specification a part is built to, so the products created
+  would be indistinguishable from any others made the same way, and without
+  mass or material properties they could not contribute to a
+  moment-of-inertia calculation either.  In both cases the geometry is worth
+  keeping and the structure is not.
+
+  The **Add Model** button in the object viewer starts the same import on
+  this option, for the object being viewed.
+
+  A file may be the model of **one** product.  If it already describes
+  another, the import is refused:  two products with the same geometry under
+  the same file name could not be told apart afterwards, since a **CAD** tool
+  resolves a referenced file by its name alone.  To give another product the
+  same geometry, copy the file under a different name and add that.
+
 ### Review the Plan
 
 Nothing is created until you have seen what would be created.  The second
