@@ -432,6 +432,10 @@ class Main(QMainWindow):
         self.splash_msg = ''
         self.add_splash_msg('Starting ...')
         self.channels = []
+        # channels this message bus session has subscribed to.  Subscriptions
+        # belong to the session, so this is emptied whenever one is joined
+        # (see on_mbus_joined).
+        self.subscribed_channels = set()
         self.key_file_name = key_file_name
         self.reactor = reactor
         self.use_tls = use_tls
@@ -940,6 +944,9 @@ class Main(QMainWindow):
 
     def on_mbus_joined(self):
         orb.log.info('* on_mbus_joined:  message bus session joined.')
+        # subscriptions belong to the session that made them:  this is a new
+        # session, so nothing is subscribed yet, whatever the last one did
+        self.subscribed_channels = set()
         # first make sure state indicates that nothing is yet synced ...
         state['done_with_progress'] = False
         state['synced_projects'] = []
@@ -1328,27 +1335,102 @@ class Main(QMainWindow):
         dlg.show()
         return
 
-    def subscribe_to_mbus_channels(self, data):
-        # NOTE: "data" is now ignored -- previously, it was "channels" and was
-        # passed in from on_rpc_get_user_roles_result(), but now channels are
-        # set as self.channels (mainly for use in re-subscribing when/if
-        # connection is lost ...)
-        self.channels = self.channels or ['vger.channel.public']
+    def subscribe_to_mbus_channels(self, channels=None):
+        """
+        Subscribe to message bus channels, skipping any this session is
+        already subscribed to.
+
+        Keyword Args:
+            channels (list of str):  the channels to subscribe to.  Defaults
+                to self.channels, the set computed at login.
+
+        Returns:
+            DeferredList:  the subscriptions attempted (empty if none were
+            needed, which fires immediately)
+        """
+        if channels is None:
+            # NOTE: self.channels is the login-time set, kept mainly for
+            # re-subscribing when/if the connection is lost
+            self.channels = self.channels or ['vger.channel.public']
+            channels = self.channels
+        if not getattr(getattr(self, 'mbus', None), 'session', None):
+            # not connected -- there is nothing to subscribe to.  Anything
+            # needed will be subscribed to when a session is joined and the
+            # sync chain runs again.
+            return DeferredList([])
+        # a second subscription to a channel would deliver every message on it
+        # twice, so ask only for the ones that are new to this session
+        wanted = [c for c in channels if c not in self.subscribed_channels]
+        if not wanted:
+            return DeferredList([])
         orb.log.debug('* attempting to subscribe to channels:  %s' % str(
-                                                                self.channels))
+                                                                      wanted))
         subs = []
-        for channel in self.channels:
+        for channel in wanted:
+            # recorded now, not when the subscription succeeds:  two calls in
+            # quick succession (a login and a project sync, say) would
+            # otherwise both see the channel as un-subscribed.  The errback
+            # takes it back out again if the subscription fails.
+            self.subscribed_channels.add(channel)
             sub = self.mbus.session.subscribe(self.on_pubsub_msg, channel)
             sub.addCallback(self.on_pubsub_success)
-            sub.addErrback(self.on_pubsub_failure)
+            sub.addErrback(lambda f, c=channel: self.on_pubsub_failure(f,
+                                                                channel=c))
             subs.append(sub)
         return DeferredList(subs, consumeErrors=True)
+
+    def subscribe_to_project_channel(self, project):
+        """
+        Subscribe to the channel a project's objects are published on.
+
+        The repository publishes a cloaked object -- which is most of what a
+        project contains -- only on its owner's channel (vger.save(), via
+        get_owner_id()), so a client that is not on that channel is never
+        told about another user's work on that project.  It receives nothing
+        until the next login, and looks to the user like the change simply
+        did not propagate (reported by the author, 2026-09-22: a component
+        dropped onto a subsystem by another user reached the repository and
+        was never seen on the admin client).
+
+        A client that syncs a project is a client that is showing it, so the
+        sync is when it starts needing the channel, and that is why the
+        subscription is made here.
+
+        The set of channels computed at login is not a substitute for this,
+        although it usually contains the right ones:  it is derived from the
+        RoleAssignments the local db happens to hold at that moment, and
+        those are normally there -- a user's own roles arrive with
+        get_user_roles(), and a project synced in any earlier session leaves
+        its RoleAssignments behind for every login after it.  What that set
+        cannot cover is the first time a client meets a project, in the case
+        where none of the project's RoleAssignments is one the login sends:
+        they arrive with the project itself, in the sync that follows the
+        subscriptions.
+
+        A global admin is the user this happens to, since a global admin
+        holds no project roles of their own.  In the case reported on
+        2026-09-22, the admin client had FireSat open, zaphod dropped a
+        component onto one of its subsystems, and the admin client never saw
+        it:  FireSat has no project administrator (whose RoleAssignment the
+        login would have sent, as it did for H2G2), and that client had
+        never synced FireSat before.
+
+        Args:
+            project (Project):  the project being synced
+        """
+        project_id = getattr(project, 'id', '')
+        if not project_id or project.oid == 'pgefobjects:SANDBOX':
+            # the SANDBOX is local-only:  nothing is ever published for it
+            return
+        self.subscribe_to_mbus_channels(['vger.channel.' + project_id])
 
     def on_pubsub_success(self, sub):
         orb.log.info("  - subscribed to: {}".format(str(sub.topic)))
 
-    def on_pubsub_failure(self, f):
+    def on_pubsub_failure(self, f, channel=''):
         orb.log.info("  - subscription failure: {}".format(f.getTraceback()))
+        # it is not subscribed, so let a later attempt try again
+        self.subscribed_channels.discard(channel)
 
     def sync_parameter_definitions(self, data):
         """
@@ -1522,6 +1604,10 @@ class Main(QMainWindow):
         oid_dts = {}
         if (proj_oid != 'pgefobjects:SANDBOX') and project:
             orb.log.debug('  current project is: {}'.format(project.id))
+            # subscribe BEFORE asking for the project's data:  anything
+            # another user saves while the sync is in flight is then
+            # delivered, where subscribing afterwards would silently drop it
+            self.subscribe_to_project_channel(project)
             status_msg = f'syncing project {project.id} ...'
             if msg:
                 status_msg = f'{msg} {status_msg} ...'
