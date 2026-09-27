@@ -566,14 +566,17 @@ class ModelImportDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
 
     def on_select_file(self, evt):
-        dirpath = state.get('last_model_path', '') or ''
-        dialog = QFileDialog(self, 'Open File', dirpath)
-        fpath = ''
-        if dialog.exec_():
-            fpaths = dialog.selectedFiles()
-            if fpaths:
-                fpath = fpaths[0]
-            dialog.close()
+        if self.model_type.id == 'MCAD':
+            mt_filters = ('STEP Files (*.step *.STEP *.stp *.STP *.p21)'
+                          ';;All Files (*)')
+            dirpath = state.get('last_step_path', orb.test_data_dir)
+        else:
+            # TODO: determine appropriate file suffixes for other model types
+            mt_filters = '(*)'
+            dirpath = state.get('last_model_path', orb.test_data_dir)
+        fpath, filters = QFileDialog.getOpenFileName(
+                                    self, 'Open Model File',
+                                    dirpath, mt_filters)
         if fpath:
             orb.log.debug(f'  file selected: {fpath}')
             self.model_file_path = fpath
@@ -588,6 +591,7 @@ class ModelImportDialog(QDialog):
             dlg = ValidationDialog(valid_dict, parent=self)
             dlg.show()
             return
+
 
     def on_select_owner(self):
         widget = self.sender()
@@ -707,14 +711,10 @@ class DocImportDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
 
     def on_select_file(self, evt):
-        dirpath = state.get('last_doc_path', '') or ''
-        dialog = QFileDialog(self, 'Open File', dirpath)
-        fpath = ''
-        if dialog.exec_():
-            fpaths = dialog.selectedFiles()
-            if fpaths:
-                fpath = fpaths[0]
-            dialog.close()
+        dirpath = state.get('last_doc_path', orb.test_data_dir)
+        fpath, filters = QFileDialog.getOpenFileName(
+                                    self, 'Open Document File',
+                                    dirpath, '(*)')
         if fpath:
             orb.log.debug(f'  file selected: {fpath}')
             self.doc_file_path = fpath
