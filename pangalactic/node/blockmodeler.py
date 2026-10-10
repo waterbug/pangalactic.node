@@ -266,14 +266,12 @@ class ModelWindow(QMainWindow):
                         tip="Show info on related Models and Documents")
         self.toolbar.addAction(self.models_and_docs_info_action)
         self.models_and_docs_info_action.setVisible(False)
-        if sys.platform != 'darwin':
-            # cad viewer currently not working on Mac
-            self.view_cad_action = self.create_action(
-                                        "View CAD",
-                                        slot=self.display_step_models,
-                                        icon="box",
-                                        tip="View CAD Model (from STEP File)")
-            self.toolbar.addAction(self.view_cad_action)
+        self.view_cad_action = self.create_action(
+                                    "View CAD",
+                                    slot=self.display_step_models,
+                                    icon="box",
+                                    tip="View CAD Model (from STEP File)")
+        self.toolbar.addAction(self.view_cad_action)
         if 'add models' in get_perms(self.obj):
             # orb.log.debug('* user has "add models" permission.')
             self.add_model_action = self.create_action(

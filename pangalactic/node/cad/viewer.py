@@ -61,7 +61,10 @@ class Model3DViewer(QMainWindow):
         self.export_to_image_action = self.create_action("Export to image...",
                                    slot=self.export_to_image,
                                    tip="Export current view to image...")
-        self.export_to_image_action.setEnabled(False)
+        if fpath:
+            self.export_to_image_action.setEnabled(True)
+        else:
+            self.export_to_image_action.setEnabled(False)
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
         import_icon_file = 'open' + state.get('icon_type', '.png')
@@ -292,22 +295,17 @@ class Model3dDialog(QDialog):
         super().__init__(parent=parent)
         self.title = "PyQt5 / pythonOCC"
         self.file_path = file_path
-        self.left = 300
-        self.top = 300
-        self.width = 800
-        self.height = 300
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle(self.title)
-        self.setGeometry(self.left, self.top, self.width, self.height)
+        self.setGeometry(300, 300, 600, 600)
         layout = QVBoxLayout()
         self.setLayout(layout)
         self.canvas = qtDisplay.qtViewer3d(self)
         self.layout().addWidget(self.canvas)
         self.show()
         self.canvas.InitDriver()
-        self.canvas.resize(200, 200)
         self.display = self.canvas._display
         self.open_specified_step_file(self.file_path)
 
@@ -351,7 +349,8 @@ if __name__ == "__main__":
         # CAX-IF test file "rocket"
         # fpath = '../test/data/s1-ug-203.stp'
     app = QApplication(sys.argv)
-    frame = Model3DViewer(fpath=fpath)
+    # frame = Model3DViewer(fpath=fpath)
+    frame = Model3dDialog(fpath)
     frame.show()
     sys.exit(app.exec_())
 

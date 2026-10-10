@@ -6893,7 +6893,7 @@ class Main(QMainWindow):
         webbrowser.open_new(ref_url)
 
     def open_viewer(self, file_path):
-        self.cad_viewer = Model3DViewer(file_path)
+        self.cad_viewer = Model3DViewer(fpath=file_path)
         self.cad_viewer.show()
 
     def view_cad_success(self, result):
