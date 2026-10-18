@@ -187,14 +187,17 @@ class StepImportModeDialog(QDialog):
     not.
     """
 
-    PLACE_TIP = ("Match the file's occurrences to the components this "
-                 "assembly already has, and record where each one sits.  "
+    PLACE_TIP = ("Match the file's occurrences\n"
+                 "to the components this assembly already has,\n"
+                 "and record where each one sits.\n"
                  "No products are created.")
 
-    MODEL_TIP = ("Keep the file as the product's CAD model and nothing "
-                 "else.  No products are proposed for what is in it and no "
-                 "assembly structure is created.  Files the model refers to "
-                 "are kept with it, so a CAD tool or viewer can assemble it.")
+    MODEL_TIP = (
+        "Keep the file as the product's CAD model and nothing else.\n"
+        "No products are proposed for what is in it\n"
+        "and no assembly structure is created.\n"
+        "Files the model refers to are kept with it,\n"
+        "so a CAD tool or viewer can assemble it.")
 
     def __init__(self, assembly=None, default_mode='', parent=None):
         """
@@ -235,9 +238,9 @@ class StepImportModeDialog(QDialog):
         self.create_button = QRadioButton(
             'Create products and assembly structure from the file', self)
         self.create_button.setToolTip(
-            'Propose a product for each distinct part in the file and a '
-            'usage for each occurrence of one.  For a design that exists '
-            'only in CAD.')
+            'Propose a product for each distinct part in the file\n'
+            'and a usage for each occurrence of one.\n'
+            'For a design that exists only in CAD.')
         self.model_button = QRadioButton(
             f'Add the file as a CAD model of "{name}", with no assembly '
             'structure' if name
