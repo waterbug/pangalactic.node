@@ -1,6 +1,6 @@
 package:
   name: pangalactic.node
-  version: "4.4.dev3"
+  version: "4.4.dev4"
 
 source:
   path: {{path-to-source}}
@@ -15,7 +15,7 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=4.4.dev3
+    - pangalactic.core >=4.4.dev4
     - autobahn
     - base58
     - binaryornot

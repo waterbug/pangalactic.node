@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pangalactic.node"
-version = "4.4.dev3"
+version = "4.4.dev4"
 description = "Pangalaxian, the PGEF desktop client"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -30,7 +30,7 @@ classifiers = [
 # is fine for this project -- the authoritative runtime dependencies are the
 # "run:" section of the conda recipe -- but they would not resolve on PyPI.
 dependencies = [
-    "pangalactic.core>=4.4.dev3",
+    "pangalactic.core>=4.4.dev4",
     "autobahn",
     "base58",
     "binaryornot",

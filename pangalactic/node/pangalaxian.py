@@ -335,7 +335,9 @@ class Main(QMainWindow):
     # the new version here when a release does not change the schema;  start
     # the list afresh when it does.
     compat_versions = [
-                       Version('4.4.dev3')
+                       Version('4.4.dev3'),
+                       Version('4.4.dev4'),
+                       Version('4.4')
                        ]
 
     # The oldest home this release can migrate.  A home older than this is
