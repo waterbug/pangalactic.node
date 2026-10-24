@@ -404,72 +404,79 @@ parameters.
 Note that in either case, whether a **white box** or **black box** clone is
 created, the clone will receive *all parameters* of the original object.
 
-## Import an Assembly from a STEP File
+## Import Product Model Data from a STEP File
 
-A **STEP** file (**ISO 10303**, usually with a *.stp* or *.step* extension) is
-the standard interchange format that **CAD** systems export.  If a design
-exists in **CAD**, **Pangalaxian** can read the assembly structure and the
-component placements out of it, so that the structure does not have to be
-built by hand and so that the position of each component within its assembly
-is known.
+A **STEP** (**ISO 10303**) file, for which the valid extensions are *.stp*,
+*.step*, or *.p21*, is the standard data exchange format that **Mechanical
+CAD** systems export.  If a **CAD** model associated with a product design
+exists and has been exported to a **STEP** file, **Pangalaxian** can read that
+file and extract the **CAD** model it contains, and if the model includes the
+product's assembly structure, the exact position and orientation of each
+component within the assembly can be extracted and stored within
+**Pangalaxian**'s database.
 
-Component placements matter beyond simply recording them:  the position and
-orientation of each component within its assembly is what allows the mass
-distribution of a system to be computed, which is the input an attitude
-control simulation needs.
+Note that component placements can be useful for purposes beyond simple
+visualization of the model:  the position and orientation of each component
+within a spacecraft assembly, in combination with mass properties, enables the
+mass distribution of that spacecraft to be computed, which, among other things,
+is one of the inputs required for an Attitude Control System simulation.
 
-To begin, select the **Import Product Data from a STEP File** item in the
-**Tools** menu.  It
-is available in both **System Modeler** and **Component Modeler** modes.
+To begin, there are 2 options:
+
+1. If there already exists a **HardwareProduct** object in **Pangalaxian** that the
+**CAD** model represents, open that object in the Object Viewer/Editor and use
+the "Add Model" button to add the **CAD** model.
+
+2. If there is not yet a **HardwareProduct** object in **Pangalaxian** for the
+item represented by the **CAD** model, select the **Import Product Data from a
+STEP File** item in the **Tools** menu, which is available in both the **System
+Modeler** and **Component Modeler** modes.
 
 ![Tools / Import Product Data from a STEP File](images/import_step_menu_item.png "Tools / Import Product Data from a STEP File")
 
 ### Choose the File and What the Import Should Do
 
-The first dialog asks for the file and for what should be done with it.
+The initial dialog enables selection of the file and what should be done with it.
 
 ![Import Product Data from a STEP File Dialog](images/import_step_dialog.png "Import Product Data from a STEP File Dialog")
 
-Click **Select STEP file ...** to choose the file, then choose one of two
-options.  They are quite different, and which one is right depends on whether
-the assembly already exists in **Pangalaxian**:
+Click **Select STEP file ...** to choose the file, then choose one of three
+options:
 
 * **Add 3D placement and orientation for the components of "..."** -- the
-  assembly already exists here, and
-  the file is the same design as it exists in **CAD**.  Each occurrence in the
-  file is matched to a component the assembly already has, by **reference
-  designator**, and the position of each is recorded.  *No products are
-  created and no structure is changed* -- only placements are added.  This
-  option is available only when an assembly is selected *and* the file has
-  components to position.  Some **STEP** files carry a single part and no
-  assembly structure;  there is nothing in such a file to place, so the
-  option is disabled and says why.
+  assembly represented in the **STEP** model are exactly those of the item
+  currently selected in the **Gargleblaster** interface, and the item has the
+  same design as it exists in the **STEP** model.  Each occurrence in the file
+  is matched to a component the assembly already has, by **reference
+  designator**, and the position of each is recorded.  *No products are created
+  and no structure is changed* -- only placements are added.  This option is
+  available only when an assembly is selected *and* the file has components to
+  position.  When the **STEP** file has a single part and no assembly
+  structure, this option is disabled and says why.
 
-* **Create products and assembly structure from the file** -- the design
-  exists only in **CAD**.  A product is proposed for each distinct part in the
-  file, and a usage for each occurrence of one, together with its placement.
-  Use this to bring a design in for the first time.
+* **Create products and assembly structure from the file** -- use this option
+  for a **STEP** model of a product that does not yet exist in the repository.
+  A **HardwareProduct** instance is created to represent the product, and for
+  each distinct component in the product's assembly structure in the **STEP**
+  model, a **HardwareProduct** is created and its geometric placement in the
+  assembly is recorded in a reusable STEP format.
 
 * **Add the file as a CAD model of "..." , with no assembly structure** --
   keep the geometry and nothing else.  The file becomes the selected
-  product's **MCAD Model**, with a **RepresentationFile** for it and for every
-  file it refers to;  no products are proposed for what is inside it and no
-  assembly structure is created.  This option needs a product selected, but
-  unlike the placement option it does not need the file to contain an
-  assembly.
+  product's **MCAD Model**;  no products are proposed for what is inside it and
+  no assembly structure is created.  This option needs a product selected, but
+  unlike the placement option it does not need the file to contain an assembly.
 
-  This is often what you want even when the file *does* contain one.  The
-  assembly may be synthetic -- its components pieces of a manufacturing
-  process rather than products anyone specifies or reuses.  Or the components
-  may be real products that the file cannot identify:  nothing in a **STEP**
-  file says which specification a part is built to, so the products created
-  would be indistinguishable from any others made the same way, and without
-  mass or material properties they could not contribute to a
-  moment-of-inertia calculation either.  In both cases the geometry is worth
-  keeping and the structure is not.
+  This is often the most appropriate option even when the file *does* contain an
+  "assembly": the assembly may be synthetic -- e.g., its components may be
+  synthetic pieces used in a manufacturing process rather than distinctly
+  specified products.  Or the components may be real products that the file
+  does not identify.  In both cases the geometry is relevant but it is not
+  useful to separately save and identify its assembly's "component" items
+  within the repository.
 
-  The **Add Model** button in the object viewer starts the same import on
-  this option, for the object being viewed.
+  The **Add Model** button in the object viewer/editor, for the **MCAD**
+  option, starts the same import on this option, for the object being viewed.
 
   A file may be the model of **one** product.  If it already describes
   another, the import is refused:  two products with the same geometry under
@@ -551,6 +558,8 @@ system is a statement about the shape of the project rather than about one
 subsystem, so a discipline engineer will not see the option.  Neither will
 anyone working **disconnected**, since a project cannot be checked out.
 
+![Add to project](images/import_step_add_to_project.png "Add to project")
+
 Leave this checked and the assembly will appear in the **System Tree**.
 Unchecked, the assembly is still created, but is reachable only through the
 **[Systems and Components (Hardware Products)
@@ -562,9 +571,10 @@ of it in reading the file.
 
 ### Reuse
 
-A **Product** in **Pangalaxian** is a *specification*, not a piece of
-hardware, and the owner of a specification controls it.  So the import will
-only offer to reuse a product that you are entitled to reuse:  one that is
+A **Product** in **Pangalaxian** refers to a *specification*, not to a piece of
+hardware, and the **owner** of the specification is the **Organization** or
+**Project** that controls its Configuration Management.  So the import will
+only offer to reuse a product that you are authorized to reuse:  one that is
 **public**, or one belonging to the project you are working in.  A
 similarly-named specification belonging to another project is never proposed
 for reuse; a new one is created instead.
@@ -576,11 +586,11 @@ checking the **use existing** rows before accepting them.
 ### The File Is Kept
 
 When products and structure are created from a file, the file itself is
-stored:  it is attached to the new assembly as an **MCAD Model**, and
+stored:  it is linked to the new assembly as an **MCAD Model**, and
 uploaded to the repository so that others on the project can get it.
 
 The correspondence between the file and the objects created from it is also
-stored, so that a later import of the same file knows what it produced the
+stored, so that a later import of the same file knows what was produced the
 first time.  That correspondence is what the placement option reads:  when you
 later choose **Add 3D placement and orientation for the components of ...**
 and select a file that has changed since it was last imported for that
@@ -588,54 +598,60 @@ assembly, **Pangalaxian** notices and asks before going on.
 
 <!-- SCREENSHOT: the "file has changed" dialog -->
 
-Note that the check belongs to the placement option.  Creating products and
-structure from a file does not consult a stored correspondence, because the
-products it creates are new ones:  a stored file of the same name belongs to
-some earlier import and is not the file of the assembly being created.
+Note that this check pertains only to the **placement** option.  Creating
+products and structure from a file does not consult a stored correspondence,
+because the products it creates are new ones:  a stored file of the same name
+belongs to some earlier import and is not the file of the assembly being
+created.
 
 ### A File That Has Already Been Imported
 
-A **STEP** file that has been imported once has produced a product.  Importing
-it again to create products would produce a second one, and two products built
-from one file are not two products -- they are one product the repository
-cannot tell apart from itself.  **Pangalaxian** therefore checks, before
-anything is created, what the file has already produced, and says so.
+When a **STEP** file is imported to create a model of a product,
+**Pangalaxian** stores the relationship between the created model, the product
+it represents, the name of the **STEP** file that produced it, and the copy of
+the file stored in the **Pangalaxian** file vault.  Since two product models
+built from one file are not distinct, this re-import is not allowed.
 
-The check is by content *and* by name, because they mean different things.
+The check is by file content (bytes) *and* by file name, because they mean
+different things.
 
-**The same file again.**  If the file is byte-for-byte one that has been
-imported -- whatever it is called now -- the import is refused, naming the
-product it produced and the project that has it.  Two courses are open:
+**A file with contents that are identical to a previously imported file.**  If
+the file is byte-for-byte identical to one that has previously been imported --
+whatever it is called now -- the import is refused, naming the product it
+produced and the project that is its designated owner.  Two courses are open:
 
-* if it is the same product, use the one that already exists rather than
-  creating a second;
-* if it is meant to be a distinct product, open the file in your **CAD** tool,
-  rename the product and its metadata, export it as a new **STEP** file, and
-  import that.  It will then be managed as a product in its own right.
+* if it represents the same product, use the one that already exists rather
+  than creating a second;
+* if it is meant to represent a distinct product, open the file in your **CAD**
+  tool, ensure the product has a different name than any existing product owned
+  by your project, export it as a **STEP** file that is named uniquely, and
+  import that.  It will then be managed as a distinct new product.
 
-**A file of the same name, with different contents.**  Only you can say what
-this is, so **Pangalaxian** asks:
+**A file of the same name as one that has already been imported, but with
+  different contents.**  Only you can say what it represents, so
+  **Pangalaxian** asks whether it is:
 
-> The same product -- this file is a later revision of it
+> The product previously created and this file is a later revision of it, or
 >
 > A different product that happens to have the same file name
 
-*A different product* is refused and cannot be overridden:  that name already
-means the earlier product, so a second one of the same name could not be told
-from it.  Rename the file and import it again.
+*A different product* is refused and cannot be overridden:  since that file
+name is already linked to the earlier product, associating another product with
+the same name would cause confusion.  Rename the file and import it again.
 
-*The same product*, where the product belongs to another project, is refused
-with the same two courses as above -- a product belongs where it was created.
+Creating *the same product* with ownership by another project is refused with
+the same two courses as above -- a product belongs to a single owner
+organization (project or other organization).
 
-*The same product*, in the current project, is the one case that goes ahead --
-as a new **version** of that product.  **Pangalaxian** shows you the version it
-carries now and asks what to call the new one:
+Creating *the same product* within the current project is the one case that
+goes ahead, as a new **version** of that product.  **Pangalaxian** shows you
+the version it carries now and asks what to call the new version:
 
 <!-- SCREENSHOT: the "New version" dialog -->
 
 The import then creates another product with the same **id** and **name**, the
-version you gave it, and an iteration of 0.  The existing version is left
-exactly as it is, with everything built on it.
+version identifier that you specify, and an iteration of 0.  The existing
+version is left exactly as it is, with everything built on it.
 
 Only the assembled product is versioned.  A component that has not changed is
 the same component:  it keeps its own version, and the new version's usages

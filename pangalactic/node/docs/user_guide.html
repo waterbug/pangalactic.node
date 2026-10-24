@@ -57,12 +57,13 @@
 <ul>
 <li><a href="#options-for-creating-a-clone-from-a-white-box-object">Options for Creating a Clone from a White Box Object</a></li>
 </ul></li>
-<li><a href="#import-an-assembly-from-a-step-file">Import an Assembly from a STEP File</a>
+<li><a href="#import-product-model-data-from-a-step-file">Import Product Model Data from a STEP File</a>
 <ul>
 <li><a href="#choose-the-file-and-what-the-import-should-do">Choose the File and What the Import Should Do</a></li>
 <li><a href="#review-the-plan">Review the Plan</a></li>
 <li><a href="#reuse">Reuse</a></li>
 <li><a href="#the-file-is-kept">The File Is Kept</a></li>
+<li><a href="#a-file-that-has-already-been-imported">A File That Has Already Been Imported</a></li>
 <li><a href="#files-that-come-as-a-set">Files That Come as a Set</a></li>
 <li><a href="#units">Units</a></li>
 </ul></li>
@@ -276,30 +277,35 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 <p>As the instructions say, you can select <strong>flatten</strong>, in which case the <strong>CBE</strong> (<strong>Current Best Estimate</strong>) values of <strong>Mass[CBE]</strong>, <strong>Power[CBE]</strong>, and <strong>Data Rate[CBE]</strong> for the original object are assigned to the <strong>Mass</strong>, <strong>Power</strong>, and <strong>Data Rate</strong> parameters of the clone. Since the <strong>CBE</strong> parameters of a <strong>white box</strong> product are computed as the sum of the <strong>CBE</strong> parameters of its components, this essentially <strong>“flattens”</strong> them into the new <strong>black box</strong> object, which will have the same <strong>CBE</strong> parameters as the original object but without its components.</p>
 <p>If the <strong>flatten</strong> option is not selected, the clone will simply be assigned the original object’s specified <strong>Mass</strong>, <strong>Power</strong>, and <strong>Data Rate</strong> parameters.</p>
 <p>Note that in either case, whether a <strong>white box</strong> or <strong>black box</strong> clone is created, the clone will receive <em>all parameters</em> of the original object.</p>
-<h2 id="import-an-assembly-from-a-step-file">Import an Assembly from a STEP File</h2>
-<p>A <strong>STEP</strong> file (<strong>ISO 10303</strong>, usually with a <em>.stp</em> or <em>.step</em> extension) is the standard interchange format that <strong>CAD</strong> systems export. If a design exists in <strong>CAD</strong>, <strong>Pangalaxian</strong> can read the assembly structure and the component placements out of it, so that the structure does not have to be built by hand and so that the position of each component within its assembly is known.</p>
-<p>Component placements matter beyond simply recording them: the position and orientation of each component within its assembly is what allows the mass distribution of a system to be computed, which is the input an attitude control simulation needs.</p>
-<p>To begin, select the <strong>Import STEP Assembly</strong> item in the <strong>Tools</strong> menu. It is available in both <strong>System Modeler</strong> and <strong>Component Modeler</strong> modes.</p>
-<!-- SCREENSHOT: Tools menu with "Import STEP Assembly" highlighted -->
+<h2 id="import-product-model-data-from-a-step-file">Import Product Model Data from a STEP File</h2>
+<p>A <strong>STEP</strong> (<strong>ISO 10303</strong>) file, for which the valid extensions are <em>.stp</em>, <em>.step</em>, or <em>.p21</em>, is the standard data exchange format that <strong>Mechanical CAD</strong> systems export. If a <strong>CAD</strong> model associated with a product design exists and has been exported to a <strong>STEP</strong> file, <strong>Pangalaxian</strong> can read that file and extract the <strong>CAD</strong> model it contains, and if the model includes the product’s assembly structure, the exact position and orientation of each component within the assembly can be extracted and stored within <strong>Pangalaxian</strong>’s database.</p>
+<p>Note that component placements can be useful for purposes beyond simple visualization of the model: the position and orientation of each component within a spacecraft assembly, in combination with mass properties, enables the mass distribution of that spacecraft to be computed, which, among other things, is one of the inputs required for an Attitude Control System simulation.</p>
+<p>To begin, there are 2 options:</p>
+<ol type="1">
+<li><p>If there already exists a <strong>HardwareProduct</strong> object in <strong>Pangalaxian</strong> that the <strong>CAD</strong> model represents, open that object in the Object Viewer/Editor and use the “Add Model” button to add the <strong>CAD</strong> model.</p></li>
+<li><p>If there is not yet a <strong>HardwareProduct</strong> object in <strong>Pangalaxian</strong> for the item represented by the <strong>CAD</strong> model, select the <strong>Import Product Data from a STEP File</strong> item in the <strong>Tools</strong> menu, which is available in both the <strong>System Modeler</strong> and <strong>Component Modeler</strong> modes.</p></li>
+</ol>
 <figure>
-<img src="images/import_step_menu_item.png" title="Tools / Import STEP Assembly" alt="" /><figcaption>Tools / Import STEP Assembly</figcaption>
+<img src="images/import_step_menu_item.png" title="Tools / Import Product Data from a STEP File" alt="" /><figcaption>Tools / Import Product Data from a STEP File</figcaption>
 </figure>
 <h3 id="choose-the-file-and-what-the-import-should-do">Choose the File and What the Import Should Do</h3>
-<p>The first dialog asks for the file and for what should be done with it.</p>
-<!-- SCREENSHOT: the "Import a STEP Assembly" dialog, both options visible -->
+<p>The initial dialog enables selection of the file and what should be done with it.</p>
 <figure>
-<img src="images/import_step_dialog.png" title="Import STEP Assembly Dialog" alt="" /><figcaption>Import STEP Assembly Dialog</figcaption>
+<img src="images/import_step_dialog.png" title="Import Product Data from a STEP File Dialog" alt="" /><figcaption>Import Product Data from a STEP File Dialog</figcaption>
 </figure>
-<p>Click <strong>Select STEP file …</strong> to choose the file, then choose one of two options. They are quite different, and which one is right depends on whether the assembly already exists in <strong>Pangalaxian</strong>:</p>
+<p>Click <strong>Select STEP file …</strong> to choose the file, then choose one of three options:</p>
 <ul>
-<li><p><strong>Place the components of “…”</strong> – the assembly already exists here, and the file is the same design as it exists in <strong>CAD</strong>. Each occurrence in the file is matched to a component the assembly already has, by <strong>reference designator</strong>, and the position of each is recorded. <em>No products are created and no structure is changed</em> – only placements are added. This option is available only when an assembly is selected; if none is, it is disabled and says so.</p></li>
-<li><p><strong>Create products and assembly structure from the file</strong> – the design exists only in <strong>CAD</strong>. A product is proposed for each distinct part in the file, and a usage for each occurrence of one, together with its placement. Use this to bring a design in for the first time.</p></li>
+<li><p><strong>Add 3D placement and orientation for the components of “…”</strong> – the assembly represented in the <strong>STEP</strong> model are exactly those of the item currently selected in the <strong>Gargleblaster</strong> interface, and the item has the same design as it exists in the <strong>STEP</strong> model. Each occurrence in the file is matched to a component the assembly already has, by <strong>reference designator</strong>, and the position of each is recorded. <em>No products are created and no structure is changed</em> – only placements are added. This option is available only when an assembly is selected <em>and</em> the file has components to position. When the <strong>STEP</strong> file has a single part and no assembly structure, this option is disabled and says why.</p></li>
+<li><p><strong>Create products and assembly structure from the file</strong> – use this option for a <strong>STEP</strong> model of a product that does not yet exist in the repository. A <strong>HardwareProduct</strong> instance is created to represent the product, and for each distinct component in the product’s assembly structure in the <strong>STEP</strong> model, a <strong>HardwareProduct</strong> is created and its geometric placement in the assembly is recorded in a reusable STEP format.</p></li>
+<li><p><strong>Add the file as a CAD model of “…” , with no assembly structure</strong> – keep the geometry and nothing else. The file becomes the selected product’s <strong>MCAD Model</strong>; no products are proposed for what is inside it and no assembly structure is created. This option needs a product selected, but unlike the placement option it does not need the file to contain an assembly.</p>
+<p>This is often the most appropriate option even when the file <em>does</em> contain an “assembly”: the assembly may be synthetic – e.g., its components may be synthetic pieces used in a manufacturing process rather than distinctly specified products. Or the components may be real products that the file does not identify. In both cases the geometry is relevant but it is not useful to separately save and identify its assembly’s “component” items within the repository.</p>
+<p>The <strong>Add Model</strong> button in the object viewer/editor, for the <strong>MCAD</strong> option, starts the same import on this option, for the object being viewed.</p>
+<p>A file may be the model of <strong>one</strong> product. If it already describes another, the import is refused: two products with the same geometry under the same file name could not be told apart afterwards, since a <strong>CAD</strong> tool resolves a referenced file by its name alone. To give another product the same geometry, copy the file under a different name and add that.</p></li>
 </ul>
 <h3 id="review-the-plan">Review the Plan</h3>
 <p>Nothing is created until you have seen what would be created. The second dialog lists the import item by item:</p>
-<!-- SCREENSHOT: the plan dialog for a "create" import, showing several rows -->
 <figure>
-<img src="images/import_step_plan.png" title="Import STEP Assembly Plan" alt="" /><figcaption>Import STEP Assembly Plan</figcaption>
+<img src="images/import_step_plan.png" title="Import Product Data from a STEP File Plan" alt="" /><figcaption>Import Product Data from a STEP File Plan</figcaption>
 </figure>
 <p>Each row is one thing the import proposes to do, and each has a checkbox. The columns are:</p>
 <ul>
@@ -323,20 +329,44 @@ In the <strong>Create</strong> menu, select the option <strong>New System or Com
 </figure>
 <p>A sensible way to work through a large import is <strong>Apply to all</strong> with the commonest type first, then select the exceptions and apply the right type to those. * <strong>note</strong> – anything else worth knowing about the item.</p>
 <p>The last two statuses are informational, and are worth reading: they say what the import will <em>not</em> cover, which usually matters as much as what it will. A run of <strong>no such component</strong> rows generally means the file is a different design from the assembly, or that the reference designators do not agree.</p>
-<p>Use <strong>Accept all</strong> and <strong>Reject all</strong> to set every checkbox at once, or click individual checkboxes. An unconfirmed product also drops the usages that depend on it – a usage cannot be created with one end missing – so rejecting a product rejects everything below it.</p>
-<p>When creating products and structure with a project selected, the dialog also offers to add the file’s top-level assembly to the project as a system:</p>
+<p>Click individual checkboxes to leave items out. An unconfirmed product also drops the usages that depend on it – a usage cannot be created with one end missing – so rejecting a product rejects everything below it.</p>
+<p>When creating products and structure with a project selected, the dialog may also offer to add the file’s top-level assembly to the project as a system:</p>
 <blockquote>
 <p><strong>Add “…” to project … as a system</strong></p>
 </blockquote>
+<p>This is offered only if you may add a system to the project – that is, if you may modify the project: a global administrator, or an <strong>Administrator</strong>, <strong>Lead Engineer</strong> or <strong>Systems Engineer</strong> on it. Adding a system is a statement about the shape of the project rather than about one subsystem, so a discipline engineer will not see the option. Neither will anyone working <strong>disconnected</strong>, since a project cannot be checked out.</p>
+<figure>
+<img src="images/import_step_add_to_project.png" title="Add to project" alt="" /><figcaption>Add to project</figcaption>
+</figure>
 <p>Leave this checked and the assembly will appear in the <strong>System Tree</strong>. Unchecked, the assembly is still created, but is reachable only through the <strong><a href="#systems-and-components-hardware-products-library">Systems and Components (Hardware Products) Library</a></strong>.</p>
 <p>Click <strong>OK</strong> and the import runs. Reading the file and creating the objects each show progress: a large assembly takes a noticeable amount of time, most of it in reading the file.</p>
 <h3 id="reuse">Reuse</h3>
-<p>A <strong>Product</strong> in <strong>Pangalaxian</strong> is a <em>specification</em>, not a piece of hardware, and the owner of a specification controls it. So the import will only offer to reuse a product that you are entitled to reuse: one that is <strong>public</strong>, or one belonging to the project you are working in. A similarly-named specification belonging to another project is never proposed for reuse; a new one is created instead.</p>
+<p>A <strong>Product</strong> in <strong>Pangalaxian</strong> refers to a <em>specification</em>, not to a piece of hardware, and the <strong>owner</strong> of the specification is the <strong>Organization</strong> or <strong>Project</strong> that controls its Configuration Management. So the import will only offer to reuse a product that you are authorized to reuse: one that is <strong>public</strong>, or one belonging to the project you are working in. A similarly-named specification belonging to another project is never proposed for reuse; a new one is created instead.</p>
 <p>Note also that a <strong>STEP</strong> file carries no provenance – a part in it says nothing about who specified it – so matching is by name, and it is worth checking the <strong>use existing</strong> rows before accepting them.</p>
 <h3 id="the-file-is-kept">The File Is Kept</h3>
-<p>When products and structure are created from a file, the file itself is stored: it is attached to the new assembly as an <strong>MCAD Model</strong>, and uploaded to the repository so that others on the project can get it.</p>
-<p>The correspondence between the file and the objects created from it is also stored, so that a later import of the same file knows what it produced the first time. If you import a file that has changed since it was last imported, <strong>Pangalaxian</strong> notices and asks before going on.</p>
+<p>When products and structure are created from a file, the file itself is stored: it is linked to the new assembly as an <strong>MCAD Model</strong>, and uploaded to the repository so that others on the project can get it.</p>
+<p>The correspondence between the file and the objects created from it is also stored, so that a later import of the same file knows what was produced the first time. That correspondence is what the placement option reads: when you later choose <strong>Add 3D placement and orientation for the components of …</strong> and select a file that has changed since it was last imported for that assembly, <strong>Pangalaxian</strong> notices and asks before going on.</p>
 <!-- SCREENSHOT: the "file has changed" dialog -->
+<p>Note that this check pertains only to the <strong>placement</strong> option. Creating products and structure from a file does not consult a stored correspondence, because the products it creates are new ones: a stored file of the same name belongs to some earlier import and is not the file of the assembly being created.</p>
+<h3 id="a-file-that-has-already-been-imported">A File That Has Already Been Imported</h3>
+<p>When a <strong>STEP</strong> file is imported to create a model of a product, <strong>Pangalaxian</strong> stores the relationship between the created model, the product it represents, the name of the <strong>STEP</strong> file that produced it, and the copy of the file stored in the <strong>Pangalaxian</strong> file vault. Since two product models built from one file are not distinct, this re-import is not allowed.</p>
+<p>The check is by file content (bytes) <em>and</em> by file name, because they mean different things.</p>
+<p><strong>A file with contents that are identical to a previously imported file.</strong> If the file is byte-for-byte identical to one that has previously been imported – whatever it is called now – the import is refused, naming the product it produced and the project that is its designated owner. Two courses are open:</p>
+<ul>
+<li>if it represents the same product, use the one that already exists rather than creating a second;</li>
+<li>if it is meant to represent a distinct product, open the file in your <strong>CAD</strong> tool, ensure the product has a different name than any existing product owned by your project, export it as a <strong>STEP</strong> file that is named uniquely, and import that. It will then be managed as a distinct new product.</li>
+</ul>
+<p><strong>A file of the same name as one that has already been imported, but with different contents.</strong> Only you can say what it represents, so <strong>Pangalaxian</strong> asks whether it is:</p>
+<blockquote>
+<p>The product previously created and this file is a later revision of it, or</p>
+<p>A different product that happens to have the same file name</p>
+</blockquote>
+<p><em>A different product</em> is refused and cannot be overridden: since that file name is already linked to the earlier product, associating another product with the same name would cause confusion. Rename the file and import it again.</p>
+<p>Creating <em>the same product</em> with ownership by another project is refused with the same two courses as above – a product belongs to a single owner organization (project or other organization).</p>
+<p>Creating <em>the same product</em> within the current project is the one case that goes ahead, as a new <strong>version</strong> of that product. <strong>Pangalaxian</strong> shows you the version it carries now and asks what to call the new version:</p>
+<!-- SCREENSHOT: the "New version" dialog -->
+<p>The import then creates another product with the same <strong>id</strong> and <strong>name</strong>, the version identifier that you specify, and an iteration of 0. The existing version is left exactly as it is, with everything built on it.</p>
+<p>Only the assembled product is versioned. A component that has not changed is the same component: it keeps its own version, and the new version’s usages point at it rather than at a copy. So the file’s top-level components get new usages – they must, since the assembly they belong to is now the new version – while everything deeper is left as it stands, both ends of it being unchanged.</p>
 <h3 id="files-that-come-as-a-set">Files That Come as a Set</h3>
 <p>A <strong>CAD</strong> system may export an assembly as a <em>set</em> of files rather than as one: the assembly file names its subassembly and part files, and refers to them by name. Such a file cannot be read on its own – and the failure is a quiet one, in that the assembly would appear to import successfully but with its subassemblies empty.</p>
 <p><strong>Pangalaxian</strong> therefore checks first, and refuses the import if any referenced file is missing, naming the files it could not find:</p>
