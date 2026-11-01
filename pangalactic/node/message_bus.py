@@ -3,13 +3,14 @@ import txaio, websocket
 txaio.use_twisted()
 
 from twisted.internet.defer import inlineCallbacks
+from autobahn import wamp
 from autobahn.twisted.wamp import (Application, ApplicationRunner,
                                    _ApplicationSession)
 from autobahn.wamp import cryptosign
 
 
 def reachable(url):
-    # NOTE: this only works for non-tls connections, so not very useful
+    # NOTE: this only works for non-tls connections
     url = url or 'ws://localhost:8080/ws'
     websocket.enableTrace(True)
     s = websocket.WebSocket()
@@ -117,6 +118,33 @@ class PgxnAuthSession(_ApplicationSession):
         self.log.info('  + rpc "%s" sent ...' % rpc)
         return self.call(rpc, *args, **kw)
 
+    # leave() copied from autobahn.wamp.protocol._ApplicationSession and
+    # modified to avoid sending "Goodbye" message if no transport, to avoid a
+    # Disconnected("Attempt to send on a closed protocol") exception ...
+    def leave(self, reason: str | None = None, message: str | None = None):
+        """
+        Implements :meth:`autobahn.wamp.interfaces.ISession.leave`
+        """
+        if not self._session_id:
+            self.log.warn("session is not joined on a realm - no session to leave")
+            return
+
+        if not self._goodbye_sent:
+            if not reason:
+                reason = "wamp.close.normal"
+            msg = wamp.message.Goodbye(reason=reason, message=message)
+            if not (self._transport is None or self._transport.is_closed):
+                self._transport.send(msg)
+            self._goodbye_sent = True
+        else:
+            self.log.warn(
+                "session was already requested to leave - not sending GOODBYE again"
+            )
+
+        is_closed = self._transport is None or self._transport.is_closed
+
+        return is_closed
+
 
 class NullLogger(object):
     info = debug = lambda x: None
@@ -152,14 +180,14 @@ class PgxnMessageBus(Application):
 
     def __call__(self, config):
         config.extra = self.extra
-        # assert(self.session is None)
         if self.session is not None:
             self.session = None
         self.session = PgxnAuthSession(config, self, self.auth_method)
         return self.session
 
     def run(self, url="ws://localhost:8080/ws", realm="realm1",
-            auth_method='cryptosign', start_reactor=True, ssl=None):
+            auth_method='cryptosign', start_reactor=True, ssl=None,
+            auto_reconnect=True, max_retries=-1, initial_retry_delay=1):
         """
         Run the message bus with specified arguments.
 
@@ -169,6 +197,9 @@ class PgxnMessageBus(Application):
             auth_method (str): WAMP auth method ("cryptosign" or "ticket")
             start_reactor (bool): start the twisted reactor
             ssl (dict): server cert info for TLS connection
+            auto_reconnect (bool): if True, twisted service does auto-reconnect
+            max_retries (int): -1 -> infinite retries
+            initial_retry_delay (int): delay before retrying
         """
         self.auth_method = auth_method
         self.runner = ApplicationRunner(url, realm, ssl=ssl,

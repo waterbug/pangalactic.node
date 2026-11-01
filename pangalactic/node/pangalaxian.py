@@ -53,7 +53,9 @@ from functools import partial
 from pathlib  import Path
 
 # autobahn
+from autobahn.exception import Disconnected
 from autobahn.wamp import cryptosign
+from autobahn.wamp.exception import ApplicationError
 
 # binaryornot
 from binaryornot.check import is_binary
@@ -1093,17 +1095,17 @@ class Main(QMainWindow):
         """
         log_msg = '* processing results of rpc "vger.get_user_roles" ...'
         orb.log.debug(log_msg)
-        orb.log.debug(' - data:')
+        orb.log.debug('  - data:')
         # data should be a list with 6 elements, but if no response from server
         # data may be None, so fall back to a list of 6 empty elements ...
         data = data or ['', '', '', '', '', '']
         szd_user, szd_orgs, szd_people, szd_ras, bad_oids, min_version = data
-        orb.log.debug(f'   + user:  {szd_user}')
-        orb.log.debug(f'   + orgs:  {len(szd_orgs)}')
-        orb.log.debug(f'   + people:  {len(szd_people)}')
-        orb.log.debug(f'   + role asgts:  {len(szd_ras)}')
-        orb.log.debug(f'   + bad oids:  {len(bad_oids)}')
-        orb.log.debug(f'   + min version:  {min_version}')
+        orb.log.debug(f'    + user:  {szd_user}')
+        orb.log.debug(f'    + orgs:  {len(szd_orgs)}')
+        orb.log.debug(f'    + people:  {len(szd_people)}')
+        orb.log.debug(f'    + role asgts:  {len(szd_ras)}')
+        orb.log.debug(f'    + bad oids:  {len(bad_oids)}')
+        orb.log.debug(f'    + min version:  {min_version}')
         this_version = self.app_version or __version__
         # NOTE: min_version is '' when the server did not respond (the
         # fallback above), and Version('') raises InvalidVersion -- so if
@@ -1112,7 +1114,7 @@ class Main(QMainWindow):
         this_v = safe_version(this_version)
         min_v = safe_version(min_version)
         if not (this_v and min_v):
-            orb.log.debug(f'   + version unknown (this: "{this_version}", '
+            orb.log.debug(f'    + version unknown (this: "{this_version}", '
                           f'min: "{min_version}") -- version check skipped.')
         if (this_v and min_v and this_v < min_v
             and state.get('connected')):
@@ -1159,7 +1161,7 @@ class Main(QMainWindow):
             deserialize(orb, szd_user, include_refdata=True,
                         force_no_recompute=True)
             self.local_user = orb.select('Person', id=state['userid'])
-            orb.log.debug(' - local user returned: {}'.format(
+            orb.log.debug('  - local user returned: {}'.format(
                                                   self.local_user.oid))
             state['local_user_oid'] = str(self.local_user.oid)
             if str(state.get('local_user_oid')) == 'me':
@@ -1176,13 +1178,13 @@ class Main(QMainWindow):
                         orb.save([obj])
                         dispatcher.send('modified object', obj=obj)
             else:
-                orb.log.debug('    + login user matches current local user.')
+                orb.log.debug('     + login user matches current local user.')
             uid = '{} [{}]'.format(self.local_user.name,
                                    self.local_user.id)
             self.user_label.setText(uid)
             # QApplication.processEvents()
         else:
-            orb.log.debug('    + user object for local user not returned!')
+            orb.log.debug('     + user object for local user not returned!')
         orb.log.debug('  - inspecting projects and orgs ...')
         local_orgs = orb.get_by_type('Organization')
         invalid_orgs = [org for org in local_orgs if org.oid in bad_oids]
@@ -1200,10 +1202,22 @@ class Main(QMainWindow):
         # *********************************************************************
         # deserialize all new Project and Organization objects
         self.statusbar.showMessage('deserializing organizations ...')
-        deserialize(orb, szd_orgs)
+        ##########################################
+        ### OLD:
+        # deserialize(orb, szd_orgs)
+        ##########################################
+        ### NEW:
+        self.load_serialized_objects(szd_orgs)
+        ##########################################
         # deserialize all new Person objects
         self.statusbar.showMessage('deserializing users ...')
-        deserialize(orb, szd_people)
+        ##########################################
+        ### OLD:
+        # deserialize(orb, szd_people)
+        ##########################################
+        ### NEW:
+        self.load_serialized_objects(szd_people)
+        ##########################################
         orb.log.debug('  - deserializing role assignments ...')
         self.statusbar.showMessage('receiving role assignments ...')
         # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE, so
@@ -1216,7 +1230,13 @@ class Main(QMainWindow):
         # objects -- 'assigned_role' (Role), 'assigned_to' (Person), and
         # 'role_assignment_context' (Organization or Project)
         # deserialize all new RoleAssignment objects
-        deserialize(orb, szd_ras)
+        ##########################################
+        ### OLD:
+        # deserialize(orb, szd_ras)
+        ##########################################
+        ### NEW:
+        self.load_serialized_objects(szd_ras)
+        ##########################################
         state['role_asgts_received'] = True
         ras = orb.get_by_type('RoleAssignment')
         org_ids = [getattr(ra.role_assignment_context, 'id', '')
@@ -1253,6 +1273,7 @@ class Main(QMainWindow):
         rpc.addErrback(self.on_failure)
         # the reconciliation report describes *this* sync, so start it empty
         rpc.addCallback(self.clear_sync_report)
+        rpc.addErrback(self.on_failure)
         # ------------------------------------------------------------------
         # NOTE: the offline deletion queue is replayed FIRST, before any of
         # the syncs below.  Ordering here is load-bearing:  sync_project() and
@@ -1303,11 +1324,30 @@ class Main(QMainWindow):
             # is being requested by on_get_library_objects_result()
 
     def on_rpc_get_user_roles_failure(self, f):
-        orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
-        if state['connected']:
-            orb.log.info('* disconnecting from message bus ...')
-            self.statusbar.showMessage(
-                                    'disconnecting from message bus ...')
+        # NOTE: rpc failure is typically caused by lost connection due to a
+        # long operation (deserializations, usually) leading to a timeout;
+        # client now checks for a "Disconnected" exception and automatically
+        # re-initializes the connection using set_bus_state(). If some other
+        # cause is suspected and needs debugging, a traceback can be displayed
+        # here using f.getTraceback() ...
+        orb.log.debug(f"* rpc failure: {f.value}")
+        if isinstance(f.value, Disconnected):
+            msg = 're-initializing the connection ...'
+            orb.log.info(f'  {msg}')
+            self.set_bus_state()
+        elif isinstance(f.value, ApplicationError):
+            # ApplicationError means the client authenticated and connected to
+            # the message server (crossbar) but there was an error related to
+            # the repository service (vger) -- it is probably down or not
+            # connected to crossbar ...
+            html = '<h3>The Repository Service is hosed ...</h3>'
+            html += '<p><b><font color="red">Contact the Administrator '
+            html += 'for status.</font></b></p>'
+            dlg = NotificationDialog(html, news=False, parent=self)
+            dlg.show()
+        elif state['connected']:
+            orb.log.debug("* auto-reconnecting if needed ...")
+            self.statusbar.showMessage('disconnected ...')
             if getattr(self.mbus, 'session', None) is not None:
                 self.mbus.session.leave()
             if getattr(self.mbus, 'runner', None) is not None:
@@ -1330,12 +1370,7 @@ class Main(QMainWindow):
         self.login_label.setText('Login: ')
         self.connect_to_bus_action.setToolTip('Connect to the message bus')
         self.update_project_role_labels()
-        html = '<h3>The Repository Service is Unavailable</h3>'
-        html += '<p><b><font color="red">Contact the Administrator '
-        html += 'for status.</font></b></p>'
-        dlg = NotificationDialog(html, news=False, parent=self)
-        dlg.show()
-        return
+        return None
 
     def subscribe_to_mbus_channels(self, channels=None):
         """
@@ -1424,15 +1459,21 @@ class Main(QMainWindow):
         if not project_id or project.oid == 'pgefobjects:SANDBOX':
             # the SANDBOX is local-only:  nothing is ever published for it
             return
-        self.subscribe_to_mbus_channels(['vger.channel.' + project_id])
+        channel = 'vger.channel.' + project_id
+        rpc = self.subscribe_to_mbus_channels([channel])
+        rpc.addErrback(lambda f, c=channel: self.on_pubsub_failure(f,
+                                                            channel=c))
 
     def on_pubsub_success(self, sub):
         orb.log.info("  - subscribed to: {}".format(str(sub.topic)))
 
     def on_pubsub_failure(self, f, channel=''):
-        orb.log.info("  - subscription failure: {}".format(f.getTraceback()))
+        # uncomment to show traceback ...
+        # orb.log.info("  - subscription failure: {}".format(f.getTraceback()))
+        orb.log.info(f"  - subscription failure {f.value}")
         # it is not subscribed, so let a later attempt try again
         self.subscribed_channels.discard(channel)
+        return None
 
     def sync_parameter_definitions(self, data):
         """
@@ -5309,13 +5350,16 @@ class Main(QMainWindow):
         self.statusbar.showMessage(msg)
 
     def on_failure(self, f):
-        orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
+        # NOTE: uncomment if debugging is needed ...
+        # orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
+        orb.log.debug(f"* rpc failure {f.value}")
         # an rpc that failed is never going to answer, so nothing should go
         # on waiting for it
         if getattr(self, 'repo_pending_oids', None):
             self.close_repo_activity('the repository did not respond -- the '
                                      'items will be synced at the next '
                                      'login.')
+        return None
 
     def on_set_value_result(self, stuff):
         # orb.log.debug('  rpc result: {}'.format(stuff))
