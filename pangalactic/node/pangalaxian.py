@@ -339,6 +339,7 @@ class Main(QMainWindow):
     compat_versions = [
                        Version('4.4.dev3'),
                        Version('4.4.dev4'),
+                       Version('4.4.dev5'),
                        Version('4.4')
                        ]
 
