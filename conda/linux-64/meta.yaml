@@ -3,11 +3,11 @@ package:
   version: "4.4.dev5"
 
 source:
-  path: {{path-to-source}}
+  path: /home/waterbug/clones/pangalactic.node
 
 build:
   entry_points:
-    - pgxn = pangalactic.node.pgxn:run
+    - pangalaxian = pangalactic.node.pangalaxian:run
 
 requirements:
   build:

@@ -1,13 +1,13 @@
 package:
   name: pangalactic.node
-  version: "4.1.dev15"
+  version: "4.4.dev5"
 
 source:
-  path: {{path-to-source}}
+  path: /home/waterbug/clones/pangalactic.node
 
 build:
   entry_points:
-    - pangalaxian = pangalactic.node.pgxn:run
+    - pangalaxian = pangalactic.node.pangalaxian:run
 
 requirements:
   build:
@@ -15,7 +15,7 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=4.1.dev15
+    - pangalactic.core >=4.4.dev5
     - autobahn
     - base58
     - binaryornot
